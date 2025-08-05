@@ -20,3 +20,4 @@ venv/
 coolchic/CCLIB/
 coolchic.egg-info/
 *.so
+**/.venv/**
