@@ -1,0 +1,44 @@
+2025-07-18 12:20:19 | /home/jakub/ETH/2025_2026_fall/thesis |  1149  source .bashrc 
+2025-07-18 12:20:24 | /home/jakub/ETH/2025_2026_fall/thesis |  1150  ls
+2025-07-18 12:22:35 | /home/jakub/ETH/2025_2026_fall/thesis |  1151  source .bashrc 
+2025-07-18 12:22:36 | /home/jakub/ETH/2025_2026_fall/thesis |  1152  ls
+2025-07-18 12:27:38 | /home/jakub/ETH/2025_2026_fall/thesis |  1153  ssh  jparada@tik42x.ethz.ch
+2025-07-18 12:32:52 | /home/jakub/ETH/2025_2026_fall/thesis |  1153  ssh  jparada@tik42x.ethz.ch
+2025-07-31 09:52:17 | /home/jakub/ETH/2025_2026_fall/thesis |  1160  source .bashrc 
+2025-07-31 09:52:22 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1161  cd Cool-Chic/
+2025-07-31 09:52:27 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1162  source .venv/
+2025-07-31 09:52:33 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1163  source .venv/bin/activate
+2025-07-31 09:55:26 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1164  pip install -e .
+2025-07-31 09:58:41 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1165  gcc 
+2025-07-31 09:59:13 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1166  sudo apt-get update
+2025-07-31 09:59:40 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1167  sudo apt-get install build-essential gdb
+2025-07-31 09:59:41 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1168  whereis g++
+2025-07-31 10:00:24 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1169  g++ --version
+2025-07-31 10:00:38 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1170  g++ -std=c++17 --version
+2025-07-31 10:00:43 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1171  g++ -std=c++11 --version
+2025-07-31 10:02:20 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1172  pip install -e .
+2025-07-31 10:32:10 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1173  /usr/bin/x86_64-linux-gnu-g++
+2025-07-31 10:33:34 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1174  sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt update
+2025-07-31 10:33:46 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1175  sudo apt install -y build-essential python3.10-dev pip g++
+2025-07-31 10:33:49 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1176  deactivate
+2025-07-31 10:33:59 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1177  python3 --version
+2025-07-31 10:34:05 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1178  which python3
+2025-07-31 10:34:26 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1179  python310
+2025-07-31 10:34:43 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1180  python3.10-dev
+2025-07-31 10:34:54 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1181  python3 -m venv .venv
+2025-07-31 10:35:00 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1182  source .venv/bin/activate
+2025-07-31 10:38:59 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1183  pip install -e .
+2025-07-31 10:44:53 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1184  python -m test.sanity_check
+2025-08-05 15:56:59 | /home/jakub/ETH/2025_2026_fall/thesis |  1185  source .bashrc 
+2025-08-05 16:25:01 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1186  cd Cool-Chic/
+2025-08-05 16:25:09 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1187  source .venv/bin/activate
+2025-08-05 22:15:38 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1188  git remote -v
+2025-08-05 22:17:31 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1189  git remote set-url origin https://github.com/Qwedux/Cool-Chic
+2025-08-05 22:17:36 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1190  git remote -v
+2025-08-06 14:20:18 | /home/jakub/ETH/2025_2026_fall/thesis |  1186  source .bashrc 
+2025-08-06 14:20:25 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1187  cd Cool-Chic/
+2025-08-06 14:20:49 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1188  source .venv/bin/activate
+2025-08-06 14:28:34 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1189  python -m test.sanity_check
+2025-08-06 16:25:20 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1190  source .bashrc 
+2025-08-06 17:48:40 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1191  pip install ipykernel
+2025-08-06 17:50:57 | /home/jakub/ETH/2025_2026_fall/thesis/Cool-Chic |  1191  pip install ipykernel

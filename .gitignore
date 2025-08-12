@@ -21,3 +21,16 @@ coolchic/CCLIB/
 coolchic.egg-info/
 *.so
 **/.venv/**
+
+# for copilot:
+*.cool 
+*.yuv
+*.tsv
+docs/
+*.cpp
+*.hpp
+*.h
+.git/
+.github/
+
+**/test-workdir/** 
