@@ -192,7 +192,7 @@ def get_ac_max_val_latent(frame_encoder: FrameEncoder) -> int:
 @torch.no_grad()
 def encode_frame(
     frame_encoder: FrameEncoder,
-    ref_frame_encoder: FrameEncoder,
+    ref_frame_encoder: FrameEncoder|None,
     bitstream_path: str,
     display_index: int,
     hls_sig_blksize: int
