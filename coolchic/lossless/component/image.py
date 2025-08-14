@@ -14,11 +14,13 @@ from enum import Enum
 from typing import Dict, List
 
 import torch
-from enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
-from enc.component.frame import NAME_COOLCHIC_ENC, FrameEncoder, load_frame_encoder
-# from enc.component.intercoding.globalmotion import get_global_translation
-from enc.component.intercoding.raft import get_raft_optical_flow
-from enc.component.intercoding.warp import WarpParameter
+from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
+from lossless.component.frame import (
+    NAME_COOLCHIC_ENC,
+    FrameEncoder,
+    load_frame_encoder,
+)
+
 from enc.io.format.png import write_png
 from enc.io.format.ppm import write_ppm
 from enc.io.format.yuv import write_yuv
@@ -64,13 +66,11 @@ def _is_job_over(start_time: float, max_duration_job_min: int = 45) -> bool:
 # =========================== Job management ============================ #
 
 
-
 def encode_one_frame(
     video_path: str,
     coding_structure: CodingStructure,
     coolchic_enc_param: Dict[NAME_COOLCHIC_ENC, CoolChicEncoderParameter],
     frame_encoder_manager: FrameEncoderManager,
-    warp_parameter: WarpParameter,
     coding_index: int,
     job_duration_min: int = -1,
     device: POSSIBLE_DEVICE = "cpu",
@@ -78,6 +78,7 @@ def encode_one_frame(
 ) -> TrainingExitCode:
     start_time = time.time()
     frame = coding_structure.get_frame_from_coding_order(coding_index)
+    assert frame is not None
 
     def change_n_out_synth(layers_synth: List[str], n_out: int) -> List[str]:
         """Change the number of output features in the list of strings
@@ -106,7 +107,9 @@ def encode_one_frame(
 
     if frame_encoder_manager.loop_counter >= frame_encoder_manager.n_loops:
         # This is the next frame to code
-        next_frame = coding_structure.get_frame_from_coding_order(frame.coding_order + 1)
+        next_frame = coding_structure.get_frame_from_coding_order(
+            frame.coding_order + 1
+        )
         msg = (
             f"Frame {frame.frame_type}{frame.display_order} has already "
             f"undergone {frame_encoder_manager.loop_counter} / "
@@ -120,8 +123,7 @@ def encode_one_frame(
             )
         print(msg)
 
-
-    torch.set_float32_matmul_precision('high')
+    torch.set_float32_matmul_precision("high")
 
     for index_loop in range(
         frame_encoder_manager.loop_counter,
@@ -137,35 +139,17 @@ def encode_one_frame(
         prefix_save = f"{_get_frame_path_prefix(frame.display_order)}"
 
         for cc_enc_name in coolchic_enc_param:
+            assert frame.data is not None
             coolchic_enc_param[cc_enc_name].set_image_size(frame.data.img_size)
 
         match frame.frame_type:
             case "I":
                 coolchic_enc_param["residue"].encoder_gain = 16
-                coolchic_enc_param["residue"].layers_synthesis = change_n_out_synth(
-                    coolchic_enc_param["residue"].layers_synthesis, 3
+                coolchic_enc_param["residue"].layers_synthesis = (
+                    change_n_out_synth(
+                        coolchic_enc_param["residue"].layers_synthesis, 3
+                    )
                 )
-                # if "motion" in coolchic_enc_param:
-                #     coolchic_enc_param.pop("motion")
-
-            # case "P" | "B":
-            #     coolchic_enc_param["residue"].encoder_gain = 16
-            #     # 4 outputs: 3 color channels + alpha
-            #     coolchic_enc_param["residue"].layers_synthesis = change_n_out_synth(
-            #         coolchic_enc_param["residue"].layers_synthesis, 4
-            #     )
-            #     coolchic_enc_param["motion"].encoder_gain = 16
-
-            #     if frame.frame_type == "P":
-            #         # 2 outputs for 1 flow
-            #         coolchic_enc_param["motion"].layers_synthesis = change_n_out_synth(
-            #             coolchic_enc_param["motion"].layers_synthesis, 2
-            #         )
-            #     elif frame.frame_type == "B":
-            #         # 5 outputs for 2 flows + beta
-            #         coolchic_enc_param["motion"].layers_synthesis = change_n_out_synth(
-            #             coolchic_enc_param["motion"].layers_synthesis, 5
-            #         )
 
             case _:
                 raise ValueError(f"Unknown frame type {frame.frame_type}.")
@@ -194,88 +178,24 @@ def encode_one_frame(
                 tmp_str += title
                 tmp_str += cc_enc_param.pretty_string() + "\n"
 
-            if frame.frame_type != "I":
-                title = (
-                    "Warper parameters\n"
-                    "-----------------\n"
-                )
-                tmp_str += title
-                tmp_str += warp_parameter.pretty_string() + "\n"
-
             print(tmp_str)
 
         frame = frame_to_device(frame, device)
-
-        # # Motion pre-training guided with raft.
-        # if frame.frame_type != "I":
-        #     # We need to output the shifted refs so that raft estimates the motion
-        #     # between the frame to code and the reference shifted by the global flow.
-        #     shifted_ref_data, global_flows = get_global_translation(frame.data, frame.refs_data)
-
-        #     # Since we are not an I-frame, we have at least 1 ref.
-        #     # For simplicity add an all-zero global flow to this list
-        #     # It does not really matter since there is only one ref, but the
-        #     # set_global_flow() function expects two global flows
-        #     if len(global_flows) == 1:
-        #         global_flows.append(torch.zeros_like(global_flows[0]))
-
-        #     # Get the RAFT-estimated optical flows
-        #     raft_flows = get_raft_optical_flow(frame.data, shifted_ref_data)
-
-        #     # Specific gain parameter to learn the optical flow as an image
-        #     pre_trained_motion_enc_param = copy.deepcopy(
-        #         coolchic_enc_param.get("motion")
-        #     )
-        #     pre_trained_motion_enc_param.encoder_gain = 16
-
-        #     pretrained_motion_enc = guided_motion_pretraining(
-        #         list_target_flow=raft_flows,
-        #         motion_enc_param=pre_trained_motion_enc_param,
-        #         of_encoder_manager=frame_encoder_manager,
-        #         device=device,
-        #     )
-
-        #     # For the remainder of the training we'll need to scale the latent
-        #     # to adapt for a different encoder gains.
-        #     gain_ratio = (
-        #         coolchic_enc_param.get("motion").encoder_gain
-        #         / pre_trained_motion_enc_param.encoder_gain
-        #     )
-
-        #     for idx_lat, latent_i in enumerate(pretrained_motion_enc.latent_grids):
-        #         pretrained_motion_enc.latent_grids[idx_lat] = latent_i * gain_ratio
 
         # Get the number of candidates from the initial warm-up phase
         n_candidates = frame_encoder_manager.preset.warmup.phases[0].candidates
 
         list_candidates = []
         for idx_candidate in range(n_candidates):
+            assert frame.data is not None
             cur_frame_encoder = FrameEncoder(
                 coolchic_enc_param=coolchic_enc_param,
-                warp_parameter=warp_parameter,
                 frame_type=frame.frame_type,
                 frame_data_type=frame.data.frame_data_type,
                 bitdepth=frame.data.bitdepth,
                 index_references=frame.index_references,
                 frame_display_index=frame.display_order,
             )
-
-            # # Plug inside the pretrained motion cool-chic encoder
-            # if frame.frame_type != "I":
-            #     if n_candidates < 2:
-            #         print(
-            #             "There is a single warm-up candidate which is based on "
-            #             "a RAFT-guided pre-training."
-            #         )
-
-            #     # Load the pre-trained results only for half the candidate!
-            #     if idx_candidate % 2:
-            #         # print(f"\nUsing the pre-trained motion cool-chic for warm-up candidate {idx_candidate}")
-            #         cur_frame_encoder.coolchic_enc["motion"].set_param(
-            #             pretrained_motion_enc.get_param()
-            #         )
-
-            #     cur_frame_encoder.set_global_flow(global_flows[0], global_flows[1])
 
             list_candidates.append(cur_frame_encoder)
 
@@ -285,15 +205,12 @@ def encode_one_frame(
                 f_out.write(cc_name + "\n\n" + str(cc_enc) + "\n\n")
                 f_out.write(cc_enc.str_complexity() + "\n")
 
-        # print(list_candidates[0].pretty_string() + "\n\n")
-
         print(
             list_candidates[0].pretty_string(
                 print_detailed_archi=print_detailed_archi
             )
             + "\n\n"
         )
-
 
         # Use warm-up to find the best initialization among the list
         # of candidates parameters.
@@ -303,7 +220,6 @@ def encode_one_frame(
             frame=frame,
             device=device,
         )
-
 
         frame_encoder.to_device(device)
 
@@ -320,13 +236,19 @@ def encode_one_frame(
 
         if cur_preset.preset_name == "debug":
             print("Skip compilation when debugging\n")
-        elif cur_preset._get_total_training_iterations(cur_preset.training_phases) <= 1000:
+        elif (
+            cur_preset._get_total_training_iterations(
+                cur_preset.training_phases
+            )
+            <= 1000
+        ):
             print("No compilation when training has less than 1000 iterations")
         elif not use_compile:
             print("No compilation for torch version anterior to 2.5.0\n")
         else:
             print("Compiling frame encoder!\n")
             torch._dynamo.reset()
+            assert frame.data is not None
             frame_encoder = torch.compile(
                 frame_encoder,
                 dynamic=False,
@@ -382,6 +304,10 @@ def encode_one_frame(
             )
 
         # At the end of each loop, compute the final loss
+        # assert isinstance(frame_encoder, FrameEncoder), (
+        #     f"frame_encoder should be an instance of FrameEncoder, "
+        #     f"found {type(frame_encoder)}"
+        # )
         loop_results = test(
             frame_encoder,
             frame,
@@ -390,12 +316,11 @@ def encode_one_frame(
 
         # We only care for the best_results.tsv
         # Write results file
-        path_results_log = (
-            f"{prefix_save}results_loop_{frame_encoder_manager.loop_counter + 1}.tsv"
-        )
+        path_results_log = f"{prefix_save}results_loop_{frame_encoder_manager.loop_counter + 1}.tsv"
         with open(path_results_log, "w") as f_out:
             f_out.write(
-                loop_results.pretty_string(show_col_name=True, mode="all") + "\n"
+                loop_results.pretty_string(show_col_name=True, mode="all")
+                + "\n"
             )
 
         path_best_frame_enc = f"{prefix_save}frame_encoder.pt"
@@ -406,15 +331,20 @@ def encode_one_frame(
             print(
                 f"Best loss beaten at loop {frame_encoder_manager.loop_counter}"  # no need for +1 anymore, it's done above
             )
-            print(f"Previous best loss: {frame_encoder_manager.best_loss * 1e3 :.6f}")
-            print(f"New best loss     : {loop_results.loss.cpu().item() * 1e3 :.6f}")
+            print(
+                f"Previous best loss: {frame_encoder_manager.best_loss * 1e3 :.6f}"
+            )
+            print(
+                f"New best loss     : {loop_results.loss.cpu().item() * 1e3 :.6f}"
+            )
 
             frame_encoder_manager.set_best_loss(loop_results.loss.cpu().item())
 
             # Save best results
             with open(f"{prefix_save}results_best.tsv", "w") as f_out:
                 f_out.write(
-                    loop_results.pretty_string(show_col_name=True, mode="all") + "\n"
+                    loop_results.pretty_string(show_col_name=True, mode="all")
+                    + "\n"
                 )
 
             frame_encoder.save(
@@ -462,7 +392,9 @@ def encode_one_frame(
 
         print("End of training loop\n\n")
 
-        if _is_job_over(start_time=start_time, max_duration_job_min=job_duration_min):
+        if _is_job_over(
+            start_time=start_time, max_duration_job_min=job_duration_min
+        ):
             return TrainingExitCode.REQUEUE
 
     return TrainingExitCode.END
@@ -484,7 +416,10 @@ def get_ref_data(
     all_ref_data = []
 
     for ref_display_idx in frame.index_references:
-        ref_frame = coding_structure.get_frame_from_display_order(ref_display_idx)
+        ref_frame = coding_structure.get_frame_from_display_order(
+            ref_display_idx
+        )
+        assert ref_frame is not None
 
         # TODO: code duplication here
         # For now, reference are necessary a .yuv file
@@ -527,106 +462,6 @@ def _get_frame_path_prefix(frame_display_order: int) -> str:
     return str(frame_display_order).zfill(4) + "-"
 
 
-# def guided_motion_pretraining(
-#     list_target_flow: List[Tensor],
-#     motion_enc_param: CoolChicEncoderParameter,
-#     of_encoder_manager: FrameEncoderManager,
-#     device: POSSIBLE_DEVICE,
-# ) -> CoolChicEncoder:
-#     """Learn a CoolChicEncoder imitating one or several optical flows
-#     list_target_flow as if it were an image, i.e. minimizing the MSE
-#     between the target flow(s) and the output flow(s) of a CoolChicEncoder.
-
-#     The resulting CoolChicEncoder is re-used as initialisation for the motion
-#     CoolChicEncoder to encode a Frame.
-
-#     Args:
-#         list_target_flow: List of N (= 1 or = 2) flows with shape [1, 2, H, W]
-#             to be imitated.
-#         motion_enc_param: Parameters (architecture etc.) for the motion encoder.
-#         of_encoder_manager: Parameters (training, schedule etc.) for the motion
-#             pre training.
-#         device: Device on which the motion pre-training will be run.
-
-#     Returns:
-#         CoolChicEncoder: Trained CoolChicEncoder, imitating the optical flow(s).
-#     """
-
-#     print("\nMotion pre-training")
-#     print("----------------------")
-
-#     assert len(list_target_flow) in [1, 2], (
-#         "guided_motion_pretraining expects one or two optical flows to be "
-#         f"pre-trained. Found {len(list_target_flow)} optical flows."
-#     )
-
-#     if len(list_target_flow) == 1:
-#         frame_type = "P"
-#     elif len(list_target_flow) == 2:
-#         frame_type = "B"
-
-#     # From a list of N [1, 2, H, W] flows to a [1, 2N, H, W] dense
-#     # tensor to be used as a reference for the training.
-#     target_flow = torch.cat(list_target_flow, dim=1)
-
-#     # Append a dummy beta = 0.5 (i.e. neutral weighting) to be pre-learned
-#     # alongside the RAFT optical flows
-#     if frame_type == "B":
-#         h, w = target_flow.size()[-2:]
-#         # Target beta is 0 because once it is plugged into the motion cool-chic,
-#         # we add + 0.5 to the value so learning a beta = 0 leads to an actual
-#         # beta = 0 + 0.5 = 0.5
-#         neutral_beta = torch.zeros((1, 1, h, w), device=target_flow.device)
-#         target_flow = torch.cat([target_flow, neutral_beta], dim=1)
-
-#     # Create a FrameEncoder to code these optical flows as an intra frame
-#     # For this we have to wrap this target_flow inside a frame object.
-#     # Use max bitdepth possible. flow just means dense outputs + no
-#     # clamping in [0., 1.]
-#     target_flow_frame = Frame(
-#         coding_order=0,
-#         display_order=0,
-#         data=FrameData(bitdepth=8, frame_data_type="flow", data=target_flow),
-#     )
-
-#     # Learn the optical flows as a normal image, with an encoder gain of 16
-#     frame_encoder_motion = FrameEncoder(
-#         # A single "residue" (i.e. all intra) encoder to learn this motion
-#         coolchic_enc_param={"residue": motion_enc_param},
-#         warp_parameter=None,
-#         frame_type=target_flow_frame.frame_type,
-#         frame_data_type=target_flow_frame.data.frame_data_type,
-#         bitdepth=target_flow_frame.data.bitdepth,
-#         index_references=[],
-#         frame_display_index=0,
-#     )
-#     frame_encoder_motion.to_device(device)
-#     target_flow_frame = frame_to_device(target_flow_frame, device)
-
-#     for _, training_phase in enumerate(of_encoder_manager.preset.motion_pretrain_phase):
-#         frame_encoder_motion = train(
-#             frame_encoder=frame_encoder_motion,
-#             frame=target_flow_frame,
-#             frame_encoder_manager=of_encoder_manager,
-#             start_lr=training_phase.lr,
-#             # ! Should we still do 20 * lambda?
-#             lmbda=20 * of_encoder_manager.lmbda,
-#             cosine_scheduling_lr=training_phase.schedule_lr,
-#             max_iterations=training_phase.max_itr,
-#             frequency_validation=training_phase.freq_valid,
-#             patience=training_phase.patience,
-#             optimized_module=training_phase.optimized_module,
-#             quantizer_type=training_phase.quantizer_type,
-#             quantizer_noise_type=training_phase.quantizer_noise_type,
-#             softround_temperature=training_phase.softround_temperature,
-#             noise_parameter=training_phase.noise_parameter,
-#         )
-
-#     # Return the trained frame_encoder
-#     # It is stored as the "residue" since it is learned as an image
-#     return frame_encoder_motion.coolchic_enc["residue"]
-
-
 def frame_to_device(frame: Frame, device: POSSIBLE_DEVICE) -> Frame:
     """
     Push a frame and its reference to a device
@@ -649,7 +484,9 @@ def frame_to_device(frame: Frame, device: POSSIBLE_DEVICE) -> Frame:
     return frame
 
 
-def frame_data_to_device(frame_data: FrameData, device: POSSIBLE_DEVICE) -> FrameData:
+def frame_data_to_device(
+    frame_data: FrameData, device: POSSIBLE_DEVICE
+) -> FrameData:
     """Push the data attribute to the relevant device **in place**.
 
     Args:
@@ -661,6 +498,7 @@ def frame_data_to_device(frame_data: FrameData, device: POSSIBLE_DEVICE) -> Fram
 
     """
     from enc.io.format.yuv import yuv_dict_to_device
+
     if frame_data.frame_data_type == "yuv420":
         frame_data.data = yuv_dict_to_device(frame_data.data, device)
     else:
