@@ -27,10 +27,10 @@ from enc.io.format.yuv import write_yuv
 from enc.io.framedata import FrameData
 from enc.io.io import load_frame_data_from_file
 from enc.nnquant.quantizemodel import quantize_model
-from enc.training.manager import FrameEncoderManager
-from enc.training.test import test
-from enc.training.train import train
-from enc.training.warmup import warmup
+from lossless.training.manager import FrameEncoderManager
+from lossless.training.test import test
+from lossless.training.train import train
+from lossless.training.warmup import warmup
 from enc.utils.codingstructure import CodingStructure, Frame
 from enc.utils.device import POSSIBLE_DEVICE
 from enc.utils.misc import mem_info
@@ -125,10 +125,7 @@ def encode_one_frame(
 
     torch.set_float32_matmul_precision("high")
 
-    for index_loop in range(
-        frame_encoder_manager.loop_counter,
-        frame_encoder_manager.n_loops,
-    ):
+    for index_loop in range(frame_encoder_manager.loop_counter, frame_encoder_manager.n_loops):
         # Load the original data and its references
         frame.set_frame_data(
             load_frame_data_from_file(
@@ -259,14 +256,12 @@ def encode_one_frame(
                 fullgraph=frame.data.frame_data_type != "yuv420",
             )
 
-        for idx_phase, training_phase in enumerate(
-            frame_encoder_manager.preset.training_phases
-        ):
+        for idx_phase, training_phase in enumerate(frame_encoder_manager.preset.training_phases):
             print(f'{"-" * 30} Training phase: {idx_phase:>2} {"-" * 30}\n')
             mem_info("Training phase " + str(idx_phase))
             frame_encoder = train(
-                frame_encoder=frame_encoder,
-                frame=frame,
+                model=frame_encoder,
+                target_image=frame,
                 frame_encoder_manager=frame_encoder_manager,
                 start_lr=training_phase.lr,
                 lmbda=frame_encoder_manager.lmbda,

@@ -33,6 +33,7 @@ from lossless.component.core.quantizer import (
 )
 from lossless.component.core.synthesis import Synthesis
 from lossless.component.core.upsampling import Upsampling
+from lossless.util.distribution import get_latent_rate, weak_colorar_rate
 
 from enc.utils.device import POSSIBLE_DEVICE
 
@@ -47,6 +48,7 @@ one or more features by representing it as a set of 2d entropy coding-friendly
 latent grids. After upsampling, these latent grids allows to synthesize the
 desired signal.
 """
+
 
 @dataclass
 class CoolChicEncoderParameter:
@@ -87,6 +89,7 @@ class CoolChicEncoderParameter:
     encoder_gain: int = 16
     ups_k_size: int = 8
     ups_preconcat_k_size: int = 7
+    latent_freq_precision: int = 12
 
     # ==================== Not set by the init function ===================== #
     #: Automatically computed, number of different latent resolutions
@@ -131,6 +134,7 @@ class CoolChicEncoderParameter:
         return s
 
 
+@dataclass
 class CoolChicEncoderOutput(TypedDict):
     """``TypedDict`` representing the output of CoolChicEncoder forward.
 
@@ -144,6 +148,8 @@ class CoolChicEncoderOutput(TypedDict):
 
     raw_out: Tensor
     rate: Tensor
+    img_bpd: Tensor
+    latent_bpd: Tensor
     additional_data: Dict[str, Any]
 
 
@@ -178,7 +184,9 @@ class CoolChicEncoder(nn.Module):
         self.size_per_latent = []
         self.latent_grids = nn.ParameterList()
         for i in range(self.param.latent_n_grids):
-            h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.param.img_size]
+            h_grid, w_grid = [
+                int(math.ceil(x / (2**i))) for x in self.param.img_size
+            ]
             c_grid = self.param.n_ft_per_res[i]
             cur_size = (1, c_grid, h_grid, w_grid)
 
@@ -268,7 +276,6 @@ class CoolChicEncoder(nn.Module):
         self.get_flops()
         # ======================== Monitoring ======================== #
 
-
         # Track the quantization step of each neural network, None if the
         # module is not yet quantized
         self.nn_q_step: Dict[str, DescriptorNN] = {
@@ -289,6 +296,7 @@ class CoolChicEncoder(nn.Module):
     # ------- Actual forward
     def forward(
         self,
+        img_tensor: Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
@@ -383,7 +391,9 @@ class CoolChicEncoder(nn.Module):
             b, c, h, w = latent_size  # b should be one
             latent_numel = b * c * h * w
             decoder_side_latent.append(
-                flat_decoder_side_latent[cnt : cnt + latent_numel].view(latent_size)
+                flat_decoder_side_latent[cnt : cnt + latent_numel].view(
+                    latent_size
+                )
             )
             cnt += latent_numel
 
@@ -397,7 +407,9 @@ class CoolChicEncoder(nn.Module):
         flat_context = torch.cat(
             [
                 _get_neighbor(
-                    spatial_latent_i, self.mask_size, self.non_zero_pixel_ctx_index
+                    spatial_latent_i,
+                    self.mask_size,
+                    self.non_zero_pixel_ctx_index,
                 )
                 for spatial_latent_i in decoder_side_latent
             ],
@@ -406,7 +418,10 @@ class CoolChicEncoder(nn.Module):
 
         # Get all the B latent variables as a single one dimensional vector
         flat_latent = torch.cat(
-            [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
+            [
+                spatial_latent_i.view(-1)
+                for spatial_latent_i in decoder_side_latent
+            ],
             dim=0,
         )
 
@@ -425,8 +440,10 @@ class CoolChicEncoder(nn.Module):
         ups_out = self.upsampling(decoder_side_latent)
         raw_synth_out = self.synthesis(ups_out)
 
-        # Upsample the output of the synthesis with a nearest neighbor if required
-        synthesis_output = F.interpolate(raw_synth_out, size=self.param.img_size, mode="nearest")
+        # # Upsample the output of the synthesis with a nearest neighbor if required
+        # synthesis_output = F.interpolate(
+        #     raw_synth_out, size=self.param.img_size, mode="nearest"
+        # )
 
         additional_data = {}
         if flag_additional_outputs:
@@ -439,14 +456,18 @@ class CoolChicEncoder(nn.Module):
             additional_data["detailed_centered_latent"] = []
             additional_data["hpfilters"] = []
             additional_data["upsampled_latent"] = ups_out
-            
+
             # "Pointer" for the reading of the 1D scale, mu and rate
             cnt = 0
             # for i, _ in enumerate(filtered_latent):
             for index_latent_res, _ in enumerate(self.latent_grids):
-                c_i, h_i, w_i = decoder_side_latent[index_latent_res].size()[-3:]
+                c_i, h_i, w_i = decoder_side_latent[index_latent_res].size()[
+                    -3:
+                ]
                 additional_data["detailed_sent_latent"].append(
-                    decoder_side_latent[index_latent_res].view((1, c_i, h_i, w_i))
+                    decoder_side_latent[index_latent_res].view(
+                        (1, c_i, h_i, w_i)
+                    )
                 )
 
                 # Scale, mu and rate are 1D tensors where the N latent grids
@@ -467,9 +488,71 @@ class CoolChicEncoder(nn.Module):
                     additional_data["detailed_sent_latent"][-1] - mu_i
                 )
 
+        # FLINC uses: hence I need the latent bpd and img bpd
+        # def forward(self,
+        #             use_ste_quant: bool = False) -> EncoderOutput:
+        #     out = self.encoder(self.img_t, self.prior, use_ste_quant)
+        #     return EncoderOutput(img_bpd=out['img_bpd'], latent_bpd=out['latent_bpd'], additional_data={})
+        #
+        # the overfitter forward is:
+        # def forward(
+        #     self, img_t: Tensor, prior: Tensor, use_ste_quant: bool = False
+        # ) -> OrderedDict:
+        #     prior = self.modify_prior(prior)
+        #     latents = self.get_quantized_latent(use_ste_quant)
+        #     latent_flat, context_flat = get_flat_latent_and_context(
+        #         latents, 3, self.non_zero_pixel_ctx_index
+        #     )
+        #     latent_flat = latent_flat.unsqueeze(1)
+        #     params = self.arm(context_flat)
+        #     latent_rate = get_latent_rate(
+        #         latent_flat,
+        #         params,
+        #         self.latent_bitdepth,
+        #         self.param.latent_freq_precision,
+        #     ).sum()
+        #     latent_prior = self.upsampling(latents)
+
+        #     params = self.synthesis(latent_prior) + prior
+        #     latent_bpd = latent_rate / self.img_size
+        #     img_rates = weak_colorar_rate(
+        #         params, img_t, self.bitdepth, self.freq_precision
+        #     )
+        #     img_bpd = img_rates.sum() / self.img_size
+
+        #     return OrderedDict(
+        #         latent_bpd=latent_bpd,
+        #         img_bpd=img_bpd,
+        #         loss=latent_bpd + img_bpd,
+        #     )
+
+        # latents = self.get_quantized_latent(use_ste_quant)
+        # latent_flat, context_flat = get_flat_latent_and_context(
+        #     latents, 3, self.non_zero_pixel_ctx_index
+        # )
+        # latent_flat = latent_flat.unsqueeze(1)
+        
+        # params = self.arm(context_flat)
+
+        # latent_rate = get_latent_rate(
+        #     flat_latent,
+        #     raw_synth_out,
+        #     self.param.encoder_gain,
+        #     self.param.latent_freq_precision,
+        # ).sum()
+        assert self.param.img_size is not None
+        # latent_bpd = latent_rate / self.param.img_size[0] / self.param.img_size[1]
+        img_rates = weak_colorar_rate(
+            raw_synth_out, img_tensor, 8, 15
+        )
+        img_bpd = img_rates.sum() / self.param.img_size[0] / self.param.img_size[1] / 3
+
+        # FIXME: do real bpd computations
         res: CoolChicEncoderOutput = {
-            "raw_out": synthesis_output,
+            "raw_out": raw_synth_out,
             "rate": flat_rate,
+            "img_bpd": img_bpd,
+            "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] * 0,
             "additional_data": additional_data,
         }
 
@@ -492,7 +575,10 @@ class CoolChicEncoder(nn.Module):
         )
         param.update({f"arm.{k}": v for k, v in self.arm.get_param().items()})
         param.update(
-            {f"upsampling.{k}": v for k, v in self.upsampling.get_param().items()}
+            {
+                f"upsampling.{k}": v
+                for k, v in self.upsampling.get_param().items()
+            }
         )
         param.update(
             {f"synthesis.{k}": v for k, v in self.synthesis.get_param().items()}
@@ -616,6 +702,9 @@ class CoolChicEncoder(nn.Module):
         flops = FlopCountAnalysis(
             self,
             (
+                torch.zeros(
+                    (1, 3, 512, 768), dtype=torch.float32
+                ),
                 "none",  # Quantization noise
                 "hardround",  # Quantizer type
                 0.3,  # Soft round temperature
@@ -650,7 +739,7 @@ class CoolChicEncoder(nn.Module):
             for module_name in self.modules_to_send
         }
 
-        total_rate = 0.
+        total_rate = 0.0
 
         for module_name in self.modules_to_send:
             cur_module = getattr(self, module_name)
@@ -782,7 +871,9 @@ class CoolChicEncoder(nn.Module):
         long_description += f"\n\n\n{title}\n" f"{'=' * len(title)}\n\n\n"
         input_arm = f"{self.arm.dim_arm}-pixel context"
         output_arm = "mu, log scale"
-        long_description += pretty_string_nn(self.arm.mlp, "", input_arm, output_arm)
+        long_description += pretty_string_nn(
+            self.arm.mlp, "", input_arm, output_arm
+        )
 
         syn_complexity = self.flops_per_module["synthesis"] / n_pixels
         syn_share_complexity = 100 * syn_complexity / total_mac_per_pix
