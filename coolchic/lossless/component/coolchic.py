@@ -148,7 +148,6 @@ class CoolChicEncoderOutput(TypedDict):
 
     raw_out: Tensor
     rate: Tensor
-    img_bpd: Tensor
     latent_bpd: Tensor
     additional_data: Dict[str, Any]
 
@@ -296,7 +295,6 @@ class CoolChicEncoder(nn.Module):
     # ------- Actual forward
     def forward(
         self,
-        img_tensor: Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
@@ -542,17 +540,13 @@ class CoolChicEncoder(nn.Module):
         # ).sum()
         assert self.param.img_size is not None
         # latent_bpd = latent_rate / self.param.img_size[0] / self.param.img_size[1]
-        img_rates = weak_colorar_rate(
-            raw_synth_out, img_tensor, 8, 15
-        )
-        img_bpd = img_rates.sum() / self.param.img_size[0] / self.param.img_size[1] / 3
+
 
         # FIXME: do real bpd computations
         res: CoolChicEncoderOutput = {
             "raw_out": raw_synth_out,
             "rate": flat_rate,
-            "img_bpd": img_bpd,
-            "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] * 0,
+            "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
             "additional_data": additional_data,
         }
 
@@ -702,9 +696,6 @@ class CoolChicEncoder(nn.Module):
         flops = FlopCountAnalysis(
             self,
             (
-                torch.zeros(
-                    (1, 3, 512, 768), dtype=torch.float32
-                ),
                 "none",  # Quantization noise
                 "hardround",  # Quantizer type
                 0.3,  # Soft round temperature

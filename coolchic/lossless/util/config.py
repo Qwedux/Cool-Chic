@@ -23,7 +23,7 @@ args = {
     # encoder side
     "start_lr": 1e-2,
     "n_itr": 1000,
-    "n_train_loops": 10,
+    "n_train_loops": 100,
     "preset": "debug",
     # decoder side
     "layers_synthesis_residue": "16-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
@@ -32,9 +32,9 @@ args = {
     "ups_k_size_residue": 8,
     "ups_preconcat_k_size_residue": 7,
     # training preset
-    "patience": 100,
+    "patience": 10,
     "schedule_lr": True,
-    "freq_valid": 100,
+    "freq_valid": 10,
     "optimized_module": ["all"],
     "quantizer_type": "softround",
     "quantizer_noise_type": "gaussian",

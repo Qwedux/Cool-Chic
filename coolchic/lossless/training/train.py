@@ -274,7 +274,6 @@ def train(
 
         # forward / backward
         out_forward = model.forward(
-            target_image,
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=cur_softround_temperature,
@@ -283,7 +282,8 @@ def train(
 
         # print(out_forward["img_bpd"], out_forward["latent_bpd"])
         loss_function_output = loss_function(
-            out_forward
+            out_forward,
+            target_image
         )
         loss_function_output.loss.backward()
 
