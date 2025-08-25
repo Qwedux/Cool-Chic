@@ -37,7 +37,7 @@ def modify_regular_prob(probs:Tensor)->Tensor:
     probs = probs*(1-n*a)+a
     return probs
 
-def compute_logistic_cdfs(mu:Tensor, scale:Tensor, bitdepth:Tensor)->Tensor:
+def compute_logistic_cdfs(mu:Tensor, scale:Tensor, bitdepth:int)->Tensor:
     '''
         function to calculate the cdfs of the Logistic(mu, scale) distribution
         used for encoder
@@ -120,7 +120,7 @@ def get_mu_and_scale_linear_color(params:Tensor, x:Tensor)->Tuple[Tensor, Tensor
     scale = get_scale(params[:, 3:6, ...])
     return mu, scale
 
-def weak_colorar_rate(params:Tensor, x:Tensor, bitdepth:int, freq_precision:int, log_nfreq:int=10)->Tuple[Tensor]:
+def weak_colorar_rate(params:Tensor, x:Tensor, bitdepth:int, freq_precision:int, log_nfreq:int=10) -> Tensor:
     '''
        params N 9 H W, x normalized to [0,1]
     '''

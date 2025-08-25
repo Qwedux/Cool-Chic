@@ -490,7 +490,6 @@ def test(
 
     # flag_additional_outputs set to True to obtain more output
     frame_encoder_out = model.forward(
-        frame,
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,
@@ -498,7 +497,8 @@ def test(
     )
 
     loss_fn_output = loss_function(
-        frame_encoder_out
+        frame_encoder_out,
+        frame
         # frame_encoder_out["raw_out"],
         # {"model": frame_encoder_out["rate"]},
         # frame.data.data,
