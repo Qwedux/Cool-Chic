@@ -16,6 +16,7 @@ from enc.io.format.yuv import DictTensorYUV
 from torch import Tensor
 from typing import Any
 from lossless.component.coolchic import CoolChicEncoderOutput
+from lossless.util.distribution import weak_colorar_rate
 
 # @dataclass(kw_only=True)
 # class LossFunctionOutput():
@@ -94,9 +95,9 @@ class LossFunctionOutput():
     loss: torch.Tensor                                        # The RD cost to optimize
 
     # Any other data required to compute some logs, stored inside a dictionary
-    rate_nn_bpd: Optional[float] = None                                 # Rate associated to the neural networks [bpd]
-    rate_latent_bpd: Optional[float] = None                             # Rate associated to the latent          [bpd]
-    rate_img_bpd: Optional[float] = None                                # Rate associated to the image           [bpd]
+    rate_nn_bpd: Optional[float] = None              # Rate associated to the neural networks [bpd]
+    rate_latent_bpd: Optional[float] = None          # Rate associated to the latent          [bpd]
+    rate_img_bpd: Tensor                             # Rate associated to the image           [bpd]
 
     def __str__(self) -> str:
         return (f"Loss: {self.loss.item():.4f}, "
@@ -106,14 +107,20 @@ class LossFunctionOutput():
 
 def loss_function(
     encoder_out: CoolChicEncoderOutput,
+    img_tensor: torch.Tensor,
     rate_mlp_bpd: float = 0.,
 )->LossFunctionOutput:
-    loss = encoder_out["img_bpd"] + rate_mlp_bpd + encoder_out["latent_bpd"]
+    img_rates = weak_colorar_rate(
+        encoder_out["raw_out"], img_tensor, 8, 15
+    )
+    img_bpd = img_rates.sum() / img_tensor.numel()
+
+    loss = img_bpd + rate_mlp_bpd + encoder_out["latent_bpd"]
     return LossFunctionOutput(
         loss=loss,
         rate_nn_bpd=rate_mlp_bpd,
         rate_latent_bpd=encoder_out["latent_bpd"],
-        rate_img_bpd=encoder_out["img_bpd"]
+        rate_img_bpd=img_bpd
     )
 
 # def loss_function(

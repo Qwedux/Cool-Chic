@@ -216,7 +216,6 @@ class Synthesis(nn.Module):
             Raw output features :math:`[B, C_{out}, H, W]`.
         """
         raw_out = self.layers(x)
-        raw_out[:, 3:, ...] = torch.sigmoid(raw_out[:, 3:, ...])  # Ensure scale is in [0,1]
         return raw_out
 
     def partial_forward(self, x: Tensor, last_layer_idx: int = 1) -> Tensor:
