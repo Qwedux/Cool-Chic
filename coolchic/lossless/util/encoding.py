@@ -4,9 +4,11 @@ from lossless.util.distribution import compute_logistic_cdfs
 
 def encode(x: torch.Tensor, mu: torch.Tensor, scale: torch.Tensor):
     x_maxv = (1 << 8) - 1
+    print(f"raw x: ",x.min(), x.max(), x.mean())
     x = torch.round(x_maxv * x).to(torch.int16).float() / x_maxv
     x_reshape = torch.round(x * ((1 << 8) - 1)).to(torch.int16).cpu()
 
+    print(f"raw x_reshape: ",x_reshape.min(), x_reshape.max(), x_reshape.mean())
     byte_strings = []
     for i in range(3):
         symbols = x_reshape[:, i : i + 1, ...]
@@ -16,6 +18,7 @@ def encode(x: torch.Tensor, mu: torch.Tensor, scale: torch.Tensor):
         cur_cdfs = compute_logistic_cdfs(
             mu[:, i : i + 1, ...], scale[:, i : i + 1, ...], 8
         ).cpu()
+        print(cur_cdfs.shape)
         byte_strings.append(
             torchac.encode_int16_normalized_cdf(cur_cdfs, symbols)
         )
