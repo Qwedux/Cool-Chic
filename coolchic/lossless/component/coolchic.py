@@ -432,6 +432,7 @@ class CoolChicEncoder(nn.Module):
             - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
             min=2**-16,  # No value can cost more than 16 bits.
         )
+        # print(proba.sum().detach().cpu().numpy(), torch.min(proba).detach().cpu().numpy(), torch.max(proba).detach().cpu().numpy())
         flat_rate = -torch.log2(proba)
 
         # Upsampling and synthesis to get the output
@@ -532,21 +533,23 @@ class CoolChicEncoder(nn.Module):
         
         # params = self.arm(context_flat)
 
-        # latent_rate = get_latent_rate(
-        #     flat_latent,
-        #     raw_synth_out,
-        #     self.param.encoder_gain,
-        #     self.param.latent_freq_precision,
-        # ).sum()
+        latent_rate = get_latent_rate(
+            flat_latent,
+            flat_mu,
+            flat_scale,
+            8,
+            16,
+        ).sum()
         assert self.param.img_size is not None
-        # latent_bpd = latent_rate / self.param.img_size[0] / self.param.img_size[1]
-
+        latent_bpd = latent_rate / self.param.img_size[0] / self.param.img_size[1] / 3
+        # print(latent_bpd.detach().cpu().numpy(), "latent_bpd")
 
         # FIXME: do real bpd computations
         res: CoolChicEncoderOutput = {
             "raw_out": raw_synth_out,
             "rate": flat_rate,
-            "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
+            # "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
+            "latent_bpd": latent_bpd,
             "additional_data": additional_data,
         }
 

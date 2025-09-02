@@ -66,6 +66,7 @@ def train(
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
     softround_temperature: Tuple[float, float] = (0.3, 0.2),
     noise_parameter: Tuple[float, float] = (2.0, 1.0),
+    loss_latent_multiplier:float = 0.0,
 ) -> CoolChicEncoder:
     """Train a ``CoolChicEncoder`` and return the updated module. This function is
     supposed to be called any time we want to optimize the parameters of a
@@ -254,6 +255,7 @@ def train(
         if cnt - cnt_record > patience:
             if cosine_scheduling_lr:
                 # reload the best model so far
+                print("Reseting the model with the best model and smaller learning rate")
                 model.set_param(best_model)
                 optimizer.load_state_dict(best_optimizer_state)
 
@@ -283,7 +285,8 @@ def train(
         # print(out_forward["img_bpd"], out_forward["latent_bpd"])
         loss_function_output = loss_function(
             out_forward,
-            target_image
+            target_image,
+            latent_multiplier=loss_latent_multiplier
         )
         loss_function_output.loss.backward()
 
@@ -300,36 +303,35 @@ def train(
             start_time = time.time()
 
             # b. Test the model and check whether we've beaten our record
-            encoder_logs = test(model, target_image, frame_encoder_manager)
+            encoder_logs = test(model, target_image, frame_encoder_manager, latent_multiplier=1.0)
 
             flag_new_record = False
-
-            if encoder_logs.loss < encoder_logs_best.loss:
+            # print(f"new img_bpd: {encoder_logs.rate_img_bpd}, old: {encoder_logs_best.rate_img_bpd}")
+            new_rate = encoder_logs.rate_img_bpd + encoder_logs.rate_latent_bpd * loss_latent_multiplier
+            best_old_rate = encoder_logs_best.rate_img_bpd + encoder_logs_best.rate_latent_bpd * loss_latent_multiplier
+            print(f"new rate is: {new_rate}, old rate is: {best_old_rate}")
+            if new_rate < best_old_rate:
                 # A record must have at least -0.001 bpp or + 0.001 dB. A smaller improvement
                 # does not matter.
-                delta_psnr = encoder_logs.loss - encoder_logs_best.loss
-                delta_bpp = (
-                    encoder_logs.rate_latent_bpd
-                    - encoder_logs_best.rate_latent_bpd
-                )
-                flag_new_record = delta_bpp < 0.001 or delta_psnr > 0.001
+                delta_psnr = encoder_logs_best.rate_img_bpd - encoder_logs.rate_img_bpd
+                delta_loss = encoder_logs_best.loss - encoder_logs.loss
+                flag_new_record = delta_psnr > 0.001 or delta_loss > 0.001
+                print(f"delta loss: {delta_loss}, flag new record: {flag_new_record}")
+
+            # print(f"flag new record is set to: {flag_new_record}")
 
             if flag_new_record:
+                print("Found new best model!")
                 # Save best model
                 best_model = model.get_param()
                 best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
                 # ========================= reporting ========================= #
                 this_phase_psnr_gain = (
-                    encoder_logs.loss - initial_encoder_logs.loss
-                )
-                this_phase_bpd_gain = (
-                    encoder_logs.rate_latent_bpd
-                    - initial_encoder_logs.rate_latent_bpd
+                    encoder_logs.rate_img_bpd - initial_encoder_logs.rate_img_bpd
                 )
 
                 log_new_record = ""
-                log_new_record += f"{this_phase_bpd_gain:+6.3f} bpp "
                 log_new_record += f"{this_phase_psnr_gain:+6.3f} db"
                 # ========================= reporting ========================= #
 
@@ -351,13 +353,9 @@ def train(
                 "record": log_new_record,
             }
 
+            # actuall_print_encoder_logs = test(model, target_image, frame_encoder_manager, latent_multiplier=1.0)
             print(
-                str(encoder_logs)
-                # .pretty_string(
-                #     show_col_name=show_col_name,
-                #     mode="short",
-                #     additional_data=additional_data,
-                # )
+                f"Iteration: {cnt+1}, "  + str(encoder_logs) #+ str(actuall_print_encoder_logs)
             )
             show_col_name = False
 
@@ -385,4 +383,8 @@ def train(
 
     # At the end of the training, we load the best model
     model.set_param(best_model)
+    encoder_logs = test(model, target_image, frame_encoder_manager, latent_multiplier=1.0)
+    print(
+        f"At the end of the training: "  + str(encoder_logs) #+ str(actuall_print_encoder_logs)
+    )
     return model
