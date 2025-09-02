@@ -142,7 +142,7 @@ def laplace_cdf(x: Tensor, loc: Tensor, scale: Tensor) -> Tensor:
     """
     return 0.5 - 0.5 * (x - loc).sign() * torch.expm1(-(x - loc).abs() / scale)
 
-def get_latent_rate(x: Tensor, params:Tensor, bitdepth:int, freq_precision:int) -> Tensor:
+def get_latent_rate(x: Tensor, mu:Tensor, scale:Tensor, bitdepth:int, freq_precision:int) -> Tensor:
     """Compute the laplace log-probability evaluated in x. All parameters
     must have the same dimension.
 
@@ -155,10 +155,13 @@ def get_latent_rate(x: Tensor, params:Tensor, bitdepth:int, freq_precision:int) 
         Tensor: log(P(x | mu, scale))
     """
     n = 1 << bitdepth
-    mu, scale = get_mu_scale(params)
     prob = laplace_cdf(x + 0.5, mu, scale) - laplace_cdf(x - 0.5, mu, scale)
+
+    # print(prob.sum().detach().cpu().numpy(), torch.min(prob).detach().cpu().numpy(), torch.max(prob).detach().cpu().numpy())
     a = float(2**(-freq_precision))
     prob = (1-n*a)*prob + a
+    # print("new_prob:", prob.sum().detach().cpu().numpy(), torch.min(prob).detach().cpu().numpy(), torch.max(prob).detach().cpu().numpy())
+    # prob = torch.clamp_min(prob, min=a)
     logp = torch.log2(prob)
     return -logp
 

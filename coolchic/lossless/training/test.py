@@ -19,7 +19,7 @@ from lossless.component.frame import FrameEncoder, FrameEncoderOutput, NAME_COOL
 from enc.io.format.yuv import convert_420_to_444
 from lossless.training.loss import (
     LossFunctionOutput,
-    _compute_mse,
+    # _compute_mse,
     loss_function,
 )
 from enc.utils.codingstructure import Frame
@@ -462,6 +462,7 @@ def test(
     model: CoolChicEncoder,
     frame: torch.Tensor,
     frame_encoder_manager: FrameEncoderManager,
+    latent_multiplier: float = 0.0
 ) -> LossFunctionOutput:
     """Evaluate the performance of a ``FrameEncoder`` when encoding a ``Frame``.
 
@@ -498,7 +499,8 @@ def test(
 
     loss_fn_output = loss_function(
         frame_encoder_out,
-        frame
+        frame,
+        latent_multiplier=latent_multiplier
         # frame_encoder_out["raw_out"],
         # {"model": frame_encoder_out["rate"]},
         # frame.data.data,

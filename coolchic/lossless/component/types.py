@@ -8,15 +8,15 @@
 
 from dataclasses import dataclass
 from typing import Literal, Optional, Union
-
+from torch import Tensor
 
 @dataclass
 class DescriptorNN:
     """Contains information (scale, weight, quantization step, ...) about the
     weights and biases of a neural network."""
 
-    weight: Optional[Union[int, float, str]] = None
-    bias: Optional[Union[int, float, str]] = None
+    weight: Optional[Union[int, float, str, Tensor]] = None
+    bias: Optional[Union[int, float, str, Tensor]] = None
 
 
 @dataclass
