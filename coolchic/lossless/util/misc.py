@@ -1,4 +1,8 @@
 import os
+from datetime import datetime
+
+def timestamp_string() -> str:
+    return datetime.now().strftime("%Y_%m_%d__%H_%M_%S_")
 
 def clean_workdir(workdir_path: str) -> None:
     """
@@ -20,3 +24,4 @@ def clean_workdir(workdir_path: str) -> None:
                     os.rmdir(file_path)
             except Exception as e:
                 print(f"Failed to delete {file_path}. Reason: {e}")
+
