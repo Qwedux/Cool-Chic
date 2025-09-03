@@ -37,7 +37,7 @@ def modify_regular_prob(probs:Tensor)->Tensor:
     probs = probs*(1-n*a)+a
     return probs
 
-def compute_logistic_cdfs(mu:Tensor, scale:Tensor, bitdepth:int)->Tensor:
+def compute_logistic_cdfs(mu:torch.Tensor, scale:torch.Tensor, bitdepth:int)->torch.Tensor:
     '''
         function to calculate the cdfs of the Logistic(mu, scale) distribution
         used for encoder
@@ -109,15 +109,15 @@ def get_mu_and_scale_linear_color(params:Tensor, x:Tensor)->Tuple[Tensor, Tensor
     '''
         function to calculate the mean and scale from the parameters
     '''
-    # _mu, log_scale, pp = torch.chunk(params, 3, dim=1)
-    # alpha, beta, gamma = torch.chunk(pp, 3, dim=1)
-    # mu = torch.zeros_like(_mu)
-    # mu[:,0:1,...] = _mu[:,0:1,...]
-    # mu[:,1:2,...] = _mu[:,1:2,...] + alpha*x[:,0:1,...]
-    # mu[:,2:3,...] = _mu[:,2:3,...] + beta*x[:,0:1,...] + gamma*x[:,1:2,...]
-    # scale = get_scale(log_scale)
-    mu = params[:, 0:3, ...]
-    scale = get_scale(params[:, 3:6, ...])
+    _mu, log_scale, pp = torch.chunk(params, 3, dim=1)
+    alpha, beta, gamma = torch.chunk(pp, 3, dim=1)
+    mu = torch.zeros_like(_mu)
+    mu[:,0:1,...] = _mu[:,0:1,...]
+    mu[:,1:2,...] = _mu[:,1:2,...] + alpha*x[:,0:1,...]
+    mu[:,2:3,...] = _mu[:,2:3,...] + beta*x[:,0:1,...] + gamma*x[:,1:2,...]
+    scale = get_scale(log_scale)
+    # mu = params[:, 0:3, ...]
+    # scale = get_scale(params[:, 3:6, ...])
     return mu, scale
 
 def weak_colorar_rate(params:Tensor, x:Tensor, bitdepth:int, freq_precision:int, log_nfreq:int=10) -> Tensor:
