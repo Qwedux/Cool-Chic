@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from typing import Literal, Optional, Union
 from torch import Tensor
 
+
+from dataclasses import dataclass
+from typing import Literal, Optional, Union
+from torch import Tensor
+
 @dataclass
 class DescriptorNN:
     """Contains information (scale, weight, quantization step, ...) about the
@@ -17,6 +22,25 @@ class DescriptorNN:
 
     weight: Optional[Union[int, float, str, Tensor]] = None
     bias: Optional[Union[int, float, str, Tensor]] = None
+
+    # def __init__(
+    #     self, weight: Optional[Tensor] = None, bias: Optional[Tensor] = None
+    # ):
+    #     self.weight = weight
+    #     self.bias = bias
+
+    def __getitem__(self, item: str) -> Optional[Union[int, float, str, Tensor]]:
+        if item == "weight":
+            return self.weight
+        elif item == "bias":
+            return self.bias
+        return None
+
+    def __setitem__(self, key: str, value: Union[int, float, str, Tensor]) -> None:
+        if key == "weight":
+            self.weight = value
+        elif key == "bias":
+            self.bias = value
 
 
 @dataclass
@@ -31,4 +55,3 @@ class DescriptorCoolChic:
 # For now, it is only possible to have a Cool-chic encoder
 # with this name i.e. this key in frame_encoder.coolchic_enc
 NAME_COOLCHIC_ENC = Literal["residue", "motion"]
-

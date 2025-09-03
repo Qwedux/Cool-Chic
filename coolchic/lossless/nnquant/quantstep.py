@@ -56,9 +56,9 @@ def get_q_step_from_parameter_name(
             Return None if nothing is found.
     """
     if ".weight" in parameter_name:
-        current_q_step = q_step.get("weight")
+        current_q_step = q_step["weight"]
     elif ".bias" in parameter_name:
-        current_q_step = q_step.get("bias")
+        current_q_step = q_step["bias"]
     else:
         print(
             'Parameter name should include ".weight" or ".bias" '

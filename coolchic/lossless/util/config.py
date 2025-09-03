@@ -31,6 +31,7 @@ args = {
     "n_ft_per_res_residue": "1,1,1,1,1,1,1",
     "ups_k_size_residue": 8,
     "ups_preconcat_k_size_residue": 7,
+    "output_dim_size": 9,
     # training preset
     "patience": 5000,
     "schedule_lr": True,
@@ -40,8 +41,12 @@ args = {
     "quantizer_noise_type": "gaussian",
     "softround_temperature": (0.3, 0.1),
     "noise_parameter": (0.25, 0.1),
+    "pretrained_model_path": TEST_WORKDIR + "0000_trained_coolchic_img_rate_2.3217298719618054.pth",
+    "use_pretrained": False,
     # Other presets
-    "quantize_model": True
+    "quantize_model": True,
+    
+
 }
 
 
