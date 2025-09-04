@@ -1,27 +1,20 @@
 import os
 import sys
-
-# import glob
-
 sys.path.append(os.getcwd())
-
 import torch
 from lossless.component.coolchic import CoolChicEncoderParameter
 from lossless.component.image import (
     FrameEncoderManager,
 )
 from lossless.component.coolchic import CoolChicEncoder
-
 import numpy as np
 import cv2
-
-
 from lossless.util.config import (
     TEST_WORKDIR,
+    IMAGE_PATHS,
     args,
 )
-
-# from lossless.util.print_formatting import pretty_str_dict
+import random
 from lossless.util.parsecli import (
     change_n_out_synth,
     get_coolchic_param_from_args,
@@ -36,7 +29,9 @@ from lossless.training.loss import loss_function
 
 
 frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
-im = cv2.imread(filename=args["input"])
+im_path = IMAGE_PATHS[random.randint(0, len(IMAGE_PATHS))]
+print(im_path)
+im = cv2.imread(filename=im_path)
 assert im is not None, f"Failed to read image {args['input']}"
 im = im[:, :, ::-1]  # Convert BGR to RGB
 im_tensor = torch.from_numpy(im.copy()).float() / 255.0  # Normalize to [0, 1]
@@ -116,5 +111,5 @@ print(all_rates)
 
 torch.save(
     quantized_coolchic.state_dict(),
-    f"{TEST_WORKDIR}/{timestamp_string()}_trained_coolchic_img_rate_{all_rates['total_bpd']}.pth",
+    f"{TEST_WORKDIR}/{timestamp_string()}_trained_coolchic_{im_path.split('/')[-1]}_img_rate_{all_rates['total_bpd']}.pth",
 )
