@@ -1,10 +1,10 @@
 import os
 import glob
 
-DATASET_PATH = f"{os.getcwd()}/../datasets/kodak"
+DATASET_PATH = f"{os.getcwd()}/../datasets/synthetic"
 IMAGE_PATHS = sorted(
     glob.glob(f"{DATASET_PATH}/*.png"),
-    key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
+    # key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
 )
 TEST_WORKDIR = f"{os.getcwd()}/test-workdir/"
 PATH_COOL_CHIC_CFG = f"{os.getcwd()}/../cfg/"
@@ -22,7 +22,7 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 100000,
+    "n_itr": 10000,
     "n_train_loops": 1,
     "preset": "debug",
     # decoder side
