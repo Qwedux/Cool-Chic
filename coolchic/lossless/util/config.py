@@ -1,10 +1,10 @@
 import os
 import glob
 
-DATASET_PATH = f"{os.getcwd()}/../datasets/synthetic"
+DATASET_PATH = f"{os.getcwd()}/../datasets/kodak"
 IMAGE_PATHS = sorted(
     glob.glob(f"{DATASET_PATH}/*.png"),
-    # key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
+    key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
 )
 TEST_WORKDIR = f"{os.getcwd()}/test-workdir/"
 PATH_COOL_CHIC_CFG = f"{os.getcwd()}/../cfg/"
@@ -22,12 +22,12 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 10000,
+    "n_itr": 140000,
     "n_train_loops": 1,
     "preset": "debug",
     # decoder side
-    "layers_synthesis_residue": "16-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
-    "arm_residue": "8,2",
+    "layers_synthesis_residue": "48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
+    "arm_residue": "24,2",
     "n_ft_per_res_residue": "1,1,1,1,1,1,1",
     "ups_k_size_residue": 8,
     "ups_preconcat_k_size_residue": 7,
