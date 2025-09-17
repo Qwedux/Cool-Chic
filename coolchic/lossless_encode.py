@@ -29,7 +29,8 @@ from lossless.training.loss import loss_function
 
 
 frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
-im_path = IMAGE_PATHS[random.randint(0, len(IMAGE_PATHS))]
+# im_path = IMAGE_PATHS[random.randint(0, len(IMAGE_PATHS))]
+im_path = args["input"]
 print(im_path)
 im = cv2.imread(filename=im_path)
 assert im is not None, f"Failed to read image {args['input']}"
@@ -37,7 +38,6 @@ im = im[:, :, ::-1]  # Convert BGR to RGB
 im_tensor = torch.from_numpy(im.copy()).float() / 255.0  # Normalize to [0, 1]
 im_tensor = im_tensor.permute((2, 0, 1))[None,]  # Change to CxHxW
 im_tensor = im_tensor.to("cuda" if torch.cuda.is_available() else "cpu")
-
 
 encoder_param = CoolChicEncoderParameter(
     **get_coolchic_param_from_args(args, "residue")
@@ -113,3 +113,4 @@ torch.save(
     quantized_coolchic.state_dict(),
     f"{TEST_WORKDIR}/{timestamp_string()}_trained_coolchic_{im_path.split('/')[-1]}_img_rate_{all_rates['total_bpd']}.pth",
 )
+
