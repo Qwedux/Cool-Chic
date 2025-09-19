@@ -108,6 +108,10 @@ all_rates = {
     "network_bpd": total_network_rate,
 }
 print(all_rates)
+# save all_rates to a text file
+with open(f"{TEST_WORKDIR}/{timestamp_string()}_rates.txt", "a") as f:
+    f.write(f"{all_rates}\n")
+
 
 torch.save(
     quantized_coolchic.state_dict(),
