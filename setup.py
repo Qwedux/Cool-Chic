@@ -117,6 +117,7 @@ setup(
         "scipy",
         "opencv",
         "torchac",
+        "pandas",
     ],
 )
 
