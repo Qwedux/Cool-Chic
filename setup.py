@@ -115,6 +115,8 @@ setup(
         "pytest",
         "pytest-order",
         "scipy",
+        "opencv",
+        "torchac",
     ],
 )
 

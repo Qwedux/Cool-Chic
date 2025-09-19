@@ -8,11 +8,17 @@ IMAGE_PATHS = sorted(
 )
 TEST_WORKDIR = f"{os.getcwd()}/test-workdir/"
 PATH_COOL_CHIC_CFG = f"{os.getcwd()}/../cfg/"
+IMG_INDEX = 0
+with open(PATH_COOL_CHIC_CFG + "img_index.txt", "r") as f:
+    lines = f.readlines()
+    if len(lines) > 0:
+        IMG_INDEX = int(lines[0].strip())
+        assert 0 <= IMG_INDEX < len(IMAGE_PATHS), f"img_index.txt contains {IMG_INDEX}, but should be in [0, {len(IMAGE_PATHS)-1}]"
 
 
 args = {
     # not in config files
-    "input": IMAGE_PATHS[0],
+    "input": IMAGE_PATHS[IMG_INDEX],
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
     "lmbda": 1e-3,
