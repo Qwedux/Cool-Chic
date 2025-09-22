@@ -27,10 +27,16 @@ from lossless.util.distribution import get_scale, get_mu_scale, get_mu_and_scale
 from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 
+if len(sys.argv) < 2:
+    print("Usage: python3 lossless_encode.py <image_index>")
+    sys.exit(1)
+
+image_index = int(sys.argv[1])
+print(f"Processing image kodim_{'0' + str(image_index+1) if image_index < 9 else image_index+1}.png")
 
 frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
 # im_path = IMAGE_PATHS[random.randint(0, len(IMAGE_PATHS))]
-im_path = args["input"]
+im_path = args["input"][image_index]
 print(im_path)
 im = cv2.imread(filename=im_path)
 assert im is not None, f"Failed to read image {args['input']}"

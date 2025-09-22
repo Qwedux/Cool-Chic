@@ -18,7 +18,7 @@ with open(PATH_COOL_CHIC_CFG + "img_index.txt", "r") as f:
 
 args = {
     # not in config files
-    "input": IMAGE_PATHS[IMG_INDEX],
+    "input": IMAGE_PATHS,
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
     "lmbda": 1e-3,
@@ -28,7 +28,7 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 100,
+    "n_itr": 140000,
     "n_train_loops": 1,
     "preset": "debug",
     # decoder side
@@ -41,7 +41,7 @@ args = {
     # training preset
     "patience": 5000,
     "schedule_lr": True,
-    "freq_valid": 10,
+    "freq_valid": 100,
     "optimized_module": ["all"],
     "quantizer_type": "softround",
     "quantizer_noise_type": "gaussian",
