@@ -32,7 +32,7 @@ args = {
     "n_train_loops": 1,
     "preset": "debug",
     # decoder side
-    "layers_synthesis_residue": "24-1-linear-relu,24-3-residual-none,24-3-residual-relu,X-3-linear-none",
+    "layers_synthesis_residue": "48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_residue": "24,2",
     "n_ft_per_res_residue": "1,1,1,1,1,1,1",
     "ups_k_size_residue": 8,
