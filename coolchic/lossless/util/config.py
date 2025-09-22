@@ -7,7 +7,7 @@ IMAGE_PATHS = sorted(
     glob.glob(f"{DATASET_PATH}/*.png"),
     key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
 )
-TEST_WORKDIR = f"/itet-stor/jparada/net_scratch/Cool-Chic/coolchic/test-workdir/"
+TEST_WORKDIR = f"/itet-stor/jparada/net_scratch/Cool-Chic/coolchic/test-workdir"
 # PATH_COOL_CHIC_CFG = f"{os.getcwd()}/../cfg/"
 # IMG_INDEX = 0
 # with open(PATH_COOL_CHIC_CFG + "img_index.txt", "r") as f:

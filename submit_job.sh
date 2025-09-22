@@ -7,6 +7,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --exclude=tikgpu10,tikgpu[02-05]
+#SBATCH --array=0-23%4
 #CommentSBATCH --nodelist=tikgpu01 # Specify that it should run on this particular node
 #CommentSBATCH --account=tik-internal
 #CommentSBATCH --constraint='titan_rtx|tesla_v100|titan_xp|a100_80gb'
@@ -49,7 +50,7 @@ echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
-python3 lossless_encode.py $1
+python3 lossless_encode.py $SLURM_ARRAY_TASK_ID
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
