@@ -491,6 +491,7 @@ def test(
 
     # flag_additional_outputs set to True to obtain more output
     frame_encoder_out = model.forward(
+        image=frame,
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,

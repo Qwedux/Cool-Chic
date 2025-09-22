@@ -86,6 +86,7 @@ total_network_rate = float(total_network_rate)
 with torch.no_grad():
     # Forward pass with no quantization noise
     predicted_prior = quantized_coolchic.forward(
+        image=im_tensor,
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,
@@ -95,15 +96,18 @@ with torch.no_grad():
         predicted_prior, im_tensor, latent_multiplier=1.0
     )
 
-mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
-encoded_bytes = encode(im_tensor, mu, scale)
+# mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
+# encoded_bytes = encode(im_tensor, mu, scale)
+# assert predicted_priors_rates.rate_latent_bpd is not None
+# image_bpd = get_bits_per_pixel(768, 512, 3, encoded_bytes)
+assert predicted_priors_rates.rate_img_bpd is not None
 assert predicted_priors_rates.rate_latent_bpd is not None
-image_bpd = get_bits_per_pixel(768, 512, 3, encoded_bytes)
+
 all_rates = {
-    "total_bpd": image_bpd
+    "total_bpd": predicted_priors_rates.rate_img_bpd
     + predicted_priors_rates.rate_latent_bpd
     + float(total_network_rate),
-    "image_bpd": image_bpd,
+    "image_bpd": predicted_priors_rates.rate_img_bpd,
     "latent_bpd": predicted_priors_rates.rate_latent_bpd,
     "network_bpd": total_network_rate,
 }
