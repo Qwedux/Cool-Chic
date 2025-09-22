@@ -119,7 +119,7 @@ all_rates = {
 }
 print(all_rates)
 # save all_rates to a text file
-with open(f"{TEST_WORKDIR}/{timestamp_string()}_rates.txt", "a") as f:
+with open(f"{TEST_WORKDIR}/{timestamp_string()}_{im_path.split('/')[-1]}_rates.txt", "a") as f:
     f.write(f"{all_rates}\n")
 
 
