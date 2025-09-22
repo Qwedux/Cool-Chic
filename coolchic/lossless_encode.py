@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 from lossless.util.config import (
     TEST_WORKDIR,
-    IMAGE_PATHS,
+    # IMAGE_PATHS,
     args,
 )
 import random
