@@ -276,10 +276,12 @@ def train(
 
         # forward / backward
         out_forward = model.forward(
+            image=target_image,
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=cur_softround_temperature,
             noise_parameter=cur_noise_parameter,
+            # AC_MAX_VAL=31,
         )
 
         # print(out_forward["img_bpd"], out_forward["latent_bpd"])
@@ -376,7 +378,8 @@ def train(
             )
             cur_noise_parameter = torch.tensor(cur_noise_parameter, device=device)
 
-            if cosine_scheduling_lr:
+            if cosine_scheduling_lr is not None:
+                assert learning_rate_scheduler is not None
                 learning_rate_scheduler.step()
 
             model.train()
