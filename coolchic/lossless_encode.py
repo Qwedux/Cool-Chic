@@ -22,8 +22,8 @@ from lossless.util.parsecli import (
 )
 from lossless.util.misc import clean_workdir, timestamp_string
 from lossless.training.train import train
-from lossless.util.encoding import encode, get_bits_per_pixel
-from lossless.util.distribution import get_scale, get_mu_scale, get_mu_and_scale_linear_color
+# from lossless.util.encoding import encode, get_bits_per_pixel
+# from lossless.util.distribution import get_scale, get_mu_scale, get_mu_and_scale_linear_color
 from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 
