@@ -1,7 +1,8 @@
 import os
 import glob
 
-DATASET_PATH = f"{os.getcwd()}/../datasets/kodak"
+# DATASET_PATH = f"{os.getcwd()}/../datasets/kodak"
+DATASET_PATH = f"/itet-stor/jparada/net_scratch/datasets/kodak/"
 IMAGE_PATHS = sorted(
     glob.glob(f"{DATASET_PATH}/*.png"),
     key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
