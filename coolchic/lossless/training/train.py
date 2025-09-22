@@ -359,6 +359,9 @@ def train(
             print(
                 f"Iteration: {cnt+1}, "  + str(encoder_logs) #+ str(actuall_print_encoder_logs)
             )
+            # print cuda memory usage
+            # print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e6:.1f} MB")
+
             show_col_name = False
 
             # Update soft rounding temperature and noise_parameter
