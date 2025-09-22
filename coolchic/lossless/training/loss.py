@@ -96,8 +96,8 @@ class LossFunctionOutput():
 
     # Any other data required to compute some logs, stored inside a dictionary
     rate_nn_bpd: Optional[float] = None              # Rate associated to the neural networks [bpd]
-    rate_latent_bpd: Optional[Tensor] = None          # Rate associated to the latent          [bpd]
-    rate_img_bpd: Tensor                             # Rate associated to the image           [bpd]
+    rate_latent_bpd: Optional[float] = None          # Rate associated to the latent          [bpd]
+    rate_img_bpd: Optional[float] = None             # Rate associated to the image           [bpd]
 
     def __str__(self) -> str:
         return (f"Loss: {self.loss.item():.4f}, "

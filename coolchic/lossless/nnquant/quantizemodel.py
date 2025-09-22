@@ -182,6 +182,7 @@ def quantize_model(
 
             # Test Cool-chic performance with this quantization steps pair
             frame_encoder_out = model.forward(
+                image=image,
                 quantizer_noise_type="none",
                 quantizer_type="hardround",
                 AC_MAX_VAL=-1,
