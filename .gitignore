@@ -5,6 +5,7 @@ venv/
 *.pt
 *.png
 *.out
+*.err
 
 docs/build/
 .DS_Store
@@ -34,3 +35,4 @@ docs/
 .github/
 
 **/test-workdir/** 
+access_token
