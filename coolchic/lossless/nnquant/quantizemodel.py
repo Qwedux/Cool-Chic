@@ -24,7 +24,7 @@ from lossless.training.loss import loss_function, LossFunctionOutput
 from lossless.training.manager import FrameEncoderManager
 from lossless.component.coolchic import CoolChicEncoder
 from torch import Tensor
-
+from lossless.util.logger import TrainingLogger
 
 def _quantize_parameters(
     fp_param: OrderedDict[str, Tensor],
@@ -67,6 +67,7 @@ def quantize_model(
     model: CoolChicEncoder,
     image: Tensor,
     frame_encoder_manager: FrameEncoderManager,
+    logger: TrainingLogger,
 ) -> CoolChicEncoder:
     """Quantize a ``FrameEncoder`` compressing a ``Frame`` under a rate
     constraint ``lmbda`` and return it.
@@ -253,7 +254,7 @@ def quantize_model(
             "_quantize_parameters() failed with q_step "
             f"{model.nn_q_step[module_name]}"
         )
-        print(f"Best loss for module {module_name}: {best_loss}")
+        logger.log_result(f"Best loss for module {module_name}: {best_loss}")
 
         cur_module.set_param(q_param)
         # Plug the quantized module back into Cool-chic
@@ -261,7 +262,7 @@ def quantize_model(
 
     time_nn_quantization = time.time() - start_time
 
-    print(f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n")
+    logger.log_result(f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n")
     frame_encoder_manager.total_training_time_sec += time_nn_quantization
 
     return model
