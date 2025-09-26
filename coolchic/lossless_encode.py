@@ -56,6 +56,7 @@ encoder_param.layers_synthesis = change_n_out_synth(
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
 
+print(coolchic.size_per_latent)
 if args["use_pretrained"]:
     coolchic.load_state_dict(torch.load(args["pretrained_model_path"]))
 else:
@@ -78,53 +79,53 @@ else:
     )
 
 
-quantized_coolchic = CoolChicEncoder(param=encoder_param)
-quantized_coolchic.to_device("cuda:0")
-quantized_coolchic.set_param(coolchic.get_param())
-quantized_coolchic = quantize_model(
-    quantized_coolchic, im_tensor, frame_encoder_manager
-)
-rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
-total_network_rate /= im_tensor.numel()
-total_network_rate = float(total_network_rate)
+# quantized_coolchic = CoolChicEncoder(param=encoder_param)
+# quantized_coolchic.to_device("cuda:0")
+# quantized_coolchic.set_param(coolchic.get_param())
+# quantized_coolchic = quantize_model(
+#     quantized_coolchic, im_tensor, frame_encoder_manager
+# )
+# rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
+# total_network_rate /= im_tensor.numel()
+# total_network_rate = float(total_network_rate)
 
 
-with torch.no_grad():
-    # Forward pass with no quantization noise
-    predicted_prior = quantized_coolchic.forward(
-        image=im_tensor,
-        quantizer_noise_type="none",
-        quantizer_type="hardround",
-        AC_MAX_VAL=-1,
-        flag_additional_outputs=False,
-    )
-    predicted_priors_rates = loss_function(
-        predicted_prior, im_tensor, latent_multiplier=1.0
-    )
+# with torch.no_grad():
+#     # Forward pass with no quantization noise
+#     predicted_prior = quantized_coolchic.forward(
+#         image=im_tensor,
+#         quantizer_noise_type="none",
+#         quantizer_type="hardround",
+#         AC_MAX_VAL=-1,
+#         flag_additional_outputs=False,
+#     )
+#     predicted_priors_rates = loss_function(
+#         predicted_prior, im_tensor, latent_multiplier=1.0
+#     )
 
-# mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
-# encoded_bytes = encode(im_tensor, mu, scale)
+# # mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
+# # encoded_bytes = encode(im_tensor, mu, scale)
+# # assert predicted_priors_rates.rate_latent_bpd is not None
+# # image_bpd = get_bits_per_pixel(768, 512, 3, encoded_bytes)
+# assert predicted_priors_rates.rate_img_bpd is not None
 # assert predicted_priors_rates.rate_latent_bpd is not None
-# image_bpd = get_bits_per_pixel(768, 512, 3, encoded_bytes)
-assert predicted_priors_rates.rate_img_bpd is not None
-assert predicted_priors_rates.rate_latent_bpd is not None
 
-all_rates = {
-    "total_bpd": predicted_priors_rates.rate_img_bpd
-    + predicted_priors_rates.rate_latent_bpd
-    + float(total_network_rate),
-    "image_bpd": predicted_priors_rates.rate_img_bpd,
-    "latent_bpd": predicted_priors_rates.rate_latent_bpd,
-    "network_bpd": total_network_rate,
-}
-print(all_rates)
-# save all_rates to a text file
-with open(f"{TEST_WORKDIR}/{timestamp_string()}_{im_path.split('/')[-1]}_rates.txt", "a") as f:
-    f.write(f"{all_rates}\n")
+# all_rates = {
+#     "total_bpd": predicted_priors_rates.rate_img_bpd
+#     + predicted_priors_rates.rate_latent_bpd
+#     + float(total_network_rate),
+#     "image_bpd": predicted_priors_rates.rate_img_bpd,
+#     "latent_bpd": predicted_priors_rates.rate_latent_bpd,
+#     "network_bpd": total_network_rate,
+# }
+# print(all_rates)
+# # save all_rates to a text file
+# with open(f"{TEST_WORKDIR}/{timestamp_string()}_{im_path.split('/')[-1]}_rates.txt", "a") as f:
+#     f.write(f"{all_rates}\n")
 
 
-torch.save(
-    quantized_coolchic.state_dict(),
-    f"{TEST_WORKDIR}/{timestamp_string()}_trained_coolchic_{im_path.split('/')[-1]}_img_rate_{all_rates['total_bpd']}.pth",
-)
+# torch.save(
+#     quantized_coolchic.state_dict(),
+#     f"{TEST_WORKDIR}/{timestamp_string()}_trained_coolchic_{im_path.split('/')[-1]}_img_rate_{all_rates['total_bpd']}.pth",
+# )
 

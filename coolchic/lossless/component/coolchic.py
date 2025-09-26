@@ -437,13 +437,11 @@ class CoolChicEncoder(nn.Module):
             - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
             min=2**-16,  # No value can cost more than 16 bits.
         )
-        # print(proba.sum().detach().cpu().numpy(), torch.min(proba).detach().cpu().numpy(), torch.max(proba).detach().cpu().numpy())
         flat_rate = -torch.log2(proba)
 
         # Upsampling and synthesis to get the output
         ups_out = self.upsampling(decoder_side_latent)
         raw_synth_out = self.synthesis(ups_out)
-        # print(raw_synth_out.shape, "raw_synth_out.shape")
 
         image_context = []
         for channel in range(image.shape[1]):
@@ -455,7 +453,6 @@ class CoolChicEncoder(nn.Module):
                 )
             )
         flat_image_context = torch.cat(image_context, dim=1)
-        # print(flat_image_context.shape, "flat_image_context.shape")
         raw_image_arm_out = self.image_arm(flat_image_context, raw_synth_out.permute(0, 2, 3, 1).reshape(-1, raw_synth_out.shape[1]))
         reshaped_image_arm_out = raw_image_arm_out.view(raw_synth_out.shape[0], raw_synth_out.shape[2], raw_synth_out.shape[3], raw_synth_out.shape[1]).permute(0, 3, 1, 2)
         # # Upsample the output of the synthesis with a nearest neighbor if required
@@ -549,25 +546,23 @@ class CoolChicEncoder(nn.Module):
             # params = self.arm(context_flat)
         )
 
-        latent_rate = get_latent_rate(
-            flat_latent,
-            flat_mu,
-            flat_scale,
-            8,
-            16,
-        ).sum()
-        assert self.param.img_size is not None
-        latent_bpd = (
-            latent_rate / self.param.img_size[0] / self.param.img_size[1] / 3
-        )
-        # print(latent_bpd.detach().cpu().numpy(), "latent_bpd")
+        # latent_rate = get_latent_rate(
+        #     flat_latent,
+        #     flat_mu,
+        #     flat_scale,
+        #     8,
+        #     16,
+        # ).sum()        
+        # latent_bpd = (
+        #     latent_rate / self.param.img_size[0] / self.param.img_size[1] / 3
+        # )
 
-        # FIXME: do real bpd computations
+        assert self.param.img_size is not None
         res: CoolChicEncoderOutput = {
             "raw_out": reshaped_image_arm_out,
             "rate": flat_rate,
-            # "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
-            "latent_bpd": latent_bpd,
+            "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
+            # "latent_bpd": latent_bpd,
             "additional_data": additional_data,
         }
 
@@ -711,7 +706,6 @@ class CoolChicEncoder(nn.Module):
             FLOP (floating point operation)... We do the same here and call
             everything FLOP even though it would be more accurate to use MAC.
         """
-        # print("Ignoring get_flops")
         # Count the number of floating point operations here. It must be done before
         # torch scripting the different modules.
 

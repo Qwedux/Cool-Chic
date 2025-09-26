@@ -97,6 +97,7 @@ def discretized_logistic_logp(mu:Tensor, scale:Tensor, x:Tensor, bitdepth:int=8,
         x in [0, 1]
     '''
     # [0,255] -> [-1.1] (this means bin sizes of 2./255.)
+    # FIXME: here we could use clamping to avoid too small prob instead of scaling, as scaling changes the distribution
     n = 1 << bitdepth
     a = 2**(-freq_precision)
     prob = discretized_logistic_prob(mu, scale, x, bitdepth)
@@ -120,7 +121,7 @@ def get_mu_and_scale_linear_color(params:Tensor, x:Tensor)->Tuple[Tensor, Tensor
     # scale = get_scale(params[:, 3:6, ...])
     return mu, scale
 
-def weak_colorar_rate(params:Tensor, x:Tensor, bitdepth:int, freq_precision:int, log_nfreq:int=10) -> Tensor:
+def weak_colorar_rate(params:Tensor, x:Tensor, bitdepth:int, freq_precision:int) -> Tensor:
     '''
        params N 9 H W, x normalized to [0,1]
     '''
@@ -157,11 +158,9 @@ def get_latent_rate(x: Tensor, mu:Tensor, scale:Tensor, bitdepth:int, freq_preci
     n = 1 << bitdepth
     prob = laplace_cdf(x + 0.5, mu, scale) - laplace_cdf(x - 0.5, mu, scale)
 
-    # print(prob.sum().detach().cpu().numpy(), torch.min(prob).detach().cpu().numpy(), torch.max(prob).detach().cpu().numpy())
     a = float(2**(-freq_precision))
     prob = (1-n*a)*prob + a
-    # print("new_prob:", prob.sum().detach().cpu().numpy(), torch.min(prob).detach().cpu().numpy(), torch.max(prob).detach().cpu().numpy())
-    # prob = torch.clamp_min(prob, min=a)
+
     logp = torch.log2(prob)
     return -logp
 
