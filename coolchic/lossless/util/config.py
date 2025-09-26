@@ -1,13 +1,24 @@
 import os
 import glob
 
-# DATASET_PATH = f"{os.getcwd()}/../datasets/kodak"
-DATASET_PATH = f"/itet-stor/jparada/net_scratch/datasets/kodak/"
+# if path "/itet-stor/jparada/net_scratch/" exists, then set DATASET_PATH and TEST_WORKDIR accordingly
+
+if os.path.exists("/itet-stor/jparada/net_scratch/"):
+    BASE_PATH = "/itet-stor/jparada/net_scratch/"
+    DATASET_PATH = f"{BASE_PATH}/datasets/kodak/"
+    TEST_WORKDIR = f"{BASE_PATH}/Cool-Chic/coolchic/test-workdir"
+else:
+    BASE_PATH = f"{os.getcwd()}/../"
+    DATASET_PATH = f"{BASE_PATH}/datasets/kodak/"
+    TEST_WORKDIR = f"{BASE_PATH}/coolchic/test-workdir"
+
+
 IMAGE_PATHS = sorted(
     glob.glob(f"{DATASET_PATH}/*.png"),
     key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
 )
-TEST_WORKDIR = f"/itet-stor/jparada/net_scratch/Cool-Chic/coolchic/test-workdir"
+
+
 # PATH_COOL_CHIC_CFG = f"{os.getcwd()}/../cfg/"
 # IMG_INDEX = 0
 # with open(PATH_COOL_CHIC_CFG + "img_index.txt", "r") as f:
