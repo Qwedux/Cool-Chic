@@ -16,6 +16,7 @@ from enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
+
 # from lossless.component.frame import FrameEncoder
 from enc.io.format.yuv import convert_420_to_444
 from lossless.training.loss import loss_function
@@ -25,6 +26,7 @@ from enc.utils.codingstructure import Frame
 from lossless.training.manager import FrameEncoderManager
 from torch.nn.utils import clip_grad_norm_
 from lossless.component.coolchic import CoolChicEncoder
+from lossless.util.logger import TrainingLogger
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
 def _linear_schedule(
@@ -55,6 +57,7 @@ def train(
     model: CoolChicEncoder,
     target_image: torch.Tensor,
     frame_encoder_manager: FrameEncoderManager,
+    logger: TrainingLogger,
     lmbda: float = 1e-3,
     start_lr: float = 1e-2,
     cosine_scheduling_lr: bool = True,
@@ -66,7 +69,7 @@ def train(
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
     softround_temperature: Tuple[float, float] = (0.3, 0.2),
     noise_parameter: Tuple[float, float] = (2.0, 1.0),
-    loss_latent_multiplier:float = 0.0,
+    loss_latent_multiplier: float = 0.0,
 ) -> CoolChicEncoder:
     """Train a ``CoolChicEncoder`` and return the updated module. This function is
     supposed to be called any time we want to optimize the parameters of a
@@ -143,7 +146,6 @@ def train(
     """
     start_time = time.time()
 
-
     # ------ Keep track of the best loss and model
     # Perform a first test to get the current best logs (it includes the loss)
     initial_encoder_logs = test(model, target_image, frame_encoder_manager)
@@ -163,6 +165,7 @@ def train(
             break
         else:
             raise NotImplementedError("please optimize all modules for now")
+        _ = (
         # else:
         #     raw_cc_name, mod_name = cur_module_to_optimize.split(".")
 
@@ -204,13 +207,7 @@ def train(
         #                     parameters_to_optimize+= [
         #                         *model.warper.parameters()
         #                     ]
-        #                 else:
-        #                     print(
-        #                         "Trying to optimize warper but this is an I-frame, "
-        #                         "so it does not have a warper."
-        #                     )
-
-
+        )
 
     optimizer = torch.optim.Adam(parameters_to_optimize, lr=start_lr)
     best_optimizer_state = copy.deepcopy(optimizer.state_dict())
@@ -233,9 +230,10 @@ def train(
         0,
         max_iterations,
     )
-    # device = frame.data.data.device if frame.data.frame_data_type != "yuv420" else frame.data.data.get("y").device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    cur_softround_temperature = torch.tensor(cur_softround_temperature, device=device)
+    device = next(model.parameters()).device
+    cur_softround_temperature = torch.tensor(
+        cur_softround_temperature, device=device
+    )
 
     cur_noise_parameter = _linear_schedule(
         noise_parameter[0], noise_parameter[1], 0, max_iterations
@@ -244,18 +242,18 @@ def train(
     model.to(device)
 
     cnt_record = 0
-    show_col_name = True  # Only for a pretty display of the logs
     # Slightly faster to create the list once outside of the loop
     all_parameters = [x for x in model.parameters()]
 
     for cnt in range(max_iterations):
-        # print(sum(v.abs().sum() for _, v in best_model.items()))
 
         # ------- Patience mechanism
         if cnt - cnt_record > patience:
             if cosine_scheduling_lr:
                 # reload the best model so far
-                print("Reseting the model with the best model and smaller learning rate")
+                logger.log_training(
+                    "Reseting the model with the best model and smaller learning rate"
+                )
                 model.set_param(best_model)
                 optimizer.load_state_dict(best_optimizer_state)
 
@@ -281,56 +279,72 @@ def train(
             quantizer_type=quantizer_type,
             soft_round_temperature=cur_softround_temperature,
             noise_parameter=cur_noise_parameter,
-            # AC_MAX_VAL=31,
         )
 
-        # print(out_forward["img_bpd"], out_forward["latent_bpd"])
         loss_function_output = loss_function(
-            out_forward,
-            target_image,
-            latent_multiplier=loss_latent_multiplier
+            out_forward, target_image, latent_multiplier=loss_latent_multiplier
         )
         loss_function_output.loss.backward()
 
-        clip_grad_norm_(all_parameters, 1e-1, norm_type=2.0, error_if_nonfinite=False)
+        clip_grad_norm_(
+            all_parameters, 1e-1, norm_type=2.0, error_if_nonfinite=False
+        )
         optimizer.step()
 
         frame_encoder_manager.iterations_counter += 1
 
         # ------- Validation
         # Each freq_valid iteration or at the end of the phase, compute validation loss and log stuff
-        if ((cnt + 1) % frequency_validation == 0) or (cnt + 1 == max_iterations):
+        if ((cnt + 1) % frequency_validation == 0) or (
+            cnt + 1 == max_iterations
+        ):
             #  a. Update iterations counter and training time and test model
-            frame_encoder_manager.total_training_time_sec += time.time() - start_time
-            start_time = time.time()
+            current_time = time.time()
+            frame_encoder_manager.total_training_time_sec += (
+                current_time - start_time
+            )
+            start_time = current_time
 
             # b. Test the model and check whether we've beaten our record
-            encoder_logs = test(model, target_image, frame_encoder_manager, latent_multiplier=1.0)
+            encoder_logs = test(
+                model,
+                target_image,
+                frame_encoder_manager,
+                latent_multiplier=1.0,
+            )
 
             flag_new_record = False
-            # print(f"new img_bpd: {encoder_logs.rate_img_bpd}, old: {encoder_logs_best.rate_img_bpd}")
-            new_rate = encoder_logs.rate_img_bpd + encoder_logs.rate_latent_bpd * loss_latent_multiplier
-            best_old_rate = encoder_logs_best.rate_img_bpd + encoder_logs_best.rate_latent_bpd * loss_latent_multiplier
-            print(f"new rate is: {new_rate}, old rate is: {best_old_rate}")
+            new_rate = (
+                encoder_logs.rate_img_bpd
+                + encoder_logs.rate_latent_bpd * loss_latent_multiplier
+            )
+            best_old_rate = (
+                encoder_logs_best.rate_img_bpd
+                + encoder_logs_best.rate_latent_bpd * loss_latent_multiplier
+            )
+            logger.log_training(f"new rate is: {new_rate}, old rate is: {best_old_rate}")
             if new_rate < best_old_rate:
                 # A record must have at least -0.001 bpp or + 0.001 dB. A smaller improvement
                 # does not matter.
-                delta_psnr = encoder_logs_best.rate_img_bpd - encoder_logs.rate_img_bpd
+                delta_psnr = (
+                    encoder_logs_best.rate_img_bpd - encoder_logs.rate_img_bpd
+                )
                 delta_loss = encoder_logs_best.loss - encoder_logs.loss
                 flag_new_record = delta_psnr > 0.001 or delta_loss > 0.001
-                print(f"delta loss: {delta_loss}, flag new record: {flag_new_record}")
-
-            # print(f"flag new record is set to: {flag_new_record}")
+                logger.log_training(
+                    f"delta loss: {delta_loss}, flag new record: {flag_new_record}"
+                )
 
             if flag_new_record:
-                print("Found new best model!")
+                logger.log_training("Found new best model!")
                 # Save best model
                 best_model = model.get_param()
                 best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
                 # ========================= reporting ========================= #
                 this_phase_psnr_gain = (
-                    encoder_logs.rate_img_bpd - initial_encoder_logs.rate_img_bpd
+                    encoder_logs.rate_img_bpd
+                    - initial_encoder_logs.rate_img_bpd
                 )
 
                 log_new_record = ""
@@ -343,26 +357,23 @@ def train(
             else:
                 log_new_record = ""
 
-            # Show column name a single time
-            additional_data = {
-                "lr": f"{start_lr if not cosine_scheduling_lr else learning_rate_scheduler.get_last_lr()[0]:.4f}",
-                "optim": ",".join(optimized_module),
-                "patience": (patience - cnt + cnt_record) // frequency_validation,
-                "q_type": f"{quantizer_type:10s}",
-                "sr_temp": f"{cur_softround_temperature:.3f}",
-                "n_type": f"{quantizer_noise_type:12s}",
-                "noise": f"{cur_noise_parameter:.2f}",
-                "record": log_new_record,
-            }
+            # # Show column name a single time
+            # additional_data = {
+            #     "lr": f"{start_lr if not cosine_scheduling_lr else learning_rate_scheduler.get_last_lr()[0]:.4f}",
+            #     "optim": ",".join(optimized_module),
+            #     "patience": (patience - cnt + cnt_record)
+            #     // frequency_validation,
+            #     "q_type": f"{quantizer_type:10s}",
+            #     "sr_temp": f"{cur_softround_temperature:.3f}",
+            #     "n_type": f"{quantizer_noise_type:12s}",
+            #     "noise": f"{cur_noise_parameter:.2f}",
+            #     "record": log_new_record,
+            # } 
 
-            # actuall_print_encoder_logs = test(model, target_image, frame_encoder_manager, latent_multiplier=1.0)
-            print(
-                f"Iteration: {cnt+1}, "  + str(encoder_logs) #+ str(actuall_print_encoder_logs)
+            logger.log_training(
+                f"Iteration: {cnt+1}, "
+                + str(encoder_logs)
             )
-            # print cuda memory usage
-            # print(f"CUDA memory allocated: {torch.cuda.memory_allocated()/1e6:.1f} MB")
-
-            show_col_name = False
 
             # Update soft rounding temperature and noise_parameter
             cur_softround_temperature = _linear_schedule(
@@ -371,7 +382,9 @@ def train(
                 cnt,
                 max_iterations,
             )
-            cur_softround_temperature = torch.tensor(cur_softround_temperature, device=device)
+            cur_softround_temperature = torch.tensor(
+                cur_softround_temperature, device=device
+            )
 
             cur_noise_parameter = _linear_schedule(
                 noise_parameter[0],
@@ -379,7 +392,9 @@ def train(
                 cnt,
                 max_iterations,
             )
-            cur_noise_parameter = torch.tensor(cur_noise_parameter, device=device)
+            cur_noise_parameter = torch.tensor(
+                cur_noise_parameter, device=device
+            )
 
             if cosine_scheduling_lr is not None:
                 assert learning_rate_scheduler is not None
@@ -389,8 +404,9 @@ def train(
 
     # At the end of the training, we load the best model
     model.set_param(best_model)
-    encoder_logs = test(model, target_image, frame_encoder_manager, latent_multiplier=1.0)
-    print(
-        f"At the end of the training: "  + str(encoder_logs) #+ str(actuall_print_encoder_logs)
+    frame_encoder_manager.total_training_time_sec += time.time() - start_time
+    encoder_logs = test(
+        model, target_image, frame_encoder_manager, latent_multiplier=1.0
     )
+    logger.log_result(f"At the end of the training: " + str(encoder_logs))
     return model
