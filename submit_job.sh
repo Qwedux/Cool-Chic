@@ -4,9 +4,9 @@
 #SBATCH --error=/itet-stor/jparada/net_scratch/Cool-Chic/coolchic/jobs/%j.err # where to store error messages
 #SBATCH --mem=10G
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=tikgpu10,tikgpu[02-05]
+#SBATCH --exclude=hardin01,tikgpu[02-05],tikgpu[06-10]
 #SBATCH --array=0-23%4
 #CommentSBATCH --nodelist=tikgpu01 # Specify that it should run on this particular node
 #CommentSBATCH --account=tik-internal
@@ -43,14 +43,13 @@ echo "In directory: $(pwd)"
 echo "Starting on: $(date)"
 echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 
-
 [[ -f /itet-stor/${ETH_USERNAME}/net_scratch/conda/bin/conda ]] && eval "$(/itet-stor/${ETH_USERNAME}/net_scratch/conda/bin/conda shell.bash hook)"
 conda activate ${CONDA_ENVIRONMENT}
 echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
-python3 lossless_encode.py $SLURM_ARRAY_TASK_ID
+python3 -u lossless_encode.py $SLURM_ARRAY_TASK_ID
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"

@@ -86,42 +86,48 @@ from lossless.util.distribution import weak_colorar_rate
 #         return mse
 
 
-
 @dataclass(kw_only=True)
-class LossFunctionOutput():
+class LossFunctionOutput:
     """Output for Encoder.loss_function"""
+
     # ----- This is the important output
     # Optional to allow easy inheritance by EncoderLogs
-    loss: torch.Tensor                                        # The RD cost to optimize
+    loss: torch.Tensor  # The RD cost to optimize
 
     # Any other data required to compute some logs, stored inside a dictionary
-    rate_nn_bpd: Optional[float] = None              # Rate associated to the neural networks [bpd]
-    rate_latent_bpd: Optional[float] = None          # Rate associated to the latent          [bpd]
-    rate_img_bpd: Optional[float] = None             # Rate associated to the image           [bpd]
+    rate_nn_bpd: float  # Rate associated to the neural networks [bpd]
+    rate_latent_bpd: float  # Rate associated to the latent          [bpd]
+    rate_img_bpd: float  # Rate associated to the image           [bpd]
 
     def __str__(self) -> str:
-        return (f"Loss: {self.loss.item():.4f}, "
-                f"Rate NN: {self.rate_nn_bpd:.4f}, "
-                f"Rate Latent: {self.rate_latent_bpd:.4f}, "
-                f"Rate Img: {self.rate_img_bpd:.4f}")
+        return (
+            f"Loss: {self.loss.item()}, "
+            f"Rate NN: {self.rate_nn_bpd}, "
+            f"Rate Latent: {self.rate_latent_bpd}, "
+            f"Rate Img: {self.rate_img_bpd}"
+        )
+
 
 def loss_function(
     encoder_out: CoolChicEncoderOutput,
     img_tensor: torch.Tensor,
-    rate_mlp_bpd: float = 0.,
-    latent_multiplier: float = 0.00
+    rate_mlp_bpd: float = 0.0,
+    latent_multiplier: float = 0.00,
 ) -> LossFunctionOutput:
-    img_rates = weak_colorar_rate(
-        encoder_out["raw_out"], img_tensor, 8, 15
-    )
+    img_rates = weak_colorar_rate(encoder_out["raw_out"], img_tensor, 8, 15)
     img_bpd = img_rates.sum() / img_tensor.numel()
-    loss = img_bpd + rate_mlp_bpd + encoder_out["latent_bpd"] * latent_multiplier
+    loss = (
+        img_bpd + rate_mlp_bpd + encoder_out["latent_bpd"] * latent_multiplier
+    )
     return LossFunctionOutput(
         loss=loss,
         rate_nn_bpd=rate_mlp_bpd,
-        rate_latent_bpd=encoder_out["latent_bpd"] * latent_multiplier,
-        rate_img_bpd=img_bpd
+        rate_latent_bpd=float(
+            (encoder_out["latent_bpd"] * latent_multiplier).detach().item()
+        ),
+        rate_img_bpd=float(img_bpd.detach().item()),
     )
+
 
 # def loss_function(
 #     decoded_image: Union[Tensor, DictTensorYUV],

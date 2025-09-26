@@ -1,38 +1,32 @@
 import os
 import glob
 
-# if path "/itet-stor/jparada/net_scratch/" exists, then set DATASET_PATH and TEST_WORKDIR accordingly
-
 if os.path.exists("/itet-stor/jparada/net_scratch/"):
     BASE_PATH = "/itet-stor/jparada/net_scratch/"
-    DATASET_PATH = f"{BASE_PATH}/datasets/kodak/"
-    TEST_WORKDIR = f"{BASE_PATH}/Cool-Chic/coolchic/test-workdir"
+    DATASET_PATH = f"{BASE_PATH}datasets/clic2024/"
+    TEST_WORKDIR = f"{BASE_PATH}Cool-Chic/coolchic/test-workdir/"
+    LOG_PATH = "/home/jparada/logs/"
 else:
     BASE_PATH = f"{os.getcwd()}/../"
-    DATASET_PATH = f"{BASE_PATH}/datasets/kodak/"
-    TEST_WORKDIR = f"{BASE_PATH}/coolchic/test-workdir"
-
+    DATASET_PATH = f"{BASE_PATH}datasets/clic2024/"
+    TEST_WORKDIR = f"{BASE_PATH}coolchic/test-workdir/"
+    LOG_PATH = f"{BASE_PATH}logs/"
 
 IMAGE_PATHS = sorted(
-    glob.glob(f"{DATASET_PATH}/*.png"),
-    key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
+    glob.glob(f"{DATASET_PATH}*.png"),
+    # key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
 )
 
-
-# PATH_COOL_CHIC_CFG = f"{os.getcwd()}/../cfg/"
-# IMG_INDEX = 0
-# with open(PATH_COOL_CHIC_CFG + "img_index.txt", "r") as f:
-#     lines = f.readlines()
-#     if len(lines) > 0:
-#         IMG_INDEX = int(lines[0].strip())
-#         assert 0 <= IMG_INDEX < len(IMAGE_PATHS), f"img_index.txt contains {IMG_INDEX}, but should be in [0, {len(IMAGE_PATHS)-1}]"
-
-
 args = {
-    # not in config files
+    # paths
+    "BASE_PATH": BASE_PATH,
+    "DATASET_PATH": DATASET_PATH,
+    "TEST_WORKDIR": TEST_WORKDIR,
+    "LOG_PATH": LOG_PATH,
     "input": IMAGE_PATHS,
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
+
     "lmbda": 1e-3,
     "job_duration_min": -1,
     "print_detailed_archi": False,
@@ -40,7 +34,7 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 140000,
+    "n_itr": 100,
     "n_train_loops": 1,
     "preset": "debug",
     # decoder side
@@ -63,10 +57,46 @@ args = {
     "use_pretrained": False,
     # Other presets
     "quantize_model": True,
-    
-
 }
 
+def str_args(args: dict) -> str:
+    included_keys = [
+        "DATASET_PATH",
+        "TEST_WORKDIR",
+        "LOG_PATH",
+        "workdir",
+        "lmbda",
+        "job_duration_min",
+        "print_detailed_archi",
+        "print_detailed_struct",
+
+        "start_lr",
+        "n_itr",
+        "n_train_loops",
+        "preset",
+        # decoder side
+        "layers_synthesis_residue",
+        "arm_residue",
+        "n_ft_per_res_residue",
+        "ups_k_size_residue",
+        "ups_preconcat_k_size_residue",
+        "output_dim_size",
+        # training preset
+        "patience",
+        "schedule_lr",
+        "freq_valid",
+        "optimized_module",
+        "quantizer_type",
+        "quantizer_noise_type",
+        "softround_temperature",
+        "noise_parameter",
+        # Other presets
+        "quantize_model",
+    ]
+    s = "Arguments:\n"
+    for k in included_keys:
+        s += f"  {k}: {args[k]}\n"
+    return s
 
 start_print = (
     "\n\n"

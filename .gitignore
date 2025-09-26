@@ -36,3 +36,4 @@ docs/
 
 **/test-workdir/** 
 access_token
+logs/*
