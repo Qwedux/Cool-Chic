@@ -10,9 +10,11 @@
 from typing import OrderedDict, Tuple
 
 import torch
+
 # import torch.nn.functional as F
-from torch import Tensor, nn #, index_select
+from torch import Tensor, nn  # , index_select
 from lossless.component.core.arm import ArmLinear
+
 
 class ImageArm(nn.Module):
     """Instantiate an autoregressive probability module, modelling the
@@ -62,7 +64,6 @@ class ImageArm(nn.Module):
                 a linear ARM.
         """
         super().__init__()
-
         assert dim_arm % 8 == 0, (
             f"ARM context size and hidden layer dimension must be "
             f"a multiple of 8. Found {dim_arm}."
@@ -71,12 +72,14 @@ class ImageArm(nn.Module):
 
         # ======================== Construct the MLP ======================== #
         layers_list = nn.ModuleList()
-        # the image has 3 channels, so the input is 3*dim_arm
-        layers_list.append(ArmLinear(dim_arm * 3 + output_dim, dim_arm, residual=False))
+        # we have dim_arm context pixels and output_dim parameters to residualy correct
+        layers_list.append(
+            ArmLinear(dim_arm + output_dim, dim_arm, residual=False)
+        )
         layers_list.append(nn.ReLU())
 
         # Construct the hidden layer(s)
-        for i in range(n_hidden_layers_arm-1):
+        for i in range(n_hidden_layers_arm - 1):
             layers_list.append(ArmLinear(dim_arm, dim_arm, residual=True))
             layers_list.append(nn.ReLU())
 
@@ -85,7 +88,9 @@ class ImageArm(nn.Module):
         self.mlp = nn.Sequential(*layers_list)
         # ======================== Construct the MLP ======================== #
 
-    def forward(self, x: Tensor, synthesis_proba: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(
+        self, x: Tensor, synthesis_proba: Tensor
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """Perform the auto-regressive module (ARM) forward pass. The ARM takes
         as input a tensor of shape :math:`[B, C]` i.e. :math:`B` contexts with
         :math:`C` context pixels. ARM outputs :math:`[B, 2]` values correspond
@@ -120,7 +125,9 @@ class ImageArm(nn.Module):
         """
         raw_out = self.mlp(torch.cat([x, synthesis_proba], dim=1))
         raw_proba_param, gate = raw_out.chunk(2, dim=1)
-        out_proba_param = synthesis_proba + raw_proba_param * torch.sigmoid(gate)
+        out_proba_param = synthesis_proba + raw_proba_param * torch.sigmoid(
+            gate
+        )
 
         return out_proba_param
 
@@ -131,7 +138,9 @@ class ImageArm(nn.Module):
             A copy of all weights & biases in the layers.
         """
         # Detach & clone to create a copy
-        return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
+        return OrderedDict(
+            {k: v.detach().clone() for k, v in self.named_parameters()}
+        )
 
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
         """Replace the current parameters of the module with param.
