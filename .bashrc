@@ -17,4 +17,3 @@ log_command() {
 
 # Hook into Bash PROMPT_COMMAND
 export PROMPT_COMMAND="log_command; $PROMPT_COMMAND"
-source .venv/bin/activate
