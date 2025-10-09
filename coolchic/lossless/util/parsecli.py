@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 
+
 def parse_synthesis_layers(layers_synthesis: str) -> List[str]:
     """The layers of the synthesis are presented in as a coma-separated string.
     This simply splits up the different substrings and return them.
@@ -78,31 +79,33 @@ def get_coolchic_param_from_args(
         "ups_preconcat_k_size": args[
             f"ups_preconcat_k_size_{coolchic_enc_name}"
         ],
+        "arm_image_context_size": int(args[f"arm_image_context_size"]),
     }
 
     # Add ARM parameters
     coolchic_param.update(parse_arm_archi(args[f"arm_{coolchic_enc_name}"]))
-
     return coolchic_param
 
+
 def change_n_out_synth(layers_synth: List[str], n_out: int) -> List[str]:
-        """Change the number of output features in the list of strings
-        describing the synthesis architecture. It replaces "X" with n_out. E.g.
+    """Change the number of output features in the list of strings
+    describing the synthesis architecture. It replaces "X" with n_out. E.g.
 
-        From [8-1-linear-relu,X-1-linear-none,X-3-residual-none]
-        To   [8-1-linear-relu,2-1-linear-none,2-3-residual-none]
+    From [8-1-linear-relu,X-1-linear-none,X-3-residual-none]
+    To   [8-1-linear-relu,2-1-linear-none,2-3-residual-none]
 
-        If n_out = 2
+    If n_out = 2
 
-        Args:
-            layers_synth (List[str]): List of strings describing the different
-                synthesis layers
-            n_out (int): Number of desired output.
+    Args:
+        layers_synth (List[str]): List of strings describing the different
+            synthesis layers
+        n_out (int): Number of desired output.
 
-        Returns:
-            List[str]: List of strings with the proper number of output features.
-        """
-        return [lay.replace("X", str(n_out)) for lay in layers_synth]
+    Returns:
+        List[str]: List of strings with the proper number of output features.
+    """
+    return [lay.replace("X", str(n_out)) for lay in layers_synth]
+
 
 def get_manager_from_args(args: dict) -> Dict[str, Any]:
     """Perform some check on the argparse object used to collect the command

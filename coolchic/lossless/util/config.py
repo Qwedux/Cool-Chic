@@ -8,7 +8,7 @@ if os.path.exists("/itet-stor/jparada/net_scratch/"):
     LOG_PATH = "/home/jparada/logs/"
 else:
     BASE_PATH = f"{os.getcwd()}/../"
-    DATASET_PATH = f"{BASE_PATH}datasets/clic2024/"
+    DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
     TEST_WORKDIR = f"{BASE_PATH}coolchic/test-workdir/"
     LOG_PATH = f"{BASE_PATH}logs/"
 
@@ -40,6 +40,7 @@ args = {
     # decoder side
     "layers_synthesis_residue": "48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_residue": "24,2",
+    "arm_image_context_size": "8",
     "n_ft_per_res_residue": "1,1,1,1,1,1,1",
     "ups_k_size_residue": 8,
     "ups_preconcat_k_size_residue": 7,
@@ -77,6 +78,7 @@ def str_args(args: dict) -> str:
         # decoder side
         "layers_synthesis_residue",
         "arm_residue",
+        "arm_image_context_size",
         "n_ft_per_res_residue",
         "ups_k_size_residue",
         "ups_preconcat_k_size_residue",
