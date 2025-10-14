@@ -12,6 +12,7 @@ def load_image_as_tensor(image_path, device="cuda:0", color_space="YCoCg"):
 
     c_bitdepths = color_transform.ColorBitdepths
     if color_space == "YCoCg":
+        print("Converting image to YCoCg color space")
         im_ycocg = color_transform.rgb_to_ycocg(im)
         im_rgb = color_transform.ycocg_to_rgb(im_ycocg)
         assert (
@@ -22,6 +23,7 @@ def load_image_as_tensor(image_path, device="cuda:0", color_space="YCoCg"):
         ]  # Change to CxHxW
         c_bitdepths = color_transform.YCoCgBitdepths()
     elif color_space == "RGB":
+        print("Using image in RGB color space")
         im_tensor = (torch.from_numpy(im).float() / 255.0).permute((2, 0, 1))[
             None,
         ]  # Change to CxHxW
