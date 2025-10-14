@@ -25,6 +25,8 @@ from lossless.training.manager import FrameEncoderManager
 from lossless.component.coolchic import CoolChicEncoder
 from torch import Tensor
 from lossless.util.logger import TrainingLogger
+from lossless.util.color_transform import ColorBitdepths
+
 
 def _quantize_parameters(
     fp_param: OrderedDict[str, Tensor],
@@ -68,6 +70,7 @@ def quantize_model(
     image: Tensor,
     frame_encoder_manager: FrameEncoderManager,
     logger: TrainingLogger,
+    color_bitdepths: ColorBitdepths,
 ) -> CoolChicEncoder:
     """Quantize a ``FrameEncoder`` compressing a ``Frame`` under a rate
     constraint ``lmbda`` and return it.
@@ -234,6 +237,7 @@ def quantize_model(
                 image,
                 rate_mlp_bpd=total_rate_nn_bit / image.numel(),
                 latent_multiplier=1.0,
+                channel_ranges=color_bitdepths,
             )
 
             # Store best quantization steps
@@ -262,7 +266,9 @@ def quantize_model(
 
     time_nn_quantization = time.time() - start_time
 
-    logger.log_result(f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n")
+    logger.log_result(
+        f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n"
+    )
     frame_encoder_manager.total_training_time_sec += time_nn_quantization
 
     return model

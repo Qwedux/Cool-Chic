@@ -17,6 +17,7 @@ from torch import Tensor
 from typing import Any
 from lossless.component.coolchic import CoolChicEncoderOutput
 from lossless.util.distribution import weak_colorar_rate
+from lossless.util.color_transform import ColorBitdepths
 
 # @dataclass(kw_only=True)
 # class LossFunctionOutput():
@@ -49,43 +50,6 @@ from lossless.util.distribution import weak_colorar_rate
 #         self.total_rate_bpp = self.total_rate_latent_bpp + self.total_rate_nn_bpp
 
 
-# def _compute_mse(
-#     x: Union[Tensor, DictTensorYUV], y: Union[Tensor, DictTensorYUV]
-# ) -> Tensor:
-#     """Compute the Mean Squared Error between two images. Both images can
-#     either be a single tensor, or a dictionary of tensors with one for each
-#     color channel. In case of images with multiple channels, the final MSE
-#     is obtained by averaging the MSE for each color channel, weighted by the
-#     number of pixels. E.g. for YUV 420:
-#         MSE = (4 * MSE_Y + MSE_U + MSE_V) / 6
-
-#     Args:
-#         x (Union[Tensor, DictTensorYUV]): One of the two inputs
-#         y (Union[Tensor, DictTensorYUV]): The other input
-
-#     Returns:
-#         Tensor: One element tensor containing the MSE of x and y.
-#     """
-#     flag_420 = not (isinstance(x, Tensor))
-
-#     if not flag_420:
-#         return ((x - y) ** 2).mean()
-#     else:
-#         # Total number of pixels for all channels
-#         total_pixels_yuv = 0.0
-
-#         # MSE weighted by the number of pixels in each channels
-#         mse = torch.zeros((1), device=x.get("y").device)
-#         for (_, x_channel), (_, y_channel) in zip(x.items(), y.items()):
-#             n_pixels_channel = x_channel.numel()
-#             mse = (
-#                 mse + torch.pow((x_channel - y_channel), 2.0).mean() * n_pixels_channel
-#             )
-#             total_pixels_yuv += n_pixels_channel
-#         mse = mse / total_pixels_yuv
-#         return mse
-
-
 @dataclass(kw_only=True)
 class LossFunctionOutput:
     """Output for Encoder.loss_function"""
@@ -111,10 +75,13 @@ class LossFunctionOutput:
 def loss_function(
     encoder_out: CoolChicEncoderOutput,
     img_tensor: torch.Tensor,
+    channel_ranges: ColorBitdepths,
     rate_mlp_bpd: float = 0.0,
     latent_multiplier: float = 0.00,
 ) -> LossFunctionOutput:
-    img_rates = weak_colorar_rate(encoder_out["raw_out"], img_tensor, 8, 15)
+    img_rates = weak_colorar_rate(
+        encoder_out["raw_out"], img_tensor, channel_ranges
+    )
     img_bpd = img_rates.sum() / img_tensor.numel()
     loss = (
         img_bpd + rate_mlp_bpd + encoder_out["latent_bpd"] * latent_multiplier
