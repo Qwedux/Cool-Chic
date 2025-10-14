@@ -36,7 +36,7 @@ assert color_space in [
 ], f"Invalid color space {color_space}, must be YCoCg or RGB"
 
 im_path = args["input"][image_index]
-im_tensor, c_bitdepths = load_image_as_tensor(im_path, device="cuda:0")
+im_tensor, c_bitdepths = load_image_as_tensor(im_path, device="cuda:0", color_space=color_space)
 print(f"Loaded image {im_path} with shape {im_tensor.shape}")
 dataset = im_path.split("/")[-2]
 
@@ -46,6 +46,7 @@ logger = TrainingLogger(
 )
 logger.log_result(f"{str_args(args)}")
 logger.log_result(f"Processing image {im_path}")
+logger.log_result(f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}")
 
 frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(
