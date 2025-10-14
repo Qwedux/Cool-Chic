@@ -18,15 +18,16 @@ from enc.component.core.quantizer import (
 )
 
 # from lossless.component.frame import FrameEncoder
-from enc.io.format.yuv import convert_420_to_444
+# from enc.io.format.yuv import convert_420_to_444
 from lossless.training.loss import loss_function
 from lossless.training.presets import MODULE_TO_OPTIMIZE
 from lossless.training.test import test
-from enc.utils.codingstructure import Frame
+# from enc.utils.codingstructure import Frame
 from lossless.training.manager import FrameEncoderManager
 from torch.nn.utils import clip_grad_norm_
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.util.logger import TrainingLogger
+from lossless.util.color_transform import ColorBitdepths
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
 def _linear_schedule(
@@ -58,6 +59,7 @@ def train(
     target_image: torch.Tensor,
     frame_encoder_manager: FrameEncoderManager,
     logger: TrainingLogger,
+    color_bitdepths: ColorBitdepths,
     lmbda: float = 1e-3,
     start_lr: float = 1e-2,
     cosine_scheduling_lr: bool = True,
@@ -148,7 +150,7 @@ def train(
 
     # ------ Keep track of the best loss and model
     # Perform a first test to get the current best logs (it includes the loss)
-    initial_encoder_logs = test(model, target_image, frame_encoder_manager)
+    initial_encoder_logs = test(model, target_image, frame_encoder_manager, color_bitdepths=color_bitdepths)
     encoder_logs_best = initial_encoder_logs
     best_model = model.get_param()
 
@@ -282,7 +284,7 @@ def train(
         )
 
         loss_function_output = loss_function(
-            out_forward, target_image, latent_multiplier=loss_latent_multiplier
+            out_forward, target_image, latent_multiplier=loss_latent_multiplier, channel_ranges=color_bitdepths
         )
         loss_function_output.loss.backward()
 
@@ -311,6 +313,7 @@ def train(
                 target_image,
                 frame_encoder_manager,
                 latent_multiplier=1.0,
+                color_bitdepths=color_bitdepths,
             )
 
             flag_new_record = False
@@ -406,7 +409,7 @@ def train(
     model.set_param(best_model)
     frame_encoder_manager.total_training_time_sec += time.time() - start_time
     encoder_logs = test(
-        model, target_image, frame_encoder_manager, latent_multiplier=1.0
+        model, target_image, frame_encoder_manager, latent_multiplier=1.0, color_bitdepths=color_bitdepths
     )
     logger.log_result(f"At the end of the training: " + str(encoder_logs))
     return model

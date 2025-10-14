@@ -15,7 +15,11 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from enc.component.types import DescriptorCoolChic, DescriptorNN
 import torch
 import torch.nn.functional as F
-from lossless.component.frame import FrameEncoder, FrameEncoderOutput, NAME_COOLCHIC_ENC
+from lossless.component.frame import (
+    FrameEncoder,
+    FrameEncoderOutput,
+    NAME_COOLCHIC_ENC,
+)
 from enc.io.format.yuv import convert_420_to_444
 from lossless.training.loss import (
     LossFunctionOutput,
@@ -26,6 +30,8 @@ from enc.utils.codingstructure import Frame
 from lossless.training.manager import FrameEncoderManager
 from torch import Tensor
 from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
+from lossless.util.color_transform import ColorBitdepths
+
 
 @dataclass
 class FrameEncoderLogs(LossFunctionOutput):
@@ -41,7 +47,9 @@ class FrameEncoderLogs(LossFunctionOutput):
     """
 
     loss_function_output: LossFunctionOutput  # All outputs from the loss function, will be copied is __post_init__
-    cool_chic_encoder_output: CoolChicEncoderOutput  # Output of frame encoder forward
+    cool_chic_encoder_output: (
+        CoolChicEncoderOutput  # Output of frame encoder forward
+    )
     original_frame: Tensor  # Non coded frame
 
     detailed_rate_nn: Dict[
@@ -77,7 +85,9 @@ class FrameEncoderLogs(LossFunctionOutput):
     rate_latent_motion_bpp: float = field(init=False)
 
     # ----- Inter coding module outputs
-    alpha: Optional[Tensor] = field(init=False, default=None)  # Inter / intra switch
+    alpha: Optional[Tensor] = field(
+        init=False, default=None
+    )  # Inter / intra switch
     beta: Optional[Tensor] = field(
         init=False, default=None
     )  # Bi-directional prediction weighting
@@ -88,14 +98,20 @@ class FrameEncoderLogs(LossFunctionOutput):
     flow_2: Optional[Tensor] = field(
         init=False, default=None
     )  # Optical flow for the second reference
-    pred: Optional[Tensor] = field(init=False, default=None)  # Temporal prediction
+    pred: Optional[Tensor] = field(
+        init=False, default=None
+    )  # Temporal prediction
     masked_pred: Optional[Tensor] = field(
         init=False, default=None
     )  # Temporal prediction * alpha
 
     # ----- Compute prediction performance
-    alpha_mean: Optional[float] = field(init=False, default=None)  # Mean value of alpha
-    beta_mean: Optional[float] = field(init=False, default=None)  # Mean value of beta
+    alpha_mean: Optional[float] = field(
+        init=False, default=None
+    )  # Mean value of alpha
+    beta_mean: Optional[float] = field(
+        init=False, default=None
+    )  # Mean value of beta
     pred_psnr_db: Optional[float] = field(
         init=False, default=None
     )  # PSNR of the prediction
@@ -109,11 +125,15 @@ class FrameEncoderLogs(LossFunctionOutput):
     display_order: int = field(
         init=False
     )  # Index of the current frame in display order
-    coding_order: int = field(init=False)  # Index of the current frame in coding order
+    coding_order: int = field(
+        init=False
+    )  # Index of the current frame in coding order
     frame_offset: int = field(
         init=False, default=0
     )  # Skip the first <frame_offset> frames of the video
-    seq_name: str = field(init=False)  # Name of the sequence to which this frame belong
+    seq_name: str = field(
+        init=False
+    )  # Name of the sequence to which this frame belong
 
     # ----- Neural network rate in bit per pixels
     detailed_rate_nn_bpp: DescriptorCoolChic = field(
@@ -126,7 +146,10 @@ class FrameEncoderLogs(LossFunctionOutput):
             setattr(self, f.name, getattr(self.loss_function_output, f.name))
 
         # ----- Retrieve info from the frame
-        self.img_size = (self.original_frame.shape[2], self.original_frame.shape[3])
+        self.img_size = (
+            self.original_frame.shape[2],
+            self.original_frame.shape[3],
+        )
         self.n_pixels = self.original_frame.numel()
 
         # ----- Information related to nn net rate / quantization & exp-golomb
@@ -136,7 +159,9 @@ class FrameEncoderLogs(LossFunctionOutput):
         # are always filled.
 
         # Divide each entry of self.detailed_rate_nn by the number of pixel
-        self.detailed_rate_nn_bpp: Dict[NAME_COOLCHIC_ENC, DescriptorCoolChic] = {}
+        self.detailed_rate_nn_bpp: Dict[
+            NAME_COOLCHIC_ENC, DescriptorCoolChic
+        ] = {}
 
         # Loop on all possible cool-chic encoder name
         for cc_name in typing.get_args(NAME_COOLCHIC_ENC):
@@ -149,20 +174,27 @@ class FrameEncoderLogs(LossFunctionOutput):
                 # Loop on weight and biases
                 for weight_or_bias in [x.name for x in fields(DescriptorNN)]:
                     # Convert the value to bpp if we have one
-                    if cc_name in self.detailed_rate_nn and nn_name in self.detailed_rate_nn[cc_name]:
-                        self.detailed_rate_nn_bpp[cc_name][nn_name][weight_or_bias] = (
-                            self.detailed_rate_nn[cc_name][nn_name][weight_or_bias]
+                    if (
+                        cc_name in self.detailed_rate_nn
+                        and nn_name in self.detailed_rate_nn[cc_name]
+                    ):
+                        self.detailed_rate_nn_bpp[cc_name][nn_name][
+                            weight_or_bias
+                        ] = (
+                            self.detailed_rate_nn[cc_name][nn_name][
+                                weight_or_bias
+                            ]
                             / self.n_pixels
                         )
                     # Else we set it to 0
                     else:
-                        self.detailed_rate_nn_bpp[cc_name][nn_name][weight_or_bias] = 0
+                        self.detailed_rate_nn_bpp[cc_name][nn_name][
+                            weight_or_bias
+                        ] = 0
 
         # ----- Get sum of latent rate for each cool-chic encoder
         for cc_name in typing.get_args(NAME_COOLCHIC_ENC):
-            setattr(
-                self, f"rate_latent_{cc_name}_bpp", self.rate_latent_bpd
-            )
+            setattr(self, f"rate_latent_{cc_name}_bpp", self.rate_latent_bpd)
 
         # ----- Copy all the quantities present in InterCodingModuleOutput
         quantities_from_inter_coding = [
@@ -194,7 +226,9 @@ class FrameEncoderLogs(LossFunctionOutput):
         if self.pred is not None:
             # Transform the reference to yuv 444 if needed
             if self.original_frame.data.frame_data_type == "yuv420":
-                original_frame_data = convert_420_to_444(self.original_frame.data.data)
+                original_frame_data = convert_420_to_444(
+                    self.original_frame.data.data
+                )
             else:
                 original_frame_data = self.original_frame.data.data
 
@@ -305,7 +339,9 @@ class FrameEncoderLogs(LossFunctionOutput):
                 for cc_name in typing.get_args(NAME_COOLCHIC_ENC):
                     # Loop on all neural networks composing a Cool-chic Encoder
                     for nn_name in [x.name for x in fields(DescriptorCoolChic)]:
-                        for weight_or_bias in [x.name for x in fields(DescriptorNN)]:
+                        for weight_or_bias in [
+                            x.name for x in fields(DescriptorNN)
+                        ]:
                             tmp_col_name = (
                                 cc_name
                                 + "_"
@@ -314,17 +350,19 @@ class FrameEncoderLogs(LossFunctionOutput):
                                 + weight_or_bias
                                 + col_name_sufix
                             )
-                            col_name += (
-                                f"{tmp_col_name:<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
-                            )
+                            col_name += f"{tmp_col_name:<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
 
                             try:
                                 tmp_val = val[cc_name][nn_name][weight_or_bias]
                             except KeyError:
                                 tmp_val = 0
 
-                            tmp_val = self._format_value(tmp_val, attribute_name=k.name)
-                            values += f"{tmp_val:<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
+                            tmp_val = self._format_value(
+                                tmp_val, attribute_name=k.name
+                            )
+                            values += (
+                                f"{tmp_val:<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
+                            )
 
             # Default case
             else:
@@ -462,7 +500,8 @@ def test(
     model: CoolChicEncoder,
     frame: torch.Tensor,
     frame_encoder_manager: FrameEncoderManager,
-    latent_multiplier: float = 0.0
+    color_bitdepths: ColorBitdepths,
+    latent_multiplier: float = 0.0,
 ) -> LossFunctionOutput:
     """Evaluate the performance of a ``FrameEncoder`` when encoding a ``Frame``.
 
@@ -501,13 +540,8 @@ def test(
     loss_fn_output = loss_function(
         frame_encoder_out,
         frame,
-        latent_multiplier=latent_multiplier
-        # frame_encoder_out["raw_out"],
-        # {"model": frame_encoder_out["rate"]},
-        # frame.data.data,
-        # lmbda=frame_encoder_manager.lmbda,
-        # total_rate_nn_bit=total_rate_nn_bit,
-        # compute_logs=True,
+        latent_multiplier=latent_multiplier,
+        channel_ranges=color_bitdepths,
     )
 
     # encoder_logs = FrameEncoderLogs(

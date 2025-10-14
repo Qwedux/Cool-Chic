@@ -3,7 +3,7 @@ import glob
 
 if os.path.exists("/itet-stor/jparada/net_scratch/"):
     BASE_PATH = "/itet-stor/jparada/net_scratch/"
-    DATASET_PATH = f"{BASE_PATH}datasets/clic2024/"
+    DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
     TEST_WORKDIR = f"{BASE_PATH}Cool-Chic/coolchic/test-workdir/"
     LOG_PATH = "/home/jparada/logs/"
 else:
@@ -51,7 +51,7 @@ args = {
     "freq_valid": 100,
     "optimized_module": ["all"],
     "quantizer_type": "softround",
-    "quantizer_noise_type": "gaussian",
+    "quantizer_noise_type": "kumaraswamy",
     "softround_temperature": (0.3, 0.1),
     "noise_parameter": (0.25, 0.1),
     "pretrained_model_path": TEST_WORKDIR + "0000_trained_coolchic_img_rate_2.3217298719618054.pth",

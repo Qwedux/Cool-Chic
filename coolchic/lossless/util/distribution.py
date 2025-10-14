@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from torch import Tensor
 from typing import Tuple
+from lossless.util.color_transform import ColorBitdepths
 rans_freq_precision:int = 16
 
 def get_scale(logscale:Tensor)->Tensor:
@@ -65,49 +66,43 @@ def compute_logistic_cdfs(mu:torch.Tensor, scale:torch.Tensor, bitdepth:int)->to
     cdfs_q = torch.round(cdfs * float(1<<rans_freq_precision)).to(torch.int16)
     return cdfs_q
 
-def discretized_logistic_prob(mu:Tensor, scale:Tensor, x:Tensor, bitdepth:int=8)->Tensor:
+def discretized_logistic_prob(mu:Tensor, scale:Tensor, x:Tensor, channel_ranges: ColorBitdepths)->Tensor:
     '''
         function to calculate the log-probability of x under a discretized Logistic(mu, scale) distribution
         heavily based on discretized_mix_logistic_loss() in https://github.com/openai/pixel-cnn
-        x in [0, 1]
-    '''
-    # [-255, 255] -> [-1.1] (this means bin sizes of 1./255.)
-    # [0,255] -> [-1.1] (this means bin sizes of 2./255.)
-    if x.min()<0:
-        x_rescaled = x
-        bitdepth = bitdepth + 1
-    else:
-        x_rescaled = x * 2.0 - 1
-    max_v = float((1<<bitdepth)-1)
-    # a, b = x_rescaled.min(), x_rescaled.max()
-    invscale = 1. / scale
-    thre = 1 - 1/max_v/2
-    x_centered = x_rescaled - mu
 
-    plus_in = invscale * (x_centered + 1. / max_v)
+        For each channel we assume that x is in channel_ranges.ranges_int[i]/channel_ranges.scaling_factors[i]
+        In case of YCoCg: Y in [0, 1], Co in [-1, 1], Cg in [-1, 1], hence bin size is 1/255
+        In case of RGB: R,G,B in [0, 1], hence bin size is 1/255
+    '''
+    max_vs = torch.Tensor(channel_ranges.scaling_factors).to(x.device)[None, :, None, None]  # 1 C 1 1
+    # FIXME: For now this part is inflexible as it assumes that all channels have the same bin size of 1/255
+    bin_sizes = 1. / max_vs
+    invscale = 1. / scale
+    x_centered = x - mu
+
+    plus_in = invscale * (x_centered + bin_sizes / 2.)
     cdf_plus = torch.sigmoid(plus_in)
-    min_in = invscale * (x_centered - 1. / max_v)
+    min_in = invscale * (x_centered - bin_sizes / 2.)
     cdf_min = torch.sigmoid(min_in)
 
     diff = cdf_plus - cdf_min
-    cond1 = torch.where(x_rescaled < -thre, cdf_plus, diff)
-    prob = torch.where(x_rescaled > thre, torch.ones_like(cdf_min)-cdf_min, cond1)
+    thre = 1 - 1/max_vs/2
+    # since logistic distribution is leaky, we add the probability mass of the tails to the edge bins
+    cond1 = torch.where(x < -thre, cdf_plus, diff)
+    prob = torch.where(x > thre, torch.ones_like(cdf_min)-cdf_min, cond1)
     return prob
 
 
-def discretized_logistic_logp(mu:Tensor, scale:Tensor, x:Tensor, bitdepth:int=8, freq_precision:int=16)->Tensor:
+def discretized_logistic_logp(mu:Tensor, scale:Tensor, x:Tensor, channel_ranges: ColorBitdepths)->Tensor:
     '''
         function to calculate the log-probability of x under a discretized Logistic(mu, scale) distribution
         heavily based on discretized_mix_logistic_loss() in https://github.com/openai/pixel-cnn
         x in [0, 1]
     '''
-    # [0,255] -> [-1.1] (this means bin sizes of 2./255.)
-    # FIXME: here we could use clamping to avoid too small prob instead of scaling, as scaling changes the distribution
-    n = 1 << bitdepth
-    a = 2**(-freq_precision)
-    prob = discretized_logistic_prob(mu, scale, x, bitdepth)
-    a = float(2**(-freq_precision))
-    prob = (1-n*a)*prob + a
+    prob = discretized_logistic_prob(mu, scale, x, channel_ranges)
+    # no value should cost more than 16 bits
+    prob = torch.clamp_min(prob, 2**(-16))
     logp = torch.log2(prob)
     return logp
 
@@ -124,12 +119,12 @@ def get_mu_and_scale_linear_color(params:Tensor, x:Tensor)->Tuple[Tensor, Tensor
     scale = get_scale(log_scale)
     return mu, scale
 
-def weak_colorar_rate(params:Tensor, x:Tensor, bitdepth:int, freq_precision:int) -> Tensor:
+def weak_colorar_rate(params:Tensor, x:Tensor, channel_ranges: ColorBitdepths) -> Tensor:
     '''
        params N 9 H W, x normalized to [0,1]
     '''
     mu, scale = get_mu_and_scale_linear_color(params, x)
-    logp = discretized_logistic_logp(mu, scale, x, bitdepth, freq_precision)
+    logp = discretized_logistic_logp(mu, scale, x, channel_ranges)
     return -logp
         
 def laplace_cdf(x: Tensor, loc: Tensor, scale: Tensor) -> Tensor:
