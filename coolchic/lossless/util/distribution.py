@@ -71,9 +71,14 @@ def discretized_logistic_prob(mu:Tensor, scale:Tensor, x:Tensor, bitdepth:int=8)
         heavily based on discretized_mix_logistic_loss() in https://github.com/openai/pixel-cnn
         x in [0, 1]
     '''
+    # [-255, 255] -> [-1.1] (this means bin sizes of 1./255.)
     # [0,255] -> [-1.1] (this means bin sizes of 2./255.)
+    if x.min()<0:
+        x_rescaled = x
+        bitdepth = bitdepth + 1
+    else:
+        x_rescaled = x * 2.0 - 1
     max_v = float((1<<bitdepth)-1)
-    x_rescaled = x * 2.0 - 1
     # a, b = x_rescaled.min(), x_rescaled.max()
     invscale = 1. / scale
     thre = 1 - 1/max_v/2
@@ -117,8 +122,6 @@ def get_mu_and_scale_linear_color(params:Tensor, x:Tensor)->Tuple[Tensor, Tensor
     mu[:,1:2,...] = _mu[:,1:2,...] + alpha*x[:,0:1,...]
     mu[:,2:3,...] = _mu[:,2:3,...] + beta*x[:,0:1,...] + gamma*x[:,1:2,...]
     scale = get_scale(log_scale)
-    # mu = params[:, 0:3, ...]
-    # scale = get_scale(params[:, 3:6, ...])
     return mu, scale
 
 def weak_colorar_rate(params:Tensor, x:Tensor, bitdepth:int, freq_precision:int) -> Tensor:

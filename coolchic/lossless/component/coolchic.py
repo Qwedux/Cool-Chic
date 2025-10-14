@@ -290,7 +290,7 @@ class CoolChicEncoder(nn.Module):
         self.total_flops = 0.0
         self.flops_per_module = {k: 0 for k in self.modules_to_send}
         # Fill the two attributes aboves
-        # self.get_flops()
+        self.get_flops()
         # ======================== Monitoring ======================== #
 
         # Track the quantization step of each neural network, None if the
