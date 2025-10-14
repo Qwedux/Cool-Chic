@@ -16,7 +16,6 @@ from lossless.util.parsecli import (
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
-from lossless.util.misc import timestamp_string
 from lossless.training.train import train
 from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
@@ -24,13 +23,21 @@ from lossless.util.logger import TrainingLogger
 from lossless.util.image_loading import load_image_as_tensor
 import matplotlib.pyplot as plt
 
-if len(sys.argv) < 2:
-    print("Usage: python3 lossless_encode.py <image_index>")
+if len(sys.argv) < 3:
+    print("Usage: python3 lossless_encode.py <image_index> <color_space>")
+    print("<color_space> must be `YCoCg` or `RGB`")
     sys.exit(1)
 
 image_index = int(sys.argv[1])
+color_space = sys.argv[2]
+assert color_space in [
+    "YCoCg",
+    "RGB",
+], f"Invalid color space {color_space}, must be YCoCg or RGB"
+
 im_path = args["input"][image_index]
-im_tensor = load_image_as_tensor(im_path, device="cuda:0")
+im_tensor, c_bitdepths = load_image_as_tensor(im_path, device="cuda:0")
+print(f"Loaded image {im_path} with shape {im_tensor.shape}")
 dataset = im_path.split("/")[-2]
 
 logger = TrainingLogger(
@@ -58,6 +65,7 @@ else:
         model=coolchic,
         target_image=im_tensor,
         frame_encoder_manager=frame_encoder_manager,
+        color_bitdepths=c_bitdepths,
         start_lr=args["start_lr"],
         lmbda=args["lmbda"],
         cosine_scheduling_lr=args["schedule_lr"],
@@ -77,7 +85,7 @@ quantized_coolchic = CoolChicEncoder(param=encoder_param)
 quantized_coolchic.to_device("cuda:0")
 quantized_coolchic.set_param(coolchic.get_param())
 quantized_coolchic = quantize_model(
-    quantized_coolchic, im_tensor, frame_encoder_manager, logger
+    quantized_coolchic, im_tensor, frame_encoder_manager, logger, color_bitdepths=c_bitdepths,
 )
 rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
 total_network_rate /= im_tensor.numel()
@@ -97,6 +105,7 @@ with torch.no_grad():
         im_tensor,
         rate_mlp_bpd=total_network_rate,
         latent_multiplier=1.0,
+        channel_ranges=c_bitdepths,
     )
 logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
 logger.log_result(

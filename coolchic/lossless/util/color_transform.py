@@ -1,5 +1,29 @@
 import numpy as np
 
+VALID_COLORSPACE = ["RGB", "YCoCg"]
+
+class ColorBitdepths:
+    def __init__(self) -> None:
+        self.bitdepths = []
+        self.scaling_factors = []
+        self.ranges_int = []
+
+
+class RGBBitdepths(ColorBitdepths):
+    def __init__(self) -> None:
+        self.bitdepths = [8, 8, 8]
+        self.scaling_factors = [255, 255, 255]
+        self.bins = [256, 256, 256]
+        self.ranges_int = [[0, 255], [0, 255], [0, 255]]
+
+
+class YCoCgBitdepths(ColorBitdepths):
+    def __init__(self) -> None:
+        self.bitdepths = [8, 9, 9]
+        self.scaling_factors = [255, 255, 255]
+        self.bins = [256, 512, 512]
+        self.ranges_int = [[0, 255], [-256, 255], [-256, 255]]
+
 
 def rgb_to_ycocg(img):
     r, g, b = (
