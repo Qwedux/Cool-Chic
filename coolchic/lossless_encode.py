@@ -8,8 +8,6 @@ from lossless.component.image import (
     FrameEncoderManager,
 )
 from lossless.component.coolchic import CoolChicEncoder
-import numpy as np
-import cv2
 from lossless.util.config import args, str_args
 from lossless.util.parsecli import (
     change_n_out_synth,
@@ -21,7 +19,6 @@ from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 from lossless.util.logger import TrainingLogger
 from lossless.util.image_loading import load_image_as_tensor
-import matplotlib.pyplot as plt
 
 if len(sys.argv) < 3:
     print("Usage: python3 lossless_encode.py <image_index> <color_space>")
@@ -36,7 +33,9 @@ assert color_space in [
 ], f"Invalid color space {color_space}, must be YCoCg or RGB"
 
 im_path = args["input"][image_index]
-im_tensor, c_bitdepths = load_image_as_tensor(im_path, device="cuda:0", color_space=color_space)
+im_tensor, c_bitdepths = load_image_as_tensor(
+    im_path, device="cuda:0", color_space=color_space
+)
 print(f"Loaded image {im_path} with shape {im_tensor.shape}")
 dataset = im_path.split("/")[-2]
 
@@ -46,7 +45,9 @@ logger = TrainingLogger(
 )
 logger.log_result(f"{str_args(args)}")
 logger.log_result(f"Processing image {im_path}")
-logger.log_result(f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}")
+logger.log_result(
+    f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
+)
 
 frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(
@@ -86,7 +87,11 @@ quantized_coolchic = CoolChicEncoder(param=encoder_param)
 quantized_coolchic.to_device("cuda:0")
 quantized_coolchic.set_param(coolchic.get_param())
 quantized_coolchic = quantize_model(
-    quantized_coolchic, im_tensor, frame_encoder_manager, logger, color_bitdepths=c_bitdepths,
+    quantized_coolchic,
+    im_tensor,
+    frame_encoder_manager,
+    logger,
+    color_bitdepths=c_bitdepths,
 )
 rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
 total_network_rate /= im_tensor.numel()
