@@ -261,24 +261,10 @@ class CoolChicEncoder(nn.Module):
             _get_non_zero_pixel_ctx_index(self.param.dim_arm),
             persistent=False,
         )
-        self.register_buffer(
-            "non_zero_image_arm_ctx_index",
-            _get_non_zero_pixel_ctx_index(self.param.arm_image_context_size),
-            persistent=False,
-        )
 
-        self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm)
-        self.image_arms = [
-            ImageArm(
-                self.param.arm_image_context_size * channel_index,
-                1 + channel_index,
-                self.param.n_hidden_layers_arm,
-            )
-            for channel_index in range(1, 4)
-        ]
-        # register the image arms so that they are moved to the right device
-        self.image_arms = nn.ModuleList(self.image_arms)
         # ===================== ARM related stuff ==================== #
+        self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm)
+        self.image_arm = ImageArm()
 
         # Something like ['arm', 'synthesis', 'upsampling']
         self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
@@ -457,40 +443,10 @@ class CoolChicEncoder(nn.Module):
         ups_out = self.upsampling(decoder_side_latent)
         # has e.g. shape [1, 9, H, W]
         raw_synth_out = self.synthesis(ups_out)
-        splits = [0, 2, 5, 9]
 
         # print("until now fine")
-        image_context = []
-        image_arm_out = torch.zeros_like(raw_synth_out)
-        for channel in range(image.shape[1]):
-            image_context.append(
-                _get_neighbor(
-                    image[:, channel : channel + 1, :, :],
-                    self.mask_size,
-                    self.non_zero_image_arm_ctx_index,
-                )
-            )
-            # print("got context")
-            flat_image_context = torch.cat(image_context, dim=1)
-            # print(flat_image_context.device)
-            # print(self.image_arms[channel].mlp[0].weight.device)
-
-            flat_image_arm_out = self.image_arms[channel](
-                flat_image_context,
-                raw_synth_out[:, splits[channel] : splits[channel + 1]]
-                .permute(0, 2, 3, 1)
-                .reshape(-1, splits[channel + 1] - splits[channel]),
-            )
-            # print("got arm out")
-            reshaped_image_arm_out = flat_image_arm_out.view(
-                raw_synth_out.shape[0],
-                raw_synth_out.shape[2],
-                raw_synth_out.shape[3],
-                splits[channel + 1] - splits[channel],
-            ).permute(0, 3, 1, 2)
-            image_arm_out[:, splits[channel] : splits[channel + 1]] = (
-                reshaped_image_arm_out
-            )
+        image_arm_out = self.image_arm(image, raw_synth_out)
+        
         # # Upsample the output of the synthesis with a nearest neighbor if required
         # synthesis_output = F.interpolate(
         #     raw_synth_out, size=self.param.img_size, mode="nearest"
@@ -601,7 +557,6 @@ class CoolChicEncoder(nn.Module):
             / self.param.img_size[0]
             / self.param.img_size[1]
             / 3,
-            # "latent_bpd": latent_bpd,
             "additional_data": additional_data,
         }
 
@@ -624,17 +579,10 @@ class CoolChicEncoder(nn.Module):
         )
         param.update({f"arm.{k}": v for k, v in self.arm.get_param().items()})
         # I broke the following as image_arms is now a list of modules
-        # param.update(
-        #     {
-        #         f"image_arm.{k}": v
-        #         for k, v in self.image_arms.get_param().items()
-        #     }
-        # )
         param.update(
             {
-                f"image_arms.{i}.{k}": v
-                for i, arm in enumerate(self.image_arms)
-                for k, v in arm.get_param().items()
+                f"image_arm.{k}": v
+                for k, v in self.image_arm.get_param().items()
             }
         )
         param.update(
@@ -891,6 +839,17 @@ class CoolChicEncoder(nn.Module):
             if hasattr(layer, "qb"):
                 if layer.qb is not None:
                     self.arm.mlp[idx_layer].qb = layer.qb.to(device)
+        
+        # for model in self.image_arm.models:
+        #     for idx_layer, layer in enumerate(model):
+        #         layer.to(device)
+                # if hasattr(layer, "qw"):
+                #     if layer.qw is not None:
+                #         model[idx_layer].qw = layer.qw.to(device)
+
+                # if hasattr(layer, "qb"):
+                #     if layer.qb is not None:
+                #         model[idx_layer].qb = layer.qb.to(device)
 
     def pretty_string(self, print_detailed_archi: bool = False) -> str:
         """Get a pretty string representing the layer of a ``CoolChicEncoder``

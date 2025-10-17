@@ -8,12 +8,15 @@
 
 
 from typing import OrderedDict, Tuple
-
+from lossless.component.core.arm import (
+    _get_neighbor,
+    _get_non_zero_pixel_ctx_index,
+)
 import torch
 
 # import torch.nn.functional as F
 from torch import Tensor, nn  # , index_select
-from lossless.component.core.arm import ArmLinear
+from lossless.component.core.arm import ArmLinear, _get_neighbor
 
 
 class ImageArm(nn.Module):
@@ -55,42 +58,146 @@ class ImageArm(nn.Module):
     from the ``ArmLinear`` class.
     """
 
-    def __init__(self, dim_arm: int, output_dim: int, n_hidden_layers_arm: int):
+    def __init__(
+        self,
+        context_size: int = 8,
+        n_hidden_layers: int = 2,
+        hidden_layer_dim: int = 24,
+        synthesis_out_params_per_channel: list[int] = [2, 3, 4],
+        channel_separation: bool = True,
+    ):
         """
         Args:
-            dim_arm: Number of context pixels AND dimension of all hidden
-                layers :math:`C`.
-            n_hidden_layers_arm: Number of hidden layers. Set it to 0 for
+            context_size: Number of pixels to take into context
+            n_hidden_layers: Number of hidden layers. Set it to 0 for
                 a linear ARM.
+            hidden_layer_dim: Size of hidden layer output
+            synthesis_out_params_per_channel: How many values from
+                synthesis_out does each channel consume and produce
+                (residual=True)
+            channel_separation: Use separate networks for each channel. Also use
+                information from previous channels appended to the context.
         """
         super().__init__()
-        assert dim_arm % 8 == 0, (
+        assert context_size % 8 == 0, (
             f"ARM context size and hidden layer dimension must be "
-            f"a multiple of 8. Found {dim_arm}."
+            f"a multiple of 8. Found {context_size}."
         )
-        self.dim_arm = dim_arm
+        self.context_size = context_size
+        self.synthesis_out_params_per_channel = synthesis_out_params_per_channel
+        self.channel_separation = channel_separation
 
-        # ======================== Construct the MLP ======================== #
-        layers_list = nn.ModuleList()
-        # we have dim_arm context pixels and output_dim parameters to residualy correct
-        layers_list.append(
-            ArmLinear(dim_arm + output_dim, dim_arm, residual=False)
+        if not channel_separation:
+            raise NotImplementedError(
+                "Non channel-separated ARM is not implemented yet."
+            )
+
+        # ======================== Construct the MLPs ======================== #
+        self.model_layers = [
+            nn.ModuleList()
+            for _ in range(len(self.synthesis_out_params_per_channel))
+        ]
+        self.models = nn.ModuleList(
+            nn.Sequential()
+            for _ in range(len(self.synthesis_out_params_per_channel))
         )
-        layers_list.append(nn.ReLU())
+        for channel_idx, output_dim in enumerate(
+            self.synthesis_out_params_per_channel
+        ):
+            self.model_layers[channel_idx].append(
+                ArmLinear(
+                    context_size
+                    * len(
+                        self.synthesis_out_params_per_channel
+                    )  # context size * num_channels
+                    + sum(
+                        self.synthesis_out_params_per_channel
+                    )  # we can use all information from synthesis output
+                    + channel_idx,  # extra information from already decoded channels for current pixel
+                    hidden_layer_dim,
+                    residual=False,
+                )
+            )
+            self.model_layers[channel_idx].append(nn.ReLU())
 
-        # Construct the hidden layer(s)
-        for i in range(n_hidden_layers_arm - 1):
-            layers_list.append(ArmLinear(dim_arm, dim_arm, residual=True))
-            layers_list.append(nn.ReLU())
+            # Construct the hidden layer(s)
+            for _ in range(n_hidden_layers - 1):
+                self.model_layers[channel_idx].append(
+                    ArmLinear(hidden_layer_dim, hidden_layer_dim, residual=True)
+                )
+                self.model_layers[channel_idx].append(nn.ReLU())
+            # Construct the output layer. It always has output_dim 2*outputs
+            # since we use the second half for gating
+            self.model_layers[channel_idx].append(
+                ArmLinear(hidden_layer_dim, output_dim * 2, residual=False)
+            )
+            self.models[channel_idx] = nn.Sequential(
+                *self.model_layers[channel_idx]
+            )
 
-        # Construct the output layer. It always has 2 outputs (mu and scale)
-        layers_list.append(ArmLinear(dim_arm, output_dim * 2, residual=False))
-        self.mlp = nn.Sequential(*layers_list)
-        # ======================== Construct the MLP ======================== #
+        self.mask_size = 9
+        self.register_buffer(
+            "non_zero_image_arm_ctx_index",
+            _get_non_zero_pixel_ctx_index(self.context_size),
+            persistent=False,
+        )
 
-    def forward(
-        self, x: Tensor, synthesis_proba: Tensor
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    def prepare_inputs(self, image: Tensor, raw_synth_out: Tensor):
+        contexts = []
+        assert len(self.synthesis_out_params_per_channel) == image.shape[1], (
+            "Number of channels in image and synthesis_out_params_per_channel "
+            "must be equal."
+        )
+
+        # First get contexts for all channels in the image
+        # Use loop as _get_neighbor supports only [1, 1, H, W] input shape
+        for channel_idx in range(len(self.synthesis_out_params_per_channel)):
+            contexts.append(
+                _get_neighbor(
+                    image[:, channel_idx : channel_idx + 1, :, :],
+                    self.mask_size,
+                    self.non_zero_image_arm_ctx_index,  # type: ignore
+                )
+            )
+        # Now concatenate the num_channels [H *W, context_size] shaped image contexts
+        # into [H *W, context_size * num_channels]
+        flat_image_context = torch.cat(contexts, dim=1)
+
+        # Add synthesis output and already decoded channels information
+        prepared_inputs = []
+        for channel_idx in range(len(self.synthesis_out_params_per_channel)):
+            prepared_inputs.append(
+                torch.cat(
+                    [
+                        flat_image_context,
+                        # synthesis output has shape [1, C, H, W], we want [H*W, C]
+                        raw_synth_out.permute(0, 2, 3, 1).reshape(
+                            -1, sum(self.synthesis_out_params_per_channel)
+                        ),
+                        # append the couple of already decoded channels
+                        (
+                            image[:, :channel_idx]
+                            .permute(0, 2, 3, 1)
+                            .reshape(
+                                -1,
+                                channel_idx,
+                            )
+                            if channel_idx > 0
+                            else torch.empty(
+                                image.shape[2] * image.shape[3],
+                                0,
+                                dtype=image.dtype,
+                                device=image.device,
+                                requires_grad=True,
+                            )
+                        ),
+                    ],
+                    dim=1,
+                )
+            )
+        return prepared_inputs
+
+    def forward(self, x: Tensor, synthesis_proba: Tensor) -> Tensor:
         """Perform the auto-regressive module (ARM) forward pass. The ARM takes
         as input a tensor of shape :math:`[B, C]` i.e. :math:`B` contexts with
         :math:`C` context pixels. ARM outputs :math:`[B, 2]` values correspond
@@ -123,13 +230,30 @@ class ImageArm(nn.Module):
             Tensor of shape :math:([B]). Also return the *log scale*
             :math:`s` as described above. Tensor of shape :math:`(B)`
         """
-        raw_out = self.mlp(torch.cat([x, synthesis_proba], dim=1))
-        raw_proba_param, gate = raw_out.chunk(2, dim=1)
-        out_proba_param = synthesis_proba + raw_proba_param * torch.sigmoid(
-            gate
-        )
+        prepared_inputs = self.prepare_inputs(x, synthesis_proba)
+        cutoffs = [
+            sum(self.synthesis_out_params_per_channel[:i])
+            for i in range(len(self.synthesis_out_params_per_channel) + 1)
+        ]
+        out_probas_param = []
+        for channel in range(len(self.synthesis_out_params_per_channel)):
+            raw_outs = self.models[channel](prepared_inputs[channel])
+            raw_proba_param, gate = raw_outs.chunk(2, dim=1)
+            out_probas_param.append(
+                synthesis_proba.permute(0, 2, 3, 1).reshape(
+                    -1, sum(self.synthesis_out_params_per_channel)
+                )[:, cutoffs[channel] : cutoffs[channel + 1]]
+                + raw_proba_param * torch.sigmoid(gate)
+            )
+        out_proba_param = torch.cat(out_probas_param, dim=1)
+        reshaped_image_arm_out = out_proba_param.view(
+            synthesis_proba.shape[0],
+            synthesis_proba.shape[2],
+            synthesis_proba.shape[3],
+            synthesis_proba.shape[1],
+        ).permute(0, 3, 1, 2)
 
-        return out_proba_param
+        return reshaped_image_arm_out
 
     def get_param(self) -> OrderedDict[str, Tensor]:
         """Return **a copy** of the weights and biases inside the module.
@@ -138,9 +262,7 @@ class ImageArm(nn.Module):
             A copy of all weights & biases in the layers.
         """
         # Detach & clone to create a copy
-        return OrderedDict(
-            {k: v.detach().clone() for k, v in self.named_parameters()}
-        )
+        return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
 
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
         """Replace the current parameters of the module with param.

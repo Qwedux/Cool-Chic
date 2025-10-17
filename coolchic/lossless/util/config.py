@@ -6,11 +6,13 @@ if os.path.exists("/itet-stor/jparada/net_scratch/"):
     DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
     TEST_WORKDIR = f"{BASE_PATH}Cool-Chic/coolchic/test-workdir/"
     LOG_PATH = "/home/jparada/logs/"
+    NETWORK_YAML_PATH = f"{BASE_PATH}Cool-Chic/cfg/network_architecture.yaml"
 else:
     BASE_PATH = f"{os.getcwd()}/../"
     DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
     TEST_WORKDIR = f"{BASE_PATH}coolchic/test-workdir/"
     LOG_PATH = f"{BASE_PATH}logs/"
+    NETWORK_YAML_PATH = f"{BASE_PATH}cfg/network_architecture.yaml"
 
 IMAGE_PATHS = sorted(
     glob.glob(f"{DATASET_PATH}*.png"),
@@ -26,6 +28,7 @@ args = {
     "input": IMAGE_PATHS,
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
+    "network_yaml_path": NETWORK_YAML_PATH,
 
     "lmbda": 1e-3,
     "job_duration_min": -1,
@@ -40,7 +43,7 @@ args = {
     # decoder side
     "layers_synthesis_residue": "48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_residue": "24,2",
-    "arm_image_context_size": "24",
+    "arm_image_context_size": "8",
     "n_ft_per_res_residue": "1,1,1,1,1,1,1",
     "ups_k_size_residue": 8,
     "ups_preconcat_k_size_residue": 7,
