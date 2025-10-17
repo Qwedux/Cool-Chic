@@ -118,7 +118,7 @@ with torch.no_grad():
         latent_multiplier=1.0,
         channel_ranges=c_bitdepths,
     )
-logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
+# logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
 logger.log_result(
     f"Final frame_encoder_manager state: {frame_encoder_manager},\n"
     f"Rate per module: {rate_per_module},\n"
