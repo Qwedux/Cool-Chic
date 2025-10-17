@@ -1,0 +1,10 @@
+ImageARM:
+    inputs:
+        - "input_image"
+        - "synthesis_out"
+    config_params:
+        context_size: 8 # number of pixels to take into context
+        n_hidden_layers: 2 # number of hidden layers
+        hidden_layer_dim: 24 # sizes of hidden layer output
+        synthesis_out_params_per_channel: [2, 3, 4] # how many values from synthesis_out does each channel consume and produce (residual=True)
+        chanel_separation: True # use separate networks for each channel. Also use information from previous channels appended to the context

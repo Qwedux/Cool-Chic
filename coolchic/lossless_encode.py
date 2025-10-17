@@ -19,6 +19,7 @@ from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 from lossless.util.logger import TrainingLogger
 from lossless.util.image_loading import load_image_as_tensor
+torch.autograd.set_detect_anomaly(True)
 
 if len(sys.argv) < 3:
     print("Usage: python3 lossless_encode.py <image_index> <color_space>")
@@ -43,6 +44,10 @@ logger = TrainingLogger(
     log_folder_path=args["LOG_PATH"],
     image_name=f"{dataset}_" + im_path.split("/")[-1].split(".")[0],
 )
+# load the network yaml file and print if to logger
+with open(args["network_yaml_path"], "r") as f:
+    network_yaml = f.read()
+logger.log_result(f"Network YAML configuration:\n{network_yaml}")
 logger.log_result(f"{str_args(args)}")
 logger.log_result(f"Processing image {im_path}")
 logger.log_result(
