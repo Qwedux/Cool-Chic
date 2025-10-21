@@ -21,19 +21,19 @@ from lossless.component.frame import (
     load_frame_encoder,
 )
 
-from enc.io.format.png import write_png
-from enc.io.format.ppm import write_ppm
-from enc.io.format.yuv import write_yuv
-from enc.io.framedata import FrameData
-from enc.io.io import load_frame_data_from_file
-from enc.nnquant.quantizemodel import quantize_model
+from lossless.io.format.png import write_png
+from lossless.io.format.ppm import write_ppm
+from lossless.io.format.yuv import write_yuv
+from lossless.io.framedata import FrameData
+from lossless.io.io import load_frame_data_from_file
+from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.manager import FrameEncoderManager
 from lossless.training.test import test
 from lossless.training.train import train
 from lossless.training.warmup import warmup
-from enc.utils.codingstructure import CodingStructure, Frame
-from enc.utils.device import POSSIBLE_DEVICE
-from enc.utils.misc import mem_info
+from lossless.util.codingstructure import CodingStructure, Frame
+from lossless.util.device import POSSIBLE_DEVICE
+from lossless.util.misc import mem_info
 from torch import Tensor
 
 

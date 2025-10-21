@@ -12,7 +12,7 @@ import time
 from typing import List, Tuple
 
 import torch
-from enc.component.core.quantizer import (
+from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
