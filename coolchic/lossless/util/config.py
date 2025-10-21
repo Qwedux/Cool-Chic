@@ -37,12 +37,12 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 100,
+    "n_itr": 140000,
     "n_train_loops": 1,
     "preset": "debug",
     # decoder side
-    "layers_synthesis_residue": "48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
-    "arm_residue": "24,2",
+    "layers_synthesis_residue": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
+    "arm_residue": "16,2",
     "arm_image_context_size": "8",
     "n_ft_per_res_residue": "1,1,1,1,1,1,1",
     "ups_k_size_residue": 8,
