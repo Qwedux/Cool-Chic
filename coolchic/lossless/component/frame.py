@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
 
 from lossless.component.types import DescriptorCoolChic, NAME_COOLCHIC_ENC
-from enc.utils.termprint import center_str
+from lossless.util.termprint import center_str
 import torch
 import torch.nn.functional as F
 from lossless.component.coolchic import (
@@ -25,11 +25,11 @@ from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
-from enc.io.types import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
-from enc.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
-from enc.utils.codingstructure import FRAME_TYPE
-from enc.training.manager import FrameEncoderManager
-from enc.utils.device import POSSIBLE_DEVICE
+from lossless.io.types import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
+from lossless.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
+from lossless.util.codingstructure import FRAME_TYPE
+from lossless.training.manager import FrameEncoderManager
+from lossless.util.device import POSSIBLE_DEVICE
 from torch import Tensor, nn
 
 

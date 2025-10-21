@@ -12,11 +12,11 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Tuple
 import typing
 
-from enc.component.core.quantizer import (
+from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
-from enc.component.types import NAME_COOLCHIC_ENC
+from lossless.component.types import NAME_COOLCHIC_ENC
 
 MODULE_TO_OPTIMIZE = Literal[
     # All combinations of <coolchic_enc_name>.<module_name>

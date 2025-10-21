@@ -12,8 +12,8 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, TypedDict
 
 from lossless.component.types import DescriptorCoolChic, DescriptorNN
-from enc.nnquant.expgolomb import measure_expgolomb_rate
-from enc.utils.termprint import pretty_string_nn, pretty_string_ups
+from lossless.nnquant.expgolomb import measure_expgolomb_rate
+from lossless.util.termprint import pretty_string_nn, pretty_string_ups
 from torch import nn, Tensor
 
 import torch
@@ -36,7 +36,7 @@ from lossless.component.core.synthesis import Synthesis
 from lossless.component.core.upsampling import Upsampling
 from lossless.util.distribution import get_latent_rate, weak_colorar_rate
 
-from enc.utils.device import POSSIBLE_DEVICE
+from lossless.util.device import POSSIBLE_DEVICE
 
 """A cool-chic encoder is composed of:
     - A set of 2d hierarchical latent grids

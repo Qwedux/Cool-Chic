@@ -12,7 +12,7 @@ import typing
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
-from enc.component.types import DescriptorCoolChic, DescriptorNN
+from lossless.component.types import DescriptorCoolChic, DescriptorNN
 import torch
 import torch.nn.functional as F
 from lossless.component.frame import (
@@ -20,13 +20,13 @@ from lossless.component.frame import (
     FrameEncoderOutput,
     NAME_COOLCHIC_ENC,
 )
-from enc.io.format.yuv import convert_420_to_444
+from lossless.io.format.yuv import convert_420_to_444
 from lossless.training.loss import (
     LossFunctionOutput,
     # _compute_mse,
     loss_function,
 )
-from enc.utils.codingstructure import Frame
+from lossless.util.codingstructure import Frame
 from lossless.training.manager import FrameEncoderManager
 from torch import Tensor
 from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput

@@ -7,7 +7,7 @@
 # Authors: see CONTRIBUTORS.md
 
 from dataclasses import dataclass, field, fields
-from enc.training.presets import AVAILABLE_PRESETS, Preset
+from lossless.training.presets import AVAILABLE_PRESETS, Preset
 
 
 @dataclass

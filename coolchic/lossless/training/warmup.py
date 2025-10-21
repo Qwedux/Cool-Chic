@@ -11,13 +11,13 @@ import copy
 import time
 from typing import List
 
-from enc.training.manager import FrameEncoderManager
-from enc.component.frame import FrameEncoder
-from enc.training.test import test
-from enc.training.train import train
-from enc.utils.codingstructure import Frame
-from enc.utils.device import POSSIBLE_DEVICE
-from enc.utils.misc import mem_info
+from lossless.training.manager import FrameEncoderManager
+from lossless.component.frame import FrameEncoder
+from lossless.training.test import test
+from lossless.training.train import train
+from lossless.util.codingstructure import Frame
+from lossless.util.device import POSSIBLE_DEVICE
+from lossless.util.misc import mem_info
 
 
 def warmup(

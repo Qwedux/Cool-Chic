@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Union
 
 import torch
-from enc.io.format.yuv import DictTensorYUV
+from lossless.io.format.yuv import DictTensorYUV
 from torch import Tensor
 from typing import Any
 from lossless.component.coolchic import CoolChicEncoderOutput
