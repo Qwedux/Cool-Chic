@@ -53,7 +53,7 @@ class SynthesisConv2d(nn.Module):
         self.pad = int((kernel_size - 1) / 2)
 
         # -------- Instantiate empty parameters, set by the initialize function
-        self.groups = 1  # Hardcoded for now
+        self.groups = 1  if kernel_size == 1 else 3 # Hardcoded for now
         self.weight = nn.Parameter(
             torch.empty(
                 out_channels, in_channels // self.groups, kernel_size, kernel_size

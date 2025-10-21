@@ -581,8 +581,8 @@ class CoolChicEncoder(nn.Module):
         # I broke the following as image_arms is now a list of modules
         param.update(
             {
-                f"image_arm.{k}": v
-                for k, v in self.image_arm.get_param().items()
+                f"image_arm.{k}": v.detach().clone()
+                for k, v in self.image_arm.named_parameters()
             }
         )
         param.update(
@@ -708,6 +708,7 @@ class CoolChicEncoder(nn.Module):
         # torch scripting the different modules.
 
         self = self.train(mode=False)
+        assert self.param.img_size is not None
 
         flops = FlopCountAnalysis(
             self,
@@ -719,7 +720,7 @@ class CoolChicEncoder(nn.Module):
                 0.1,  # Noise parameter
                 -1,  # AC_MAX_VAL
                 False,  # Flag additional outputs
-            ),
+            ), # type: ignore
         )
         flops.unsupported_ops_warnings(False)
         flops.uncalled_modules_warnings(False)

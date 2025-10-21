@@ -62,7 +62,7 @@ class ImageArm(nn.Module):
         self,
         context_size: int = 8,
         n_hidden_layers: int = 2,
-        hidden_layer_dim: int = 24,
+        hidden_layer_dim: int = 6,
         synthesis_out_params_per_channel: list[int] = [2, 3, 4],
         channel_separation: bool = True,
     ):
@@ -255,14 +255,16 @@ class ImageArm(nn.Module):
 
         return reshaped_image_arm_out
 
-    def get_param(self) -> OrderedDict[str, Tensor]:
-        """Return **a copy** of the weights and biases inside the module.
+    # def get_param(self) -> OrderedDict[str, Tensor]:
+    #     """Return **a copy** of the weights and biases inside the module.
 
-        Returns:
-            A copy of all weights & biases in the layers.
-        """
-        # Detach & clone to create a copy
-        return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
+    #     Returns:
+    #         A copy of all weights & biases in the layers.
+    #     """
+    #     # Detach & clone to create a copy
+    #     return OrderedDict(
+    #         {k: v.detach().clone() for k, v in self.named_parameters()}
+    #     )
 
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
         """Replace the current parameters of the module with param.

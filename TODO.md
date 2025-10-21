@@ -2,6 +2,7 @@
 
 - [x] Finished task
 - [ ] Unfinished task
+
 - [ ] Use proper training phases
 - [ ] Group train logs by experiment
 - [ ] Add final loss and MAC to filename after finishing training

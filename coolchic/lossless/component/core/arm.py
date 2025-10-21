@@ -152,17 +152,19 @@ class Arm(nn.Module):
             f"a multiple of 8. Found {dim_arm}."
         )
         self.dim_arm = dim_arm
+        self.hidden_layer_dim = 8
 
         # ======================== Construct the MLP ======================== #
         layers_list = nn.ModuleList()
+        layers_list.append(ArmLinear(dim_arm, self.hidden_layer_dim, residual=False))
 
         # Construct the hidden layer(s)
         for i in range(n_hidden_layers_arm):
-            layers_list.append(ArmLinear(dim_arm, dim_arm, residual=True))
+            layers_list.append(ArmLinear(self.hidden_layer_dim, self.hidden_layer_dim, residual=True))
             layers_list.append(nn.ReLU())
 
         # Construct the output layer. It always has 2 outputs (mu and scale)
-        layers_list.append(ArmLinear(dim_arm, 2, residual=False))
+        layers_list.append(ArmLinear(self.hidden_layer_dim, 2, residual=False))
         self.mlp = nn.Sequential(*layers_list)
         # ======================== Construct the MLP ======================== #
 
