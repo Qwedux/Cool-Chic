@@ -37,4 +37,5 @@ docs/
 **/test-workdir/** 
 access_token
 logs/*
-logs_clusster/**
+logs_cluster/**
+util_Commands.md
