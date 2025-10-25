@@ -114,6 +114,7 @@ class ImageArm(nn.Module):
                         self.synthesis_out_params_per_channel
                     )  # we can use all information from synthesis output
                     + channel_idx,  # extra information from already decoded channels for current pixel
+                    # ,
                     hidden_layer_dim,
                     residual=False,
                 )
@@ -161,7 +162,9 @@ class ImageArm(nn.Module):
             )
         # Now concatenate the num_channels [H *W, context_size] shaped image contexts
         # into [H *W, context_size * num_channels]
-        flat_image_context = torch.cat(contexts, dim=1)
+        flat_image_context = torch.stack(contexts, dim=2).reshape(
+            (image.shape[2] * image.shape[3], -1)
+        )
 
         # Add synthesis output and already decoded channels information
         prepared_inputs = []
@@ -198,6 +201,9 @@ class ImageArm(nn.Module):
         return prepared_inputs
 
     def forward(self, x: Tensor, synthesis_proba: Tensor) -> Tensor:
+        # print(x.shape)
+        # print(synthesis_proba.shape)
+        # exit()
         """Perform the auto-regressive module (ARM) forward pass. The ARM takes
         as input a tensor of shape :math:`[B, C]` i.e. :math:`B` contexts with
         :math:`C` context pixels. ARM outputs :math:`[B, 2]` values correspond
@@ -245,6 +251,7 @@ class ImageArm(nn.Module):
                 )[:, cutoffs[channel] : cutoffs[channel + 1]]
                 + raw_proba_param * torch.sigmoid(gate)
             )
+        # f(inpt) = inpt + res_correction * gate
         out_proba_param = torch.cat(out_probas_param, dim=1)
         reshaped_image_arm_out = out_proba_param.view(
             synthesis_proba.shape[0],
