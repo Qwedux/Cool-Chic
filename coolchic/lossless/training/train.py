@@ -150,6 +150,7 @@ def train(
 
     # ------ Keep track of the best loss and model
     # Perform a first test to get the current best logs (it includes the loss)
+    
     initial_encoder_logs = test(model, target_image, frame_encoder_manager, color_bitdepths=color_bitdepths)
     encoder_logs_best = initial_encoder_logs
     best_model = model.get_param()

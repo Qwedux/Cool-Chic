@@ -38,7 +38,9 @@ im_path = "../datasets/synthetic/random_noise_256_256_white_gray.png"
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
-print(f"Loaded image {im_path} with shape {im_tensor.shape}")
+print(im_tensor[0, 2, :5, :5])
+
+# print(f"Loaded image {im_path} with shape {im_tensor.shape}")
 dataset = im_path.split("/")[-2]
 
 logger = TrainingLogger(
