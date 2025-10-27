@@ -113,8 +113,8 @@ class ImageArm(nn.Module):
                     + sum(
                         self.synthesis_out_params_per_channel
                     )  # we can use all information from synthesis output
-                    + channel_idx,  # extra information from already decoded channels for current pixel
-                    # ,
+                    # + channel_idx  # extra information from already decoded channels for current pixel
+                    ,
                     hidden_layer_dim,
                     residual=False,
                 )
@@ -178,22 +178,22 @@ class ImageArm(nn.Module):
                             -1, sum(self.synthesis_out_params_per_channel)
                         ),
                         # append the couple of already decoded channels
-                        (
-                            image[:, :channel_idx]
-                            .permute(0, 2, 3, 1)
-                            .reshape(
-                                -1,
-                                channel_idx,
-                            )
-                            if channel_idx > 0
-                            else torch.empty(
-                                image.shape[2] * image.shape[3],
-                                0,
-                                dtype=image.dtype,
-                                device=image.device,
-                                requires_grad=True,
-                            )
-                        ),
+                        # (
+                        #     image[:, :channel_idx]
+                        #     .permute(0, 2, 3, 1)
+                        #     .reshape(
+                        #         -1,
+                        #         channel_idx,
+                        #     )
+                        #     if channel_idx > 0
+                        #     else torch.empty(
+                        #         image.shape[2] * image.shape[3],
+                        #         0,
+                        #         dtype=image.dtype,
+                        #         device=image.device,
+                        #         requires_grad=False,
+                        #     )
+                        # ),
                     ],
                     dim=1,
                 )
@@ -201,9 +201,6 @@ class ImageArm(nn.Module):
         return prepared_inputs
 
     def forward(self, x: Tensor, synthesis_proba: Tensor) -> Tensor:
-        # print(x.shape)
-        # print(synthesis_proba.shape)
-        # exit()
         """Perform the auto-regressive module (ARM) forward pass. The ARM takes
         as input a tensor of shape :math:`[B, C]` i.e. :math:`B` contexts with
         :math:`C` context pixels. ARM outputs :math:`[B, 2]` values correspond
@@ -236,7 +233,20 @@ class ImageArm(nn.Module):
             Tensor of shape :math:([B]). Also return the *log scale*
             :math:`s` as described above. Tensor of shape :math:`(B)`
         """
+        # print(synthesis_proba.shape)
+        # print(x.shape)
+        # exit()
         prepared_inputs = self.prepare_inputs(x, synthesis_proba)
+        
+        # print(prepared_inputs[0].shape)
+        # # exit()
+        # print(x[0, 0, :5, :5])
+        # print(x[0, 1, :5, :5])
+        # print(x[0, 2, :5, :5])
+        # print(prepared_inputs[2].view((256, 256, -1))[:5, :5].detach().cpu().numpy())
+
+        # exit()
+
         cutoffs = [
             sum(self.synthesis_out_params_per_channel[:i])
             for i in range(len(self.synthesis_out_params_per_channel) + 1)
