@@ -18,6 +18,10 @@ POSSIBLE_EXP_GOL_COUNT = {
         "weight": torch.linspace(0, 12, 13, device="cpu"),
         "bias": torch.linspace(0, 12, 13, device="cpu"),
     },
+    "image_arm": {
+        "weight": torch.linspace(0, 12, 13, device="cpu"),
+        "bias": torch.linspace(0, 12, 13, device="cpu"),
+    },
     "upsampling": {
         "weight": torch.linspace(0, 12, 13, device="cpu"),
         "bias": torch.linspace(0, 12, 13, device="cpu"),

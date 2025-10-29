@@ -19,6 +19,10 @@ from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 from lossless.util.logger import TrainingLogger
 from lossless.util.image_loading import load_image_as_tensor
+from lossless.util.distribution import get_mu_and_scale_linear_color
+from lossless.util.encoding import encode, decode, get_bits_per_pixel
+import numpy as np
+
 torch.autograd.set_detect_anomaly(True)
 
 if len(sys.argv) < 3:
@@ -38,26 +42,7 @@ im_path = "../datasets/synthetic/random_noise_256_256_white_gray.png"
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
-print(im_tensor[0, 2, :5, :5])
 
-# print(f"Loaded image {im_path} with shape {im_tensor.shape}")
-dataset = im_path.split("/")[-2]
-
-logger = TrainingLogger(
-    log_folder_path=args["LOG_PATH"],
-    image_name=f"{dataset}_" + im_path.split("/")[-1].split(".")[0],
-)
-# load the network yaml file and print if to logger
-with open(args["network_yaml_path"], "r") as f:
-    network_yaml = f.read()
-logger.log_result(f"Network YAML configuration:\n{network_yaml}")
-logger.log_result(f"{str_args(args)}")
-logger.log_result(f"Processing image {im_path}")
-logger.log_result(
-    f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
-)
-
-frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(
     **get_coolchic_param_from_args(args, "residue")
 )
@@ -66,30 +51,11 @@ encoder_param.layers_synthesis = change_n_out_synth(
     encoder_param.layers_synthesis, args["output_dim_size"]
 )
 coolchic = CoolChicEncoder(param=encoder_param)
-coolchic.to_device("cuda:0")
-
 if args["use_pretrained"]:
     coolchic.load_state_dict(torch.load(args["pretrained_model_path"]))
 else:
-    coolchic = train(
-        model=coolchic,
-        target_image=im_tensor,
-        frame_encoder_manager=frame_encoder_manager,
-        color_bitdepths=c_bitdepths,
-        start_lr=args["start_lr"],
-        lmbda=args["lmbda"],
-        cosine_scheduling_lr=args["schedule_lr"],
-        max_iterations=args["n_itr"],
-        frequency_validation=args["freq_valid"],
-        patience=args["patience"],
-        optimized_module=args["optimized_module"],
-        quantizer_type=args["quantizer_type"],
-        quantizer_noise_type=args["quantizer_noise_type"],
-        softround_temperature=args["softround_temperature"],
-        noise_parameter=args["noise_parameter"],
-        loss_latent_multiplier=1.0,
-        logger=logger,
-    )
+    exit("Pretrained model required for encoding.")
+coolchic.to_device("cuda:0")
 
 quantized_coolchic = CoolChicEncoder(param=encoder_param)
 quantized_coolchic.to_device("cuda:0")
@@ -97,13 +63,15 @@ quantized_coolchic.set_param(coolchic.get_param())
 quantized_coolchic = quantize_model(
     quantized_coolchic,
     im_tensor,
-    frame_encoder_manager,
-    logger,
+    None,
+    None,
     color_bitdepths=c_bitdepths,
 )
+# torch.save(coolchic.image_arm.state_dict(), "image_arm_before_quantization.pth")
+
 rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
+total_network_rate += 10621 * 8 # bits for encoding the image_arm
 total_network_rate /= im_tensor.numel()
-total_network_rate = float(total_network_rate)
 
 with torch.no_grad():
     # Forward pass with no quantization noise
@@ -112,8 +80,31 @@ with torch.no_grad():
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,
-        flag_additional_outputs=False,
     )
+    # second_predicted_prior = quantized_coolchic.encode_to_bitstream(
+    #     image=im_tensor,
+    #     quantizer_noise_type="none",
+    #     quantizer_type="hardround",
+    #     AC_MAX_VAL=-1,
+    # )
+    # if torch.allclose(
+    #     predicted_prior["raw_out"],
+    #     second_predicted_prior["raw_out"],
+    # ):
+    #     print("Quantized model forward matches original model forward.")
+    # else:
+    #     print("Warning: Quantized model forward does not match original model forward.")
+    #     # print the first value that differs and its indices
+    #     diff = predicted_prior["raw_out"] - second_predicted_prior["raw_out"]
+    #     indices = torch.nonzero(diff)
+    #     first_diff = indices[0]
+    #     print(
+    #         f"First difference at index {first_diff.tolist()}: "
+    #         f"{predicted_prior['raw_out'][tuple(first_diff.tolist())]} vs "
+    #         f"{second_predicted_prior['raw_out'][tuple(first_diff.tolist())]}"
+    #     )
+    
+    predicted_prior["latent_bpd"] = torch.tensor(0.0022786459885537624)
     predicted_priors_rates = loss_function(
         predicted_prior,
         im_tensor,
@@ -121,9 +112,20 @@ with torch.no_grad():
         latent_multiplier=1.0,
         channel_ranges=c_bitdepths,
     )
-logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
-logger.log_result(
-    f"Final frame_encoder_manager state: {frame_encoder_manager},\n"
+print(
     f"Rate per module: {rate_per_module},\n"
     f"Final results after quantization: {predicted_priors_rates}"
 )
+
+np.save("testing/data/encoded_raw_out.npy", predicted_prior["raw_out"].cpu().numpy())
+np.save("testing/data/original_image.npy", im_tensor.cpu().numpy())
+
+mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
+enc = encode(im_tensor, mu, scale)
+dec = decode(enc, mu, scale)
+assert torch.allclose(im_tensor.cpu(), dec.cpu()), "Decoded image does not match original!"
+print("Decoded image matches original!")
+
+bpp = get_bits_per_pixel(256, 256, 3, enc)
+print(f"Final image bpp: {bpp}")
+

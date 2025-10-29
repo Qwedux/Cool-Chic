@@ -169,6 +169,7 @@ class CoolChicEncoder(nn.Module):
 
         # Everything is stored inside param
         self.param = param
+        self.device = torch.device("cpu")
         # print(self.param.pretty_string("CoolChicEncoderParameter"))
 
         assert self.param.img_size is not None, (
@@ -446,7 +447,7 @@ class CoolChicEncoder(nn.Module):
 
         # print("until now fine")
         image_arm_out = self.image_arm(image, raw_synth_out)
-        
+
         # # Upsample the output of the synthesis with a nearest neighbor if required
         # synthesis_output = F.interpolate(
         #     raw_synth_out, size=self.param.img_size, mode="nearest"
@@ -560,6 +561,70 @@ class CoolChicEncoder(nn.Module):
             "additional_data": additional_data,
         }
 
+        return res
+
+    def encode_to_bitstream(
+        self,
+        image: Tensor = torch.empty(0),
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "none",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "hardround",
+        soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
+        noise_parameter: Optional[Tensor] = torch.tensor(1.0),
+        AC_MAX_VAL: int = -1,
+    ):
+        """
+        Return a bitstream from the image.
+        """
+
+        # ------ Encoder-side: quantize the latent
+        # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
+        # to a single flat vector. This allows to call the quantization
+        # only once, which is faster
+        encoder_side_flat_latent = torch.cat(
+            [latent_i.view(-1) for latent_i in self.latent_grids]
+        )
+
+        flat_decoder_side_latent = quantize(
+            encoder_side_flat_latent * self.encoder_gains,
+            quantizer_noise_type if self.training else "none",
+            quantizer_type if self.training else "hardround",
+            soft_round_temperature,
+            noise_parameter,
+        )
+
+        # Clamp latent if we need to write a bitstream
+        if AC_MAX_VAL != -1:
+            flat_decoder_side_latent = torch.clamp(
+                flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
+            )
+
+        # Convert back the 1d tensor to a list of N [1, C, H_i, W_i] 4d latents.
+        # This require a few additional information about each individual
+        # latent dimension, stored in self.size_per_latent
+        decoder_side_latent = []
+        cnt = 0
+        for latent_size in self.size_per_latent:
+            b, c, h, w = latent_size  # b should be one
+            latent_numel = b * c * h * w
+            decoder_side_latent.append(
+                flat_decoder_side_latent[cnt : cnt + latent_numel].view(
+                    latent_size
+                )
+            )
+            cnt += latent_numel
+
+        # Upsampling and synthesis to get the output
+        ups_out = self.upsampling(decoder_side_latent)
+        # has e.g. shape [1, 9, H, W]
+        raw_synth_out = self.synthesis(ups_out)
+        
+        # print("until now fine")
+        image_arm_out = self.image_arm.predict_final_distributions(
+            image, raw_synth_out
+        )
+        res = {
+            "raw_out": image_arm_out,
+        }
         return res
 
     # ------- Getter / Setter and Initializer
@@ -713,14 +778,16 @@ class CoolChicEncoder(nn.Module):
         flops = FlopCountAnalysis(
             self,
             (
-                torch.empty(1, 3, *self.param.img_size),  # image
+                torch.empty(
+                    1, 3, *self.param.img_size, device=self.device
+                ),  # image
                 "none",  # Quantization noise
                 "hardround",  # Quantizer type
                 0.3,  # Soft round temperature
                 0.1,  # Noise parameter
                 -1,  # AC_MAX_VAL
                 False,  # Flag additional outputs
-            ), # type: ignore
+            ),  # type: ignore
         )
         flops.unsupported_ops_warnings(False)
         flops.uncalled_modules_warnings(False)
@@ -824,7 +891,7 @@ class CoolChicEncoder(nn.Module):
         Args:
             device (POSSIBLE_DEVICE): The device on which the model should run.
         """
-
+        self.device = device
         assert device in typing.get_args(
             POSSIBLE_DEVICE
         ), f"Unknown device {device}, should be in {typing.get_args(POSSIBLE_DEVICE)}"
@@ -840,17 +907,17 @@ class CoolChicEncoder(nn.Module):
             if hasattr(layer, "qb"):
                 if layer.qb is not None:
                     self.arm.mlp[idx_layer].qb = layer.qb.to(device)
-        
+
         # for model in self.image_arm.models:
         #     for idx_layer, layer in enumerate(model):
         #         layer.to(device)
-                # if hasattr(layer, "qw"):
-                #     if layer.qw is not None:
-                #         model[idx_layer].qw = layer.qw.to(device)
+        # if hasattr(layer, "qw"):
+        #     if layer.qw is not None:
+        #         model[idx_layer].qw = layer.qw.to(device)
 
-                # if hasattr(layer, "qb"):
-                #     if layer.qb is not None:
-                #         model[idx_layer].qb = layer.qb.to(device)
+        # if hasattr(layer, "qb"):
+        #     if layer.qb is not None:
+        #         model[idx_layer].qb = layer.qb.to(device)
 
     def pretty_string(self, print_detailed_archi: bool = False) -> str:
         """Get a pretty string representing the layer of a ``CoolChicEncoder``

@@ -113,8 +113,7 @@ class ImageArm(nn.Module):
                     + sum(
                         self.synthesis_out_params_per_channel
                     )  # we can use all information from synthesis output
-                    # + channel_idx  # extra information from already decoded channels for current pixel
-                    ,
+                    + channel_idx,  # extra information from already decoded channels for current pixel
                     hidden_layer_dim,
                     residual=False,
                 )
@@ -144,12 +143,12 @@ class ImageArm(nn.Module):
         )
 
     def prepare_inputs(self, image: Tensor, raw_synth_out: Tensor):
-        contexts = []
         assert len(self.synthesis_out_params_per_channel) == image.shape[1], (
             "Number of channels in image and synthesis_out_params_per_channel "
             "must be equal."
         )
 
+        contexts = []
         # First get contexts for all channels in the image
         # Use loop as _get_neighbor supports only [1, 1, H, W] input shape
         for channel_idx in range(len(self.synthesis_out_params_per_channel)):
@@ -178,70 +177,38 @@ class ImageArm(nn.Module):
                             -1, sum(self.synthesis_out_params_per_channel)
                         ),
                         # append the couple of already decoded channels
-                        # (
-                        #     image[:, :channel_idx]
-                        #     .permute(0, 2, 3, 1)
-                        #     .reshape(
-                        #         -1,
-                        #         channel_idx,
-                        #     )
-                        #     if channel_idx > 0
-                        #     else torch.empty(
-                        #         image.shape[2] * image.shape[3],
-                        #         0,
-                        #         dtype=image.dtype,
-                        #         device=image.device,
-                        #         requires_grad=False,
-                        #     )
-                        # ),
+                        (
+                            image[:, :channel_idx]
+                            .permute(0, 2, 3, 1)
+                            .reshape(
+                                -1,
+                                channel_idx,
+                            )
+                            if channel_idx > 0
+                            else torch.empty(
+                                image.shape[2] * image.shape[3],
+                                0,
+                                dtype=image.dtype,
+                                device=image.device,
+                                requires_grad=False,
+                            )
+                        ),
                     ],
                     dim=1,
                 )
             )
         return prepared_inputs
 
-    def forward(self, x: Tensor, synthesis_proba: Tensor) -> Tensor:
-        """Perform the auto-regressive module (ARM) forward pass. The ARM takes
-        as input a tensor of shape :math:`[B, C]` i.e. :math:`B` contexts with
-        :math:`C` context pixels. ARM outputs :math:`[B, 2]` values correspond
-        to :math:`\\mu, b` for each of the :math:`B` input pixels.
-
-        .. warning::
-
-            Note that the ARM expects input to be flattened i.e. spatial
-            dimensions :math:`H, W` are collapsed into a single batch-like
-            dimension :math:`B = HW`, leading to an input of shape
-            :math:`[B, C]`, gathering the :math:`C` contexts for each of the
-            :math:`B` pixels to model.
-
-        .. note::
-
-            The ARM MLP does not output directly the scale :math:`b`. Denoting
-            :math:`s` the raw output of the MLP, the scale is obtained as
-            follows:
-
-            .. math::
-
-                b = e^{x - 4}
-
-        Args:
-            x: Concatenation of all input contexts
-                :math:`\\mathbf{c}_i`. Tensor of shape :math:`[B, C]`.
-
-        Returns:
-            Concatenation of all Laplace distributions param :math:`\\mu, b`.
-            Tensor of shape :math:([B]). Also return the *log scale*
-            :math:`s` as described above. Tensor of shape :math:`(B)`
-        """
+    def forward(self, image: Tensor, raw_synth_out: Tensor) -> Tensor:
         # print(synthesis_proba.shape)
-        # print(x.shape)
+        # print(image.shape)
         # exit()
-        prepared_inputs = self.prepare_inputs(x, synthesis_proba)
-        
+        prepared_inputs = self.prepare_inputs(image, raw_synth_out)
+
         # print(prepared_inputs[0].shape)
         # # exit()
-        # print(x[0, 0, :5, :5])
-        # print(x[0, 1, :5, :5])
+        # print(image[0, 0, :5, :5])
+        # print(image[0, 1, :5, :5])
         # print(x[0, 2, :5, :5])
         # print(prepared_inputs[2].view((256, 256, -1))[:5, :5].detach().cpu().numpy())
 
@@ -256,7 +223,7 @@ class ImageArm(nn.Module):
             raw_outs = self.models[channel](prepared_inputs[channel])
             raw_proba_param, gate = raw_outs.chunk(2, dim=1)
             out_probas_param.append(
-                synthesis_proba.permute(0, 2, 3, 1).reshape(
+                raw_synth_out.permute(0, 2, 3, 1).reshape(
                     -1, sum(self.synthesis_out_params_per_channel)
                 )[:, cutoffs[channel] : cutoffs[channel + 1]]
                 + raw_proba_param * torch.sigmoid(gate)
@@ -264,25 +231,86 @@ class ImageArm(nn.Module):
         # f(inpt) = inpt + res_correction * gate
         out_proba_param = torch.cat(out_probas_param, dim=1)
         reshaped_image_arm_out = out_proba_param.view(
-            synthesis_proba.shape[0],
-            synthesis_proba.shape[2],
-            synthesis_proba.shape[3],
-            synthesis_proba.shape[1],
+            raw_synth_out.shape[0],
+            raw_synth_out.shape[2],
+            raw_synth_out.shape[3],
+            raw_synth_out.shape[1],
         ).permute(0, 3, 1, 2)
 
         return reshaped_image_arm_out
 
-    # def get_param(self) -> OrderedDict[str, Tensor]:
-    #     """Return **a copy** of the weights and biases inside the module.
+    def predict_final_distributions(
+        self, image: Tensor, raw_synth_out: Tensor
+    ) -> Tensor:
+        access_mask = [
+            [-3, 0],
+            [-2, 0],
+            [-1, -1],
+            [-1, 0],
+            [-1, 1],
+            [0, -3],
+            [0, -2],
+            [0, -1],
+        ]
+        cutoffs = [0, 2, 5, 9]
+        out = torch.zeros_like(raw_synth_out)
+        for c in range(len(self.models)):
+            for h in range(image.shape[2]):
+                for w in range(image.shape[3]):
+                    context_pixels = torch.zeros(
+                        (8 * 3), dtype=image.dtype, device=image.device
+                    )
+                    for offset_index, offset in enumerate(access_mask):
+                        nh = h + offset[0]
+                        nw = w + offset[1]
+                        if (
+                            nh >= 0
+                            and nw >= 0
+                            and nh < image.shape[2]
+                            and nw < image.shape[3]
+                        ):
+                            context_pixels[
+                                offset_index * 3 : (offset_index + 1) * 3
+                            ] = image[0, :, nh, nw].unsqueeze(0)
+                    # Add synthesis output and already decoded channels information
+                    synthesis_out_flat = raw_synth_out[
+                        0, :, h, w
+                    ].unsqueeze(0)
+                    if c > 0:
+                        already_decoded_channels = image[0, :c, h, w].unsqueeze(
+                            0
+                        )
+                        model_input = torch.cat(
+                            [
+                                context_pixels.reshape(1, -1),
+                                synthesis_out_flat,
+                                already_decoded_channels,
+                            ],
+                            dim=1,
+                        )
+                    else:
+                        model_input = torch.cat(
+                            [context_pixels.reshape(1, -1), synthesis_out_flat],
+                            dim=1,
+                        )
+                    raw_outs = self.models[c](model_input)
+                    raw_proba_param, gate = raw_outs.chunk(2, dim=1)
+                    out[0, cutoffs[c] : cutoffs[c + 1], h, w] = raw_synth_out[
+                        0,
+                        cutoffs[c] : cutoffs[c + 1],
+                        h,
+                        w,
+                    ] + raw_proba_param * torch.sigmoid(gate)
+        return out
 
-    #     Returns:
-    #         A copy of all weights & biases in the layers.
-    #     """
-    #     # Detach & clone to create a copy
-    #     return OrderedDict(
-    #         {k: v.detach().clone() for k, v in self.named_parameters()}
-    #     )
+    def get_param(self) -> OrderedDict[str, Tensor]:
+        """Get the parameters of the module.
 
+        Returns:
+            The parameters of the module.
+        """
+        return self.state_dict()
+    
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
         """Replace the current parameters of the module with param.
 
