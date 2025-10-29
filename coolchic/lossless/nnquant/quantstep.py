@@ -20,12 +20,20 @@ POSSIBLE_Q_STEP_SHIFT = {
         "weight": torch.linspace(-8, 0, 9, device="cpu"),
         "bias": torch.linspace(-16, 0, 17, device="cpu"),
     },
+    "image_arm": {
+        "weight": torch.linspace(-8, 0, 9, device="cpu"),
+        "bias": torch.linspace(-16, 0, 17, device="cpu"),
+    },
 }
 
 POSSIBLE_Q_STEP = {
     "arm": {
         "weight": 2.0 ** POSSIBLE_Q_STEP_SHIFT["arm"]["weight"],
         "bias": 2.0 ** POSSIBLE_Q_STEP_SHIFT["arm"]["bias"],
+    },
+    "image_arm": {
+        "weight": 2.0 ** POSSIBLE_Q_STEP_SHIFT["image_arm"]["weight"],
+        "bias": 2.0 ** POSSIBLE_Q_STEP_SHIFT["image_arm"]["bias"],
     },
     "upsampling": {
         "weight": 2.0 ** torch.linspace(-12, 0, 13, device="cpu"),

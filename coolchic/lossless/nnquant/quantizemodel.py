@@ -258,7 +258,8 @@ def quantize_model(
             "_quantize_parameters() failed with q_step "
             f"{model.nn_q_step[module_name]}"
         )
-        logger.log_result(f"Best loss for module {module_name}: {best_loss}")
+        if logger is not None:
+            logger.log_result(f"Best loss for module {module_name}: {best_loss}")
 
         cur_module.set_param(q_param)
         # Plug the quantized module back into Cool-chic
@@ -266,9 +267,11 @@ def quantize_model(
 
     time_nn_quantization = time.time() - start_time
 
-    logger.log_result(
-        f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n"
-    )
-    frame_encoder_manager.total_training_time_sec += time_nn_quantization
+    if logger is not None:
+        logger.log_result(
+            f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n"
+        )
+    if frame_encoder_manager is not None:
+        frame_encoder_manager.total_training_time_sec += time_nn_quantization
 
     return model
