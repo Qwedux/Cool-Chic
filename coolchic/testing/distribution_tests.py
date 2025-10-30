@@ -26,6 +26,7 @@ def inflate_mu_and_scale_linear_color(mu:torch.Tensor, log_scale:torch.Tensor, x
         - log_scale (torch.Tensor): Tensor of shape N x 3 x H x W
         - x (torch.Tensor): Tensor of shape N x 3 x H x W
     """
+    raise NotImplementedError("Function not implemented yet.")
 
 
 class TestWeakColorarRate(unittest.TestCase):

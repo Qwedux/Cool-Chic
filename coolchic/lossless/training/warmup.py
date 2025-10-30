@@ -11,7 +11,7 @@ import copy
 import time
 from typing import List
 
-from lossless.training.manager import FrameEncoderManager
+from lossless.training.manager import ImageEncoderManager
 from lossless.component.frame import FrameEncoder
 from lossless.training.test import test
 from lossless.training.train import train
@@ -21,7 +21,7 @@ from lossless.util.misc import mem_info
 
 
 def warmup(
-    frame_encoder_manager: FrameEncoderManager,
+    image_encoder_manager: ImageEncoderManager,
     list_candidates: List[FrameEncoder],
     frame: Frame,
     device: POSSIBLE_DEVICE,
@@ -54,7 +54,7 @@ def warmup(
     """
 
     start_time = time.time()
-    warmup = frame_encoder_manager.preset.warmup
+    warmup = image_encoder_manager.preset.warmup
 
     _col_width = 14
 
@@ -106,9 +106,9 @@ def warmup(
             frame_encoder = train(
                 frame_encoder=frame_encoder,
                 frame=frame,
-                frame_encoder_manager=frame_encoder_manager,
+                frame_encoder_manager=image_encoder_manager,
                 start_lr=warmup_phase.training_phase.lr,
-                lmbda=frame_encoder_manager.lmbda,
+                lmbda=image_encoder_manager.lmbda,
                 cosine_scheduling_lr=warmup_phase.training_phase.schedule_lr,
                 max_iterations=warmup_phase.training_phase.max_itr,
                 patience=warmup_phase.training_phase.patience,
@@ -120,7 +120,7 @@ def warmup(
                 noise_parameter=warmup_phase.training_phase.noise_parameter
             )
 
-            metrics = test(frame_encoder, frame, frame_encoder_manager)
+            metrics = test(frame_encoder, frame, image_encoder_manager)
             frame_encoder.to_device("cpu")
 
             # Put the updated candidate back into the list.

@@ -21,7 +21,7 @@ from lossless.nnquant.quantstep import (
     get_q_step_from_parameter_name,
 )
 from lossless.training.loss import loss_function, LossFunctionOutput
-from lossless.training.manager import FrameEncoderManager
+from lossless.training.manager import ImageEncoderManager
 from lossless.component.coolchic import CoolChicEncoder
 from torch import Tensor
 from lossless.util.logger import TrainingLogger
@@ -68,7 +68,7 @@ def _quantize_parameters(
 def quantize_model(
     model: CoolChicEncoder,
     image: Tensor,
-    frame_encoder_manager: FrameEncoderManager,
+    image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
     color_bitdepths: ColorBitdepths,
 ) -> CoolChicEncoder:
@@ -271,7 +271,7 @@ def quantize_model(
         logger.log_result(
             f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n"
         )
-    if frame_encoder_manager is not None:
-        frame_encoder_manager.total_training_time_sec += time_nn_quantization
+    if image_encoder_manager is not None:
+        image_encoder_manager.total_training_time_sec += time_nn_quantization
 
     return model

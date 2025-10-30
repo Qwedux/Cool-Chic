@@ -27,7 +27,7 @@ from lossless.training.loss import (
     loss_function,
 )
 from lossless.util.codingstructure import Frame
-from lossless.training.manager import FrameEncoderManager
+from lossless.training.manager import ImageEncoderManager
 from torch import Tensor
 from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
 from lossless.util.color_transform import ColorBitdepths
@@ -499,7 +499,7 @@ class FrameEncoderLogs(LossFunctionOutput):
 def test(
     model: CoolChicEncoder,
     frame: torch.Tensor,
-    frame_encoder_manager: FrameEncoderManager,
+    image_encoder_manager: ImageEncoderManager,
     color_bitdepths: ColorBitdepths,
     latent_multiplier: float = 0.0,
 ) -> LossFunctionOutput:

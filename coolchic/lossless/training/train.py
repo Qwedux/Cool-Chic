@@ -23,7 +23,7 @@ from lossless.training.loss import loss_function
 from lossless.training.presets import MODULE_TO_OPTIMIZE
 from lossless.training.test import test
 # from enc.utils.codingstructure import Frame
-from lossless.training.manager import FrameEncoderManager
+from lossless.training.manager import ImageEncoderManager
 from torch.nn.utils import clip_grad_norm_
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.util.logger import TrainingLogger
@@ -57,7 +57,7 @@ def _linear_schedule(
 def train(
     model: CoolChicEncoder,
     target_image: torch.Tensor,
-    frame_encoder_manager: FrameEncoderManager,
+    image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
     color_bitdepths: ColorBitdepths,
     lmbda: float = 1e-3,
@@ -91,15 +91,15 @@ def train(
 
     .. warning::
 
-        The parameter ``frame_encoder_manager`` tracking the encoding time of
+        The parameter ``image_encoder_manager`` tracking the encoding time of
         the frame (``total_training_time_sec``) and the number of encoding
         iterations (``iterations_counter``) is modified **in place** by this
         function.
 
     Args:
-        frame_encoder: Module to be trained.
+        image_encoder_manager: Module to be trained.
         frame: The original image to be compressed and its references.
-        frame_encoder_manager: Contains (among other things) the rate
+        image_encoder_manager: Contains (among other things) the rate
             constraint :math:`\\lambda`. It is also used to track the total
             encoding time and encoding iterations. Modified in place.
         start_lr: Initial learning rate. Either constant for the entire
@@ -151,7 +151,7 @@ def train(
     # ------ Keep track of the best loss and model
     # Perform a first test to get the current best logs (it includes the loss)
     
-    initial_encoder_logs = test(model, target_image, frame_encoder_manager, color_bitdepths=color_bitdepths)
+    initial_encoder_logs = test(model, target_image, image_encoder_manager, color_bitdepths=color_bitdepths)
     encoder_logs_best = initial_encoder_logs
     best_model = model.get_param()
 
@@ -259,7 +259,7 @@ def train(
                 )
                 model.set_param(best_model)
                 optimizer.load_state_dict(best_optimizer_state)
-
+                assert learning_rate_scheduler is not None
                 current_lr = learning_rate_scheduler.state_dict()["_last_lr"][0]
                 # actualise the best optimizer lr with current lr
                 for g in optimizer.param_groups:
@@ -294,7 +294,7 @@ def train(
         )
         optimizer.step()
 
-        frame_encoder_manager.iterations_counter += 1
+        image_encoder_manager.iterations_counter += 1
 
         # ------- Validation
         # Each freq_valid iteration or at the end of the phase, compute validation loss and log stuff
@@ -303,7 +303,7 @@ def train(
         ):
             #  a. Update iterations counter and training time and test model
             current_time = time.time()
-            frame_encoder_manager.total_training_time_sec += (
+            image_encoder_manager.total_training_time_sec += (
                 current_time - start_time
             )
             start_time = current_time
@@ -312,7 +312,7 @@ def train(
             encoder_logs = test(
                 model,
                 target_image,
-                frame_encoder_manager,
+                image_encoder_manager,
                 latent_multiplier=1.0,
                 color_bitdepths=color_bitdepths,
             )
@@ -408,9 +408,9 @@ def train(
 
     # At the end of the training, we load the best model
     model.set_param(best_model)
-    frame_encoder_manager.total_training_time_sec += time.time() - start_time
+    image_encoder_manager.total_training_time_sec += time.time() - start_time
     encoder_logs = test(
-        model, target_image, frame_encoder_manager, latent_multiplier=1.0, color_bitdepths=color_bitdepths
+        model, target_image, image_encoder_manager, latent_multiplier=1.0, color_bitdepths=color_bitdepths
     )
     logger.log_result(f"At the end of the training: " + str(encoder_logs))
     return model

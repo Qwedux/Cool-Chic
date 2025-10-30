@@ -5,7 +5,7 @@ sys.path.append(os.getcwd())
 import torch
 from lossless.component.coolchic import CoolChicEncoderParameter
 from lossless.component.image import (
-    FrameEncoderManager,
+    ImageEncoderManager,
 )
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.util.config import args, str_args

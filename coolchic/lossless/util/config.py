@@ -37,7 +37,7 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 3000,
+    "n_itr": 50000,
     "n_train_loops": 1,
     "preset": "fnlic",
     # decoder side
@@ -57,7 +57,7 @@ args = {
     "quantizer_noise_type": "kumaraswamy",
     "softround_temperature": (0.3, 0.1),
     "noise_parameter": (0.25, 0.1),
-    "pretrained_model_path": "../logs/trained_models/2025_10_29__14_00_05__trained_coolchic_synthetic_random_noise_64_64_black_gray_img_rate_7.554530143737793.pth",
+    "pretrained_model_path": "../logs/trained_models/2025_10_27__16_52_28__trained_coolchic_synthetic_random_noise_256_256_white_gray_img_rate_7.170324325561523.pth",
     "use_pretrained": False,
     # Other presets
     "quantize_model": True,
