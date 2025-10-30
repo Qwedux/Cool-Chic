@@ -27,7 +27,7 @@ from lossless.io.format.yuv import write_yuv
 from lossless.io.framedata import FrameData
 from lossless.io.io import load_frame_data_from_file
 from lossless.nnquant.quantizemodel import quantize_model
-from lossless.training.manager import FrameEncoderManager
+from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
 from lossless.training.train import train
 from lossless.training.warmup import warmup
@@ -70,7 +70,7 @@ def encode_one_frame(
     video_path: str,
     coding_structure: CodingStructure,
     coolchic_enc_param: Dict[NAME_COOLCHIC_ENC, CoolChicEncoderParameter],
-    frame_encoder_manager: FrameEncoderManager,
+    frame_encoder_manager: ImageEncoderManager,
     coding_index: int,
     job_duration_min: int = -1,
     device: POSSIBLE_DEVICE = "cpu",
@@ -212,7 +212,7 @@ def encode_one_frame(
         # Use warm-up to find the best initialization among the list
         # of candidates parameters.
         frame_encoder = warmup(
-            frame_encoder_manager=frame_encoder_manager,
+            image_encoder_manager=frame_encoder_manager,
             list_candidates=list_candidates,
             frame=frame,
             device=device,

@@ -11,9 +11,9 @@ from lossless.training.presets import AVAILABLE_PRESETS, Preset
 
 
 @dataclass
-class FrameEncoderManager():
+class ImageEncoderManager():
     """
-    All the encoding option for a frame (loss, lambda, learning rate) as well as some
+    All the encoding option for a image (loss, lambda, learning rate) as well as some
     counters monitoring the training time, the number of training iterations or the number
     of loops already done.
     """
@@ -23,7 +23,6 @@ class FrameEncoderManager():
     lmbda: float = 1e-3                                 # Rate constraint. Loss = D + lmbda R
     n_itr: int = int(1e4)                               # Number of iterations for the main training stage
     n_loops: int = 1                                    # Number of training loop
-    n_itr_pretrain_motion: int = int(1e3)               # Number of iterations for the motion pre-training stage
 
     # ==================== Not set by the init function ===================== #
     # ----- Actual preset, instantiated from its name
@@ -43,10 +42,13 @@ class FrameEncoderManager():
         assert self.preset_name in AVAILABLE_PRESETS, f'Preset named {self.preset_name} does not exist.' \
             f' List of available preset:\n{list(AVAILABLE_PRESETS.keys())}.'
 
-        self.preset = AVAILABLE_PRESETS.get(self.preset_name)(
+        presetFactory = AVAILABLE_PRESETS.get(self.preset_name)
+        assert presetFactory is not None, f'Preset named {self.preset_name} could not be found in AVAILABLE_PRESETS.'
+        assert callable(presetFactory), f'Preset factory for preset named {self.preset_name} is not callable.'
+
+        self.preset = presetFactory(
             start_lr= self.start_lr,
             itr_main_training=self.n_itr,
-            # itr_motion_pretrain=self.n_itr_pretrain_motion
         )
 
         flag_quantize_model = False

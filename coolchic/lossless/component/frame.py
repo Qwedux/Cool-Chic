@@ -28,7 +28,7 @@ from lossless.component.core.quantizer import (
 from lossless.io.types import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
 from lossless.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
 from lossless.util.codingstructure import FRAME_TYPE
-from lossless.training.manager import FrameEncoderManager
+from lossless.training.manager import ImageEncoderManager
 from lossless.util.device import POSSIBLE_DEVICE
 from torch import Tensor, nn
 
@@ -415,7 +415,7 @@ class FrameEncoder(nn.Module):
     def save(
         self,
         path_file: str,
-        frame_encoder_manager: Optional[FrameEncoderManager] = None,
+        image_encoder_manager: Optional[ImageEncoderManager] = None,
     ) -> None:
         """Save the FrameEncoder into a bytes buffer and return it.
             Optionally save a frame_encoder_manager alongside the current frame
@@ -514,7 +514,7 @@ class FrameEncoder(nn.Module):
 
 def load_frame_encoder(
     path_file: str,
-) -> Tuple[FrameEncoder, Optional[FrameEncoderManager]]:
+) -> Tuple[FrameEncoder, Optional[ImageEncoderManager]]:
     """From already loaded raw bytes, load & return a CoolChicEncoder
 
     Args:
@@ -522,7 +522,7 @@ def load_frame_encoder(
 
     Returns:
         Tuple with a FrameEncoder loaded by the function and an optional
-        FrameEncoderManager
+        ImageEncoderManager
     """
     loaded_data = torch.load(path_file, map_location="cpu", weights_only=False)
 

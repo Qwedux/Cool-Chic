@@ -4,8 +4,8 @@ import sys
 sys.path.append(os.getcwd())
 import torch
 from lossless.component.coolchic import CoolChicEncoderParameter
-from lossless.component.image import (
-    FrameEncoderManager,
+from lossless.training.manager import (
+    ImageEncoderManager,
 )
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.util.config import args, str_args
@@ -22,26 +22,27 @@ from lossless.nnquant.quantizemodel import quantize_model
 
 torch.autograd.set_detect_anomaly(True)
 
-if len(sys.argv) < 3:
-    print("Usage: python3 lossless_encode.py <image_index> <color_space>")
+if len(sys.argv) < 4:
+    print("Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm>")
     print("<color_space> must be `YCoCg` or `RGB`")
+    print("<use_image_arm> must be `true` or `false`")
     sys.exit(1)
 
 image_index = int(sys.argv[1])
 color_space = sys.argv[2]
+use_image_arm = sys.argv[3].lower() == "true"
+assert sys.argv[3].lower() in ["true", "false"], "<use_image_arm> must be `true` or `false`"
 assert color_space in [
     "YCoCg",
     "RGB",
 ], f"Invalid color space {color_space}, must be YCoCg or RGB"
 
-# im_path = args["input"][image_index]
-im_path = "../datasets/synthetic/random_noise_64_64_black_gray.png"
+im_path = args["input"][image_index]
+# im_path = "../datasets/synthetic/random_noise_256_256_white_gray.png"
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
-print(im_tensor[0, 2, :5, :5])
 
-# print(f"Loaded image {im_path} with shape {im_tensor.shape}")
 dataset = im_path.split("/")[-2]
 
 logger = TrainingLogger(
@@ -58,7 +59,7 @@ logger.log_result(
     f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
 )
 
-frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
+image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(
     **get_coolchic_param_from_args(args, "residue")
 )
@@ -66,6 +67,7 @@ encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
 encoder_param.layers_synthesis = change_n_out_synth(
     encoder_param.layers_synthesis, args["output_dim_size"]
 )
+encoder_param.use_image_arm = use_image_arm
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
 
@@ -75,7 +77,7 @@ else:
     coolchic = train(
         model=coolchic,
         target_image=im_tensor,
-        frame_encoder_manager=frame_encoder_manager,
+        image_encoder_manager=image_encoder_manager,
         color_bitdepths=c_bitdepths,
         start_lr=args["start_lr"],
         lmbda=args["lmbda"],
@@ -98,7 +100,7 @@ quantized_coolchic.set_param(coolchic.get_param())
 quantized_coolchic = quantize_model(
     quantized_coolchic,
     im_tensor,
-    frame_encoder_manager,
+    image_encoder_manager,
     logger,
     color_bitdepths=c_bitdepths,
 )
@@ -122,9 +124,9 @@ with torch.no_grad():
         latent_multiplier=1.0,
         channel_ranges=c_bitdepths,
     )
-logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
+# logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
 logger.log_result(
-    f"Final frame_encoder_manager state: {frame_encoder_manager},\n"
+    f"Final frame_encoder_manager state: {image_encoder_manager},\n"
     f"Rate per module: {rate_per_module},\n"
     f"Final results after quantization: {predicted_priors_rates}"
 )

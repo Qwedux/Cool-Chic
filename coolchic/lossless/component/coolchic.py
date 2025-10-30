@@ -92,6 +92,7 @@ class CoolChicEncoderParameter:
     ups_preconcat_k_size: int = 7
     latent_freq_precision: int = 12
     arm_image_context_size: int = 8
+    use_image_arm: bool = True
 
     # ==================== Not set by the init function ===================== #
     #: Automatically computed, number of different latent resolutions
@@ -265,10 +266,13 @@ class CoolChicEncoder(nn.Module):
 
         # ===================== ARM related stuff ==================== #
         self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm)
-        self.image_arm = ImageArm()
+        if self.param.use_image_arm:
+            self.image_arm = ImageArm()
 
         # Something like ['arm', 'synthesis', 'upsampling']
         self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
+        if not self.param.use_image_arm:
+            self.modules_to_send.remove("image_arm")
 
         # ======================== Monitoring ======================== #
         # Pretty string representing the decoder complexity
@@ -446,7 +450,8 @@ class CoolChicEncoder(nn.Module):
         raw_synth_out = self.synthesis(ups_out)
 
         # print("until now fine")
-        image_arm_out = self.image_arm(image, raw_synth_out)
+        if self.param.use_image_arm:
+            raw_synth_out = self.image_arm(image, raw_synth_out)
 
         # # Upsample the output of the synthesis with a nearest neighbor if required
         # synthesis_output = F.interpolate(
@@ -552,7 +557,7 @@ class CoolChicEncoder(nn.Module):
 
         assert self.param.img_size is not None
         res: CoolChicEncoderOutput = {
-            "raw_out": image_arm_out,
+            "raw_out": raw_synth_out,
             "rate": flat_rate,
             "latent_bpd": flat_rate.sum()
             / self.param.img_size[0]
@@ -619,11 +624,12 @@ class CoolChicEncoder(nn.Module):
         raw_synth_out = self.synthesis(ups_out)
         
         # print("until now fine")
-        image_arm_out = self.image_arm.predict_final_distributions(
-            image, raw_synth_out
-        )
+        if self.param.use_image_arm:
+            raw_synth_out = self.image_arm.predict_final_distributions(
+                image, raw_synth_out
+            )
         res = {
-            "raw_out": image_arm_out,
+            "raw_out": raw_synth_out,
         }
         return res
 
@@ -644,12 +650,13 @@ class CoolChicEncoder(nn.Module):
         )
         param.update({f"arm.{k}": v for k, v in self.arm.get_param().items()})
         # I broke the following as image_arms is now a list of modules
-        param.update(
-            {
-                f"image_arm.{k}": v.detach().clone()
-                for k, v in self.image_arm.named_parameters()
-            }
-        )
+        if self.param.use_image_arm:
+            param.update(
+                {
+                    f"image_arm.{k}": v.detach().clone()
+                    for k, v in self.image_arm.named_parameters()
+                }
+            )
         param.update(
             {
                 f"upsampling.{k}": v
