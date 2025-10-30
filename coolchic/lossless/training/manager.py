@@ -46,7 +46,7 @@ class FrameEncoderManager():
         self.preset = AVAILABLE_PRESETS.get(self.preset_name)(
             start_lr= self.start_lr,
             itr_main_training=self.n_itr,
-            itr_motion_pretrain=self.n_itr_pretrain_motion
+            # itr_motion_pretrain=self.n_itr_pretrain_motion
         )
 
         flag_quantize_model = False
