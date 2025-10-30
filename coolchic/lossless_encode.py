@@ -14,11 +14,12 @@ from lossless.util.parsecli import (
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
-from lossless.training.train import train
-from lossless.nnquant.quantizemodel import quantize_model
-from lossless.training.loss import loss_function
 from lossless.util.logger import TrainingLogger
 from lossless.util.image_loading import load_image_as_tensor
+from lossless.training.train import train
+from lossless.training.loss import loss_function
+from lossless.nnquant.quantizemodel import quantize_model
+
 torch.autograd.set_detect_anomaly(True)
 
 if len(sys.argv) < 3:
@@ -34,7 +35,7 @@ assert color_space in [
 ], f"Invalid color space {color_space}, must be YCoCg or RGB"
 
 # im_path = args["input"][image_index]
-im_path = "../datasets/synthetic/random_noise_256_256_white_gray.png"
+im_path = "../datasets/synthetic/random_noise_64_64_black_gray.png"
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )

@@ -38,7 +38,7 @@ assert color_space in [
 ], f"Invalid color space {color_space}, must be YCoCg or RGB"
 
 # im_path = args["input"][image_index]
-im_path = "../datasets/synthetic/random_noise_256_256_white_gray.png"
+im_path = "../datasets/synthetic/random_noise_64_64_black_gray.png"
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
@@ -126,6 +126,6 @@ dec = decode(enc, mu, scale)
 assert torch.allclose(im_tensor.cpu(), dec.cpu()), "Decoded image does not match original!"
 print("Decoded image matches original!")
 
-bpp = get_bits_per_pixel(256, 256, 3, enc)
+bpp = get_bits_per_pixel(64, 64, 3, enc)
 print(f"Final image bpp: {bpp}")
 

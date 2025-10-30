@@ -19,29 +19,13 @@ from lossless.component.core.quantizer import (
 from lossless.component.types import NAME_COOLCHIC_ENC
 
 MODULE_TO_OPTIMIZE = Literal[
-    # All combinations of <coolchic_enc_name>.<module_name>
-    # with all designing either all coolchic encoders or all
-    # modules e.g.
-    #   - "residue.all": train the entire Cool-chic residue
-    #   - "motion.arm": train only the ARM of the Cool-chic motion
-    #   - "all.latent": train the latent of all Cool-chic
-    tuple(
-        [
-            f"{cc_name}.{mod_name}"
-            for cc_name in list(typing.get_args(NAME_COOLCHIC_ENC)) + ["all"]
-            for mod_name in [
-                "all",
-                "arm",
-                "upsampling",
-                "synthesis",
-                "latent",
-                "warper",
-            ]
-        ]
-        +
-        # Train everything
-        ["all"]
-    )
+    # Which module to optimize during training
+    "all",
+    "arm",
+    "arm_image",
+    "upsampling",
+    "synthesis",
+    "latent",
 ]
 
 
@@ -102,13 +86,13 @@ class TrainerPhase:
     """
 
     lr: float = 1e-2
-    max_itr: int = 5000
+    max_itr: int = 10000
     freq_valid: int = 100
-    patience: int = 10000
+    patience: int = 1000
     quantize_model: bool = False
     schedule_lr: bool = False
     softround_temperature: Tuple[float, float] = (0.3, 0.3)
-    noise_parameter: Tuple[float, float] = (1.0, 1.0)
+    noise_parameter: Tuple[float, float] = (2.0, 1.0)
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy"
     quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround"
     optimized_module: List[MODULE_TO_OPTIMIZE] = field(
@@ -116,11 +100,6 @@ class TrainerPhase:
     )
 
     def __post_init__(self):
-        # If all is present in the list of modules to be optimized, alongside something else,
-        # it overrides everything, leaving the list of modules to be optimized to just ['all'].
-        if "all" in self.optimized_module:
-            self.optimized_module == ["all"]
-
         for cur_module in self.optimized_module:
             assert cur_module in list(typing.get_args(MODULE_TO_OPTIMIZE)), (
                 f"Module to optimize unknown: found {cur_module}. Available: "
@@ -248,9 +227,6 @@ class Preset:
 
     preset_name: str
     # Dummy empty training phases and warm-up
-    motion_pretrain_phase: List[TrainerPhase] = field(
-        default_factory=lambda: []
-    )  # All the phases to pre-train the motion
     warmup: Warmup = field(
         default_factory=lambda: Warmup()
     )  # All the warm-up phases
@@ -283,34 +259,6 @@ class Preset:
         s = f"Preset: {self.preset_name:<10}\n"
         s += "-------\n"
 
-        if len(self.motion_pretrain_phase) > 0:
-            s += "\nMotion pre-training\n"
-            s += "-------------------\n"
-            s += (
-                "+"
-                + "-" * 14
-                + "+"
-                + TrainerPhase._vertical_line_array()
-                + "\n"
-            )
-            s += f'|{"Phase index":^14}|{TrainerPhase._pretty_string_column_name()}\n'
-            s += (
-                "+"
-                + "-" * 14
-                + "+"
-                + TrainerPhase._vertical_line_array()
-                + "\n"
-            )
-            for idx, training_phase in enumerate(self.motion_pretrain_phase):
-                s += f"|{idx:^14}|{training_phase.pretty_string()}\n"
-            s += (
-                "+"
-                + "-" * 14
-                + "+"
-                + TrainerPhase._vertical_line_array()
-                + "\n"
-            )
-
         s += "\nWarm-up\n"
         s += "-------\n"
         s += "+" + "-" * 14 + "+" + TrainerPhase._vertical_line_array() + "\n"
@@ -329,17 +277,13 @@ class Preset:
             s += f"|{idx:^14}|{training_phase.pretty_string()}\n"
         s += "+" + "-" * 14 + "+" + TrainerPhase._vertical_line_array() + "\n"
 
-        s += "\nMaximum number of iterations (motion / warm-up / training / total):"
-        motion_max_itr = self._get_total_training_iterations(
-            self.motion_pretrain_phase
-        )
+        s += "\nMaximum number of iterations (warm-up / training / total):"
         warmup_max_itr = self.warmup._get_total_warmup_iterations()
         training_max_itr = self._get_total_training_iterations(
             self.training_phases
         )
-        total_max_itr = motion_max_itr + warmup_max_itr + training_max_itr
+        total_max_itr = warmup_max_itr + training_max_itr
         s += (
-            f"{motion_max_itr:^8} / "
             f"{warmup_max_itr:^8} / "
             f"{training_max_itr:^8} / "
             f"{total_max_itr:^8}\n"
@@ -348,13 +292,13 @@ class Preset:
 
 
 class PresetFNLIC(Preset):
-    def __init__(self, start_lr: float = 1e-2, n_itr_per_phase: int = 100000):
+    def __init__(self, start_lr: float = 1e-2, itr_main_training: int = 100000):
         super().__init__(preset_name="fnlic")
         # 1st stage: with soft round and kumaraswamy noise
-        self.all_phases: List[TrainerPhase] = [
+        self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=start_lr,
-                max_itr=n_itr_per_phase,
+                max_itr=itr_main_training,
                 freq_valid=100,
                 patience=100000,
                 quantize_model=False,
@@ -366,63 +310,90 @@ class PresetFNLIC(Preset):
             )
         ]
 
-        # # Second stage with STE
-        # lr = 0.0001
-        # while lr > 10.0e-6:
-        #     # max itr = 100
-        #     self.all_phases.append(
-        #         TrainerPhase(
-        #             lr=lr,
-        #             max_itr=100,
-        #             patience=50,
-        #             optimized_module=["all"],
-        #             freq_valid=10,
-        #             ste=True,
-        #             # This is only used to parameterize the backward of the quantization
-        #             start_temperature_softround=1e-4,
-        #             end_temperature_softround=1e-4,
-        #             # Kumaraswamy noise with parameter = 1 --> Uniform noise
-        #             start_kumaraswamy=1.0,
-        #             end_kumaraswamy=1.0,
-        #         )
-        #     )
-        #     lr *= 0.8
+        # Second stage with STE
+        lr = 0.0001
+        while lr > 10.0e-6:
+            self.training_phases.append(
+                TrainerPhase(
+                    lr=lr,
+                    max_itr=100,
+                    freq_valid=10,
+                    patience=50,
+                    schedule_lr=True,
+                    # This is only used to parameterize the backward of the quantization
+                    softround_temperature=(1e-4, 1e-4),
+                    # Kumaraswamy noise with parameter = 1 --> Uniform noise
+                    noise_parameter=(1.0, 1.0),
+                    quantizer_noise_type="none",
+                    quantizer_type="ste",
+                    optimized_module=["all"],
+                )
+            )
+            lr *= 0.8
 
-        # # Final stage: quantize the networks and then re-tuned the latent
-        # self.all_phases.append(
-        #     TrainerPhase(
-        #         lr=lr,
-        #         max_itr=100,
-        #         patience=100,
-        #         optimized_module=["all"],
-        #         ste=True,
-        #         quantize_model=True,  # ! This is the important parameter
-        #         start_temperature_softround=1e-4,
-        #         end_temperature_softround=1e-4,
-        #         start_kumaraswamy=1.0,
-        #         end_kumaraswamy=1.0,
-        #     )
-        # )
-        # self.all_phases.append(
-        #     TrainerPhase(
-        #         lr=1e-4,
-        #         max_itr=1000,
-        #         patience=50,
-        #         optimized_module=["latent"],  # ! Only fine tune the latent
-        #         freq_valid=10,
-        #         ste=True,
-        #         start_temperature_softround=1e-4,
-        #         end_temperature_softround=1e-4,
-        #         start_kumaraswamy=1.0,
-        #         end_kumaraswamy=1.0,
-        #     )
-        # )
+        # Final stage: quantize the networks and then re-tuned the latent
+        self.training_phases.append(
+            TrainerPhase(
+                lr=lr,
+                max_itr=100,
+                patience=100,
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),
+                optimized_module=["all"],
+                quantizer_type="ste",
+                quantize_model=True,  # ! This is the important parameter
+            )
+        )
+        self.training_phases.append(
+            TrainerPhase(
+                lr=1e-4,
+                max_itr=1000,
+                patience=50,
+                optimized_module=["latent"],  # ! Only fine tune the latent
+                freq_valid=10,
+                quantizer_type="ste",
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),
+            )
+        )
 
-        # # 5 candidates, then 2 then 1
-        # self.all_warmups: List[WarmupPhase] = [
-        #     WarmupPhase(candidates=5, iterations=1000, lr=start_lr),
-        #     WarmupPhase(candidates=2, iterations=1000, lr=start_lr),
-        # ]
+        # 5 candidates, then 2 then 1
+        self.warmup = Warmup(
+            [
+                WarmupPhase(
+                    candidates=5,
+                    training_phase=TrainerPhase(
+                        lr=start_lr,
+                        max_itr=400,
+                        freq_valid=400,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(2.0, 2.0),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+                WarmupPhase(
+                    candidates=2,
+                    training_phase=TrainerPhase(
+                        lr=start_lr,
+                        max_itr=1000,
+                        freq_valid=10,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(2.0, 2.0),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+            ]
+        )
 
 
 class PresetC3xIntra(Preset):
@@ -430,7 +401,6 @@ class PresetC3xIntra(Preset):
         self,
         start_lr: float = 1e-2,
         itr_main_training: int = 100000,
-        itr_motion_pretrain: int = 1000,
     ):
         super().__init__(preset_name="c3x_intra")
         # 1st stage: with soft round and quantization noise
@@ -593,7 +563,7 @@ class PresetDebug(Preset):
                 lr=start_lr,
                 max_itr=50,
                 patience=100000,
-                optimized_module=["residue.all"],
+                optimized_module=["all"],
                 schedule_lr=True,
                 quantizer_type="softround",
                 quantizer_noise_type="gaussian",
@@ -627,7 +597,7 @@ class PresetDebug(Preset):
                 patience=5,
                 quantizer_type="ste",
                 quantizer_noise_type="none",
-                optimized_module=["all.latent"],  # ! Only fine tune the latent
+                optimized_module=["latent"],  # ! Only fine tune the latent
                 freq_valid=10,
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(
@@ -725,8 +695,9 @@ class PresetMeasureSpeed(Preset):
 
 
 AVAILABLE_PRESETS: Dict[str, Preset] = {
-    "c3x_intra": PresetC3xIntra,
-    "c3x_inter": PresetC3xInter,
-    "debug": PresetDebug,
-    "measure_speed": PresetMeasureSpeed,
+    # "c3x_intra": PresetC3xIntra,
+    # "c3x_inter": PresetC3xInter,
+    # "debug": PresetDebug,
+    # "measure_speed": PresetMeasureSpeed,
+    "fnlic": PresetFNLIC,  # type: ignore
 }

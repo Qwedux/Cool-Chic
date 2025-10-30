@@ -39,7 +39,7 @@ args = {
     "start_lr": 1e-2,
     "n_itr": 3000,
     "n_train_loops": 1,
-    "preset": "debug",
+    "preset": "fnlic",
     # decoder side
     "layers_synthesis_residue": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_residue": "16,2",
@@ -57,8 +57,8 @@ args = {
     "quantizer_noise_type": "kumaraswamy",
     "softround_temperature": (0.3, 0.1),
     "noise_parameter": (0.25, 0.1),
-    "pretrained_model_path": "../logs/trained_models/2025_10_27__15_11_33__trained_coolchic_synthetic_random_noise_256_256_white_gray_img_rate_7.170324325561523.pth",
-    "use_pretrained": True,
+    "pretrained_model_path": "../logs/trained_models/2025_10_29__14_00_05__trained_coolchic_synthetic_random_noise_64_64_black_gray_img_rate_7.554530143737793.pth",
+    "use_pretrained": False,
     # Other presets
     "quantize_model": True,
 }
