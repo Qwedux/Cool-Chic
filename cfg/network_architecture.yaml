@@ -1,7 +1,30 @@
+X: 9 # number of features predicted by synthesis
+
+Synthesis:
+    inputs:
+        - ""
+    outputs:
+        - "raw_synth_out"
+    config_params:
+        "layers_synthesis_residue": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none"
+
+ARM:
+    inputs:
+        - "latent_context_flat"
+    outputs:
+        - flat_mu
+        - flat_scale
+        - flat_log_scale
+    config_params:
+        dim_arm: 16 # context size of the arm
+        n_hidden_layers_arm: 2 # number of hidden layers
+
 ImageARM:
     inputs:
         - "input_image"
-        - "synthesis_out"
+        - "raw_synth_out"
+    outputs:
+        - "raw_synth_out"
     config_params:
         context_size: 8 # number of pixels to take into context
         n_hidden_layers: 2 # number of hidden layers
