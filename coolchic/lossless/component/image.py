@@ -66,54 +66,32 @@ def _is_job_over(start_time: float, max_duration_job_min: int = 45) -> bool:
 # =========================== Job management ============================ #
 
 
-def encode_one_frame(
-    video_path: str,
+def encode_one_image(
+    image_path: str,
     coding_structure: CodingStructure,
     coolchic_enc_param: Dict[NAME_COOLCHIC_ENC, CoolChicEncoderParameter],
-    frame_encoder_manager: ImageEncoderManager,
-    coding_index: int,
+    image_encoder_manager: ImageEncoderManager,
     job_duration_min: int = -1,
     device: POSSIBLE_DEVICE = "cpu",
     print_detailed_archi: bool = False,
 ) -> TrainingExitCode:
     start_time = time.time()
-    frame = coding_structure.get_frame_from_coding_order(coding_index)
-    assert frame is not None
 
-    def change_n_out_synth(layers_synth: List[str], n_out: int) -> List[str]:
-        """Change the number of output features in the list of strings
-        describing the synthesis architecture. It replaces "X" with n_out. E.g.
+    # print(
+    #     "Frame being encoded\n"
+    #     "-------------------\n\n"
+    #     f"{frame.pretty_string(show_header=True, show_bottom_line=True)}"
+    # )
 
-        From [8-1-linear-relu,X-1-linear-none,X-3-residual-none]
-        To   [8-1-linear-relu,2-1-linear-none,2-3-residual-none]
-
-        If n_out = 2
-
-        Args:
-            layers_synth (List[str]): List of strings describing the different
-                synthesis layers
-            n_out (int): Number of desired output.
-
-        Returns:
-            List[str]: List of strings with the proper number of output features.
-        """
-        return [lay.replace("X", str(n_out)) for lay in layers_synth]
-
-    print(
-        "Frame being encoded\n"
-        "-------------------\n\n"
-        f"{frame.pretty_string(show_header=True, show_bottom_line=True)}"
-    )
-
-    if frame_encoder_manager.loop_counter >= frame_encoder_manager.n_loops:
+    if image_encoder_manager.loop_counter >= image_encoder_manager.n_loops:
         # This is the next frame to code
         next_frame = coding_structure.get_frame_from_coding_order(
             frame.coding_order + 1
         )
         msg = (
             f"Frame {frame.frame_type}{frame.display_order} has already "
-            f"undergone {frame_encoder_manager.loop_counter} / "
-            f"{frame_encoder_manager.n_loops} training loop(s).\n"
+            f"undergone {image_encoder_manager.loop_counter} / "
+            f"{image_encoder_manager.n_loops} training loop(s).\n"
         )
         if next_frame is not None:
             msg += (
@@ -125,11 +103,11 @@ def encode_one_frame(
 
     torch.set_float32_matmul_precision("high")
 
-    for index_loop in range(frame_encoder_manager.loop_counter, frame_encoder_manager.n_loops):
+    for index_loop in range(image_encoder_manager.loop_counter, image_encoder_manager.n_loops):
         # Load the original data and its references
         frame.set_frame_data(
             load_frame_data_from_file(
-                video_path, frame.display_order + frame.frame_offset
+                image_path, frame.display_order + frame.frame_offset
             )
         )
         frame.set_refs_data(get_ref_data(frame, coding_structure))
@@ -154,16 +132,16 @@ def encode_one_frame(
         print(
             "-" * 80
             + "\n"
-            + f'{" " * 30} Training loop {frame_encoder_manager.loop_counter + 1} / '
-            + f"{frame_encoder_manager.n_loops}\n"
+            + f'{" " * 30} Training loop {image_encoder_manager.loop_counter + 1} / '
+            + f"{image_encoder_manager.n_loops}\n"
             + "-" * 80
         )
 
         # First loop, print some stuff!
-        if frame_encoder_manager.loop_counter == 0:
+        if image_encoder_manager.loop_counter == 0:
             # Log a few details about the model
-            print(f"\n{frame_encoder_manager.pretty_string()}")
-            print(f"{frame_encoder_manager.preset.pretty_string()}")
+            print(f"\n{image_encoder_manager.pretty_string()}")
+            print(f"{image_encoder_manager.preset.pretty_string()}")
 
             tmp_str = "Decoder architectures\n"
             tmp_str += "---------------------\n\n"
@@ -180,7 +158,7 @@ def encode_one_frame(
         frame = frame_to_device(frame, device)
 
         # Get the number of candidates from the initial warm-up phase
-        n_candidates = frame_encoder_manager.preset.warmup.phases[0].candidates
+        n_candidates = image_encoder_manager.preset.warmup.phases[0].candidates
 
         list_candidates = []
         for idx_candidate in range(n_candidates):
@@ -212,7 +190,7 @@ def encode_one_frame(
         # Use warm-up to find the best initialization among the list
         # of candidates parameters.
         frame_encoder = warmup(
-            image_encoder_manager=frame_encoder_manager,
+            image_encoder_manager=image_encoder_manager,
             list_candidates=list_candidates,
             frame=frame,
             device=device,
@@ -229,7 +207,7 @@ def encode_one_frame(
         elif major == 2:
             use_compile = minor >= 5
 
-        cur_preset = frame_encoder_manager.preset
+        cur_preset = image_encoder_manager.preset
 
         if cur_preset.preset_name == "debug":
             print("Skip compilation when debugging\n")
@@ -256,15 +234,15 @@ def encode_one_frame(
                 fullgraph=frame.data.frame_data_type != "yuv420",
             )
 
-        for idx_phase, training_phase in enumerate(frame_encoder_manager.preset.training_phases):
+        for idx_phase, training_phase in enumerate(image_encoder_manager.preset.training_phases):
             print(f'{"-" * 30} Training phase: {idx_phase:>2} {"-" * 30}\n')
             mem_info("Training phase " + str(idx_phase))
             frame_encoder = train(
                 model=frame_encoder,
                 target_image=frame,
-                frame_encoder_manager=frame_encoder_manager,
+                frame_encoder_manager=image_encoder_manager,
                 start_lr=training_phase.lr,
-                lmbda=frame_encoder_manager.lmbda,
+                lmbda=image_encoder_manager.lmbda,
                 cosine_scheduling_lr=training_phase.schedule_lr,
                 max_iterations=training_phase.max_itr,
                 frequency_validation=training_phase.freq_valid,
@@ -283,13 +261,13 @@ def encode_one_frame(
                 frame_encoder = quantize_model(
                     frame_encoder,
                     frame,
-                    frame_encoder_manager,
+                    image_encoder_manager,
                 )
 
             phase_results = test(
                 frame_encoder,
                 frame,
-                frame_encoder_manager,
+                image_encoder_manager,
             )
 
             print("\nResults at the end of the phase:")
@@ -306,12 +284,12 @@ def encode_one_frame(
         loop_results = test(
             frame_encoder,
             frame,
-            frame_encoder_manager,
+            image_encoder_manager,
         )
 
         # We only care for the best_results.tsv
         # Write results file
-        path_results_log = f"{prefix_save}results_loop_{frame_encoder_manager.loop_counter + 1}.tsv"
+        path_results_log = f"{prefix_save}results_loop_{image_encoder_manager.loop_counter + 1}.tsv"
         with open(path_results_log, "w") as f_out:
             f_out.write(
                 loop_results.pretty_string(show_col_name=True, mode="all")
@@ -321,19 +299,19 @@ def encode_one_frame(
         path_best_frame_enc = f"{prefix_save}frame_encoder.pt"
 
         # We've beaten our record, save the corresponding .pt + the decoded image
-        frame_encoder_manager.loop_counter += 1
-        if frame_encoder_manager.record_beaten(loop_results.loss):
+        image_encoder_manager.loop_counter += 1
+        if image_encoder_manager.record_beaten(loop_results.loss):
             print(
-                f"Best loss beaten at loop {frame_encoder_manager.loop_counter}"  # no need for +1 anymore, it's done above
+                f"Best loss beaten at loop {image_encoder_manager.loop_counter}"  # no need for +1 anymore, it's done above
             )
             print(
-                f"Previous best loss: {frame_encoder_manager.best_loss * 1e3 :.6f}"
+                f"Previous best loss: {image_encoder_manager.best_loss * 1e3 :.6f}"
             )
             print(
                 f"New best loss     : {loop_results.loss.cpu().item() * 1e3 :.6f}"
             )
 
-            frame_encoder_manager.set_best_loss(loop_results.loss.cpu().item())
+            image_encoder_manager.set_best_loss(loop_results.loss.cpu().item())
 
             # Save best results
             with open(f"{prefix_save}results_best.tsv", "w") as f_out:
@@ -344,7 +322,7 @@ def encode_one_frame(
 
             frame_encoder.save(
                 path_best_frame_enc,
-                frame_encoder_manager=frame_encoder_manager,
+                frame_encoder_manager=image_encoder_manager,
             )
 
             frame_encoder.set_to_eval()
@@ -382,7 +360,7 @@ def encode_one_frame(
             # Re-save it with the frame_encoder_manager
             best_frame_encoder.save(
                 path_best_frame_enc,
-                frame_encoder_manager=frame_encoder_manager,
+                frame_encoder_manager=image_encoder_manager,
             )
 
         print("End of training loop\n\n")
@@ -393,55 +371,6 @@ def encode_one_frame(
             return TrainingExitCode.REQUEUE
 
     return TrainingExitCode.END
-
-
-def get_ref_data(
-    frame: Frame,
-    coding_structure: CodingStructure,
-) -> List[FrameData]:
-    """Return a list of the (decoded) reference frames. The decoded data
-    are obtained by recursively inferring the already learned FrameEncoder.
-
-    Args:
-        frame: The frame whose reference(s) we want.
-
-    Returns:
-        The decoded reference frames.
-    """
-    all_ref_data = []
-
-    for ref_display_idx in frame.index_references:
-        ref_frame = coding_structure.get_frame_from_display_order(
-            ref_display_idx
-        )
-        assert ref_frame is not None
-
-        # TODO: code duplication here
-        # For now, reference are necessary a .yuv file
-        dec_ref_path = (
-            f"{_get_frame_path_prefix(ref_display_idx)}"
-            "decoded-"
-            f"{frame.seq_name}"
-            ".yuv"
-        )
-
-        assert os.path.isfile(dec_ref_path), (
-            f"Cannot find the decoded reference {dec_ref_path}.\n"
-            "Hint: make sure that you have already encoded the frame "
-            f"{ref_frame.frame_type}{ref_frame.display_order} using "
-            f"--coding_idx={ref_frame.coding_order}"
-        )
-
-        # ! idx_display_order = 0 because this is a single-frame video
-        # ! which directly corresponds to the reference frame.
-        ref_data = load_frame_data_from_file(dec_ref_path, idx_display_order=0)
-
-        # Load the references from the already stored
-        ref_frame.set_frame_data(ref_data)
-
-        all_ref_data.append(ref_frame.data)
-
-    return all_ref_data
 
 
 def _get_frame_path_prefix(frame_display_order: int) -> str:

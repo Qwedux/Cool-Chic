@@ -65,7 +65,6 @@ class _Parameterization_Symmetric_1d(nn.Module):
 
         return kernel
 
-
     @classmethod
     def size_param_from_target(cls, target_k_size: int) -> int:
         """Return the size of the appropriate parameterization of a
@@ -88,7 +87,6 @@ class _Parameterization_Symmetric_1d(nn.Module):
         return (target_k_size + 1) // 2
 
 
-
 class UpsamplingSeparableSymmetricConv2d(nn.Module):
     """
     A conv2D which has a separable and symmetric *odd* kernel.
@@ -108,10 +106,11 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
     ``_Parameterization_Symmetric_1d``. The separable constraint is obtained by
     calling twice the 1D kernel.
     """
+
     def __init__(self, kernel_size: int):
         """
-            kernel_size: Size of the kernel :math:`\mathbf{w}_{1D}` e.g. 7 to
-                obtain a symmetrical, separable 7x7 filter. Must be odd!
+        kernel_size: Size of the kernel :math:`\mathbf{w}_{1D}` e.g. 7 to
+            obtain a symmetrical, separable 7x7 filter. Must be odd!
         """
         super().__init__()
 
@@ -146,9 +145,7 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         """
         if parametrize.is_parametrized(self, "weight"):
             parametrize.remove_parametrizations(
-                self,
-                "weight",
-                leave_parametrized=False
+                self, "weight", leave_parametrized=False
             )
 
         # Zero everywhere except for the last coef
@@ -156,7 +153,9 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         w[-1] = 1
         self.weight = nn.Parameter(w, requires_grad=True)
 
-        self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
+        self.bias = nn.Parameter(
+            torch.zeros_like(self.bias), requires_grad=True
+        )
 
         # Each time we call .weight, we'll call the forward of
         # _Parameterization_Symmetric_1d to get a symmetric kernel.
@@ -206,14 +205,19 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
             kernel_2d = torch.kron(weight, weight.T).view((1, 1, k, k))
 
             # ! Note the residual connection!
-            return F.conv2d(x, kernel_2d, bias=None, stride=1, padding=padding) + x
+            return (
+                F.conv2d(x, kernel_2d, bias=None, stride=1, padding=padding) + x
+            )
 
         # Test through separable (less complex, for the flop counter)
         else:
             yw = F.conv2d(x, weight.view((1, 1, 1, k)), padding=(0, padding))
 
             # ! Note the residual connection!
-            return F.conv2d(yw, weight.view((1, 1, k, 1)), padding=(padding, 0)) + x
+            return (
+                F.conv2d(yw, weight.view((1, 1, k, 1)), padding=(padding, 0))
+                + x
+            )
 
 
 class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
@@ -243,9 +247,9 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         """
         super().__init__()
 
-        assert kernel_size >= 4 and not kernel_size % 2, (
-            f"Upsampling kernel size shall be even and ≥4. Found {kernel_size}"
-        )
+        assert (
+            kernel_size >= 4 and not kernel_size % 2
+        ), f"Upsampling kernel size shall be even and ≥4. Found {kernel_size}"
 
         self.target_k_size = kernel_size
         self.param_size = _Parameterization_Symmetric_1d.size_param_from_target(
@@ -261,7 +265,6 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         self.initialize_parameters()
         # -------- Instantiate empty parameters, set by the initialize function
 
-
     def initialize_parameters(self) -> None:
         """Initialize the parameters of a
         ``UpsamplingSeparableSymmetricConvTranspose2d`` layer.
@@ -273,9 +276,7 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         """
         if parametrize.is_parametrized(self, "weight"):
             parametrize.remove_parametrizations(
-                self,
-                "weight",
-                leave_parametrized=False
+                self, "weight", leave_parametrized=False
             )
 
         # For a target kernel size of 4 or 6, we use a bilinear kernel as the
@@ -285,7 +286,9 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         if self.target_k_size < 8:
             kernel_core = torch.tensor([1.0 / 4.0, 3.0 / 4.0])
         else:
-            kernel_core = torch.tensor([0.0351562, 0.1054687, -0.2617187, -0.8789063])
+            kernel_core = torch.tensor(
+                [0.0351562, 0.1054687, -0.2617187, -0.8789063]
+            )
 
         # If target_k_size = 6, then param_size = 3 while kernel_core = 2
         # Thus we need to add zero_pad = 1 to the left of the kernel.
@@ -294,7 +297,9 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         w[zero_pad:] = kernel_core
         self.weight = nn.Parameter(w, requires_grad=True)
 
-        self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
+        self.bias = nn.Parameter(
+            torch.zeros_like(self.bias), requires_grad=True
+        )
 
         # Each time we call .weight, we'll call the forward of
         # _Parameterization_Symmetric_1d to get a symmetric kernel.
@@ -305,7 +310,6 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
             # Unsafe because we change the data dimension, from N to 2N + 1
             unsafe=True,
         )
-
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the spatial upsampling (with scale 2) of an input with a
@@ -328,12 +332,14 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
 
         k = self.target_k_size  # kernel size
         P0 = k // 2  # could be 0 or k//2 as in legacy implementation
-        C = 2 * P0 - 1 + k // 2  # crop side border k - 1 + k//2 (k=4, C=5  k=8, C=11)
+        C = (
+            2 * P0 - 1 + k // 2
+        )  # crop side border k - 1 + k//2 (k=4, C=5  k=8, C=11)
 
         weight = self.weight.view(1, -1)
 
         if self.training:  # training using non-separable (more stable)
-            kernel_2d = (torch.kron(weight, weight.T).view((1, 1, k, k)))
+            kernel_2d = torch.kron(weight, weight.T).view((1, 1, k, k))
 
             x_pad = F.pad(x, (P0, P0, P0, P0), mode="replicate")
             yc = F.conv_transpose2d(x_pad, kernel_2d, stride=2)
@@ -350,7 +356,9 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         else:  # testing through separable (less complex)
             # horizontal filtering
             x_pad = F.pad(x, (P0, P0, 0, 0), mode="replicate")
-            yc = F.conv_transpose2d(x_pad, weight.view((1, 1, 1, k)), stride=(1, 2))
+            yc = F.conv_transpose2d(
+                x_pad, weight.view((1, 1, 1, k)), stride=(1, 2)
+            )
             W = yc.size()[-1]
             y = yc[
                 :,
@@ -361,7 +369,9 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
 
             # vertical filtering
             x_pad = F.pad(y, (0, 0, P0, P0), mode="replicate")
-            yc = F.conv_transpose2d(x_pad, weight.view((1, 1, k, 1)), stride=(2, 1))
+            yc = F.conv_transpose2d(
+                x_pad, weight.view((1, 1, k, 1)), stride=(2, 1)
+            )
             H = yc.size()[-2]
             y = yc[:, :, C : H - C, :]
 
@@ -441,6 +451,7 @@ class Upsampling(nn.Module):
 
         * The ``ups_preconcat_k_size`` must be odd.
     """
+
     def __init__(
         self,
         ups_k_size: int,
@@ -509,16 +520,19 @@ class Upsampling(nn.Module):
             if target_tensor.size()[1] == 0:
                 break
 
-
             # Our goal is to upsample <upsampled_latent> to the same resolution than <target_tensor>
             x = rearrange(upsampled_latent, "b c h w -> (b c) 1 h w")
             x = self.conv_transpose2ds[idx % self.n_ups_kernel](x)
 
-            x = rearrange(x, "(b c) 1 h w -> b c h w", b=upsampled_latent.shape[0])
+            x = rearrange(
+                x, "(b c) 1 h w -> b c h w", b=upsampled_latent.shape[0]
+            )
             # Crop to comply with higher resolution feature maps size before concatenation
             x = x[:, :, : target_tensor.shape[-2], : target_tensor.shape[-1]]
 
-            high_branch = self.conv2ds[idx % self.n_ups_preconcat_kernel](target_tensor)
+            high_branch = self.conv2ds[idx % self.n_ups_preconcat_kernel](
+                target_tensor
+            )
             upsampled_latent = torch.cat((high_branch, x), dim=1)
 
         return upsampled_latent
@@ -530,7 +544,9 @@ class Upsampling(nn.Module):
             A copy of all weights & biases in the layers.
         """
         # Detach & clone to create a copy
-        return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
+        return OrderedDict(
+            {k: v.detach().clone() for k, v in self.named_parameters()}
+        )
 
     def set_param(self, param: OrderedDict[str, Tensor]):
         """Replace the current parameters of the module with param.
