@@ -58,6 +58,7 @@ logger.log_result(f"Processing image {im_path}")
 logger.log_result(
     f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
 )
+logger.log_result(f"Using image ARM: {use_image_arm}")
 
 image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(

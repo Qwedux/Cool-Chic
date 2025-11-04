@@ -37,7 +37,7 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 50000,
+    "n_itr": 500,
     "n_train_loops": 1,
     "preset": "fnlic",
     # decoder side

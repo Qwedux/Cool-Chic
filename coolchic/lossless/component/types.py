@@ -48,7 +48,7 @@ class DescriptorCoolChic:
     """Contains information about the different sub-networks of Cool-chic."""
 
     arm: Optional[DescriptorNN] = None
-    # image_arm: Optional[DescriptorNN] = None
+    image_arm: Optional[DescriptorNN] = None
     upsampling: Optional[DescriptorNN] = None
     synthesis: Optional[DescriptorNN] = None
 
