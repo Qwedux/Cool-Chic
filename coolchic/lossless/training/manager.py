@@ -20,7 +20,6 @@ class ImageEncoderManager():
     # ----- Encoding (i.e. training) options
     preset_name: str                                    # Preset name, should be a key in AVAILABLE_PRESETS utils/encoding_management/presets.py
     start_lr: float = 1e-2                              # Initial learning rate
-    lmbda: float = 1e-3                                 # Rate constraint. Loss = D + lmbda R
     n_itr: int = int(1e4)                               # Number of iterations for the main training stage
     n_loops: int = 1                                    # Number of training loop
 

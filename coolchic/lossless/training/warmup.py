@@ -12,20 +12,20 @@ import time
 from typing import List
 
 from lossless.training.manager import ImageEncoderManager
-from lossless.component.frame import FrameEncoder
+from lossless.component.coolchic import CoolChicEncoder
 from lossless.training.test import test
 from lossless.training.train import train
-from lossless.util.codingstructure import Frame
+# from lossless.util.codingstructure import Frame
 from lossless.util.device import POSSIBLE_DEVICE
 from lossless.util.misc import mem_info
-
+import torch
 
 def warmup(
     image_encoder_manager: ImageEncoderManager,
-    list_candidates: List[FrameEncoder],
-    frame: Frame,
+    list_candidates: List[CoolChicEncoder],
+    im_tensor: torch.Tensor,
     device: POSSIBLE_DEVICE,
-) -> FrameEncoder:
+) -> CoolChicEncoder:
     """Perform the warm-up for a frame encoder. It consists in multiple stages
     with several candidates, filtering out the best N candidates at each stage.
     For instance, we can start with 8 different FrameEncoder. We train each of
@@ -61,8 +61,8 @@ def warmup(
     # Construct the list of candidates. Each of them has its own parameters,
     # unique ID and metrics (not yet evaluated so it is set to None).
     all_candidates = [
-        {"metrics": None, "id": id_candidate, "encoder": param_candidate}
-        for id_candidate, param_candidate in enumerate(list_candidates)
+        {"metrics": None, "id": id_candidate, "encoder": model_candidate}
+        for id_candidate, model_candidate in enumerate(list_candidates)
     ]
 
     for idx_warmup_phase, warmup_phase in enumerate(warmup.phases):
@@ -92,10 +92,8 @@ def warmup(
 
         # Train all (remaining) candidates for a little bit
         for i in range(warmup_phase.candidates):
-            cur_candidate = all_candidates[i]
-            cur_id = cur_candidate.get("id")
-            frame_encoder = cur_candidate.get("encoder")
-            frame_encoder.to_device(device)
+            cur_candidate_model = all_candidates[i]
+            cur_id = cur_candidate_model.get("id")
 
             print(
                 f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:"
@@ -124,9 +122,9 @@ def warmup(
             frame_encoder.to_device("cpu")
 
             # Put the updated candidate back into the list.
-            cur_candidate["encoder"] = frame_encoder
-            cur_candidate["metrics"] = metrics
-            all_candidates[i] = cur_candidate
+            cur_candidate_model["encoder"] = frame_encoder
+            cur_candidate_model["metrics"] = metrics
+            all_candidates[i] = cur_candidate_model
 
         all_candidates = sorted(all_candidates, key=lambda x: x.get("metrics").loss)
 

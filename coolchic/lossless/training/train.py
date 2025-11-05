@@ -60,7 +60,6 @@ def train(
     image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
     color_bitdepths: ColorBitdepths,
-    lmbda: float = 1e-3,
     start_lr: float = 1e-2,
     cosine_scheduling_lr: bool = True,
     max_iterations: int = 10000,
