@@ -14,7 +14,10 @@ from enum import Enum
 from typing import Dict, List
 
 import torch
-from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
+from lossless.component.coolchic import (
+    CoolChicEncoder,
+    CoolChicEncoderParameter,
+)
 from lossless.component.frame import (
     NAME_COOLCHIC_ENC,
     FrameEncoder,
@@ -31,10 +34,12 @@ from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
 from lossless.training.train import train
 from lossless.training.warmup import warmup
-from lossless.util.codingstructure import CodingStructure, Frame
+
+# from lossless.util.codingstructure import CodingStructure, Frame
 from lossless.util.device import POSSIBLE_DEVICE
 from lossless.util.misc import mem_info
-from torch import Tensor
+from lossless.util.color_transform import ColorBitdepths
+from lossless.util.logger import TrainingLogger
 
 
 # =========================== Job management ============================ #
@@ -67,69 +72,48 @@ def _is_job_over(start_time: float, max_duration_job_min: int = 45) -> bool:
 
 
 def encode_one_image(
-    image_path: str,
-    coding_structure: CodingStructure,
-    coolchic_enc_param: Dict[NAME_COOLCHIC_ENC, CoolChicEncoderParameter],
+    im_tensor: torch.Tensor,
     image_encoder_manager: ImageEncoderManager,
+    color_bitdepths: ColorBitdepths,
+    encoder_param: CoolChicEncoderParameter,
+    logger: TrainingLogger,
     job_duration_min: int = -1,
-    device: POSSIBLE_DEVICE = "cpu",
+    device: POSSIBLE_DEVICE = "cuda:0",
     print_detailed_archi: bool = False,
 ) -> TrainingExitCode:
     start_time = time.time()
 
-    # print(
-    #     "Frame being encoded\n"
-    #     "-------------------\n\n"
-    #     f"{frame.pretty_string(show_header=True, show_bottom_line=True)}"
-    # )
-
-    if image_encoder_manager.loop_counter >= image_encoder_manager.n_loops:
-        # This is the next frame to code
-        next_frame = coding_structure.get_frame_from_coding_order(
-            frame.coding_order + 1
-        )
-        msg = (
-            f"Frame {frame.frame_type}{frame.display_order} has already "
-            f"undergone {image_encoder_manager.loop_counter} / "
-            f"{image_encoder_manager.n_loops} training loop(s).\n"
-        )
-        if next_frame is not None:
-            msg += (
-                "Hint: you can now encode frame "
-                f"{next_frame.frame_type}{next_frame.display_order} "
-                f"using --coding_idx={next_frame.coding_order}"
-            )
-        print(msg)
+    _ = (
+        # print(
+        #     "Image being encoded\n"
+        #     "-------------------\n\n"
+        #     f"{image_path}"
+        # )
+        # if image_encoder_manager.loop_counter >= image_encoder_manager.n_loops:
+        #     # This is the next frame to code
+        #     next_frame = coding_structure.get_frame_from_coding_order(
+        #         frame.coding_order + 1
+        #     )
+        #     msg = (
+        #         f"Frame {frame.frame_type}{frame.display_order} has already "
+        #         f"undergone {image_encoder_manager.loop_counter} / "
+        #         f"{image_encoder_manager.n_loops} training loop(s).\n"
+        #     )
+        #     if next_frame is not None:
+        #         msg += (
+        #             "Hint: you can now encode frame "
+        #             f"{next_frame.frame_type}{next_frame.display_order} "
+        #             f"using --coding_idx={next_frame.coding_order}"
+        #         )
+        #     print(msg)
+    )
 
     torch.set_float32_matmul_precision("high")
 
-    for index_loop in range(image_encoder_manager.loop_counter, image_encoder_manager.n_loops):
-        # Load the original data and its references
-        frame.set_frame_data(
-            load_frame_data_from_file(
-                image_path, frame.display_order + frame.frame_offset
-            )
-        )
-        frame.set_refs_data(get_ref_data(frame, coding_structure))
-        prefix_save = f"{_get_frame_path_prefix(frame.display_order)}"
-
-        for cc_enc_name in coolchic_enc_param:
-            assert frame.data is not None
-            coolchic_enc_param[cc_enc_name].set_image_size(frame.data.img_size)
-
-        match frame.frame_type:
-            case "I":
-                coolchic_enc_param["residue"].encoder_gain = 16
-                coolchic_enc_param["residue"].layers_synthesis = (
-                    change_n_out_synth(
-                        coolchic_enc_param["residue"].layers_synthesis, 3
-                    )
-                )
-
-            case _:
-                raise ValueError(f"Unknown frame type {frame.frame_type}.")
-
-        print(
+    for index_loop in range(
+        image_encoder_manager.loop_counter, image_encoder_manager.n_loops
+    ):
+        logger.log_result(
             "-" * 80
             + "\n"
             + f'{" " * 30} Training loop {image_encoder_manager.loop_counter + 1} / '
@@ -140,52 +124,42 @@ def encode_one_image(
         # First loop, print some stuff!
         if image_encoder_manager.loop_counter == 0:
             # Log a few details about the model
-            print(f"\n{image_encoder_manager.pretty_string()}")
-            print(f"{image_encoder_manager.preset.pretty_string()}")
+            logger.log_result(f"\n{image_encoder_manager.pretty_string()}")
+            logger.log_result(f"{image_encoder_manager.preset.pretty_string()}")
 
             tmp_str = "Decoder architectures\n"
             tmp_str += "---------------------\n\n"
-            for name, cc_enc_param in coolchic_enc_param.items():
-                title = (
-                    f"{name} decoder parameters\n"
-                    f"{'-' * len(name)}-------------------\n"
-                )
-                tmp_str += title
-                tmp_str += cc_enc_param.pretty_string() + "\n"
+      
+            title = (
+                f"Lossless Cool-Chic decoder parameters\n"
+                f"{'-' * len('Lossless Cool-Chic decoder parameters')}\n"
+            )
+            tmp_str += title
+            tmp_str += encoder_param.pretty_string() + "\n"
 
-            print(tmp_str)
+            logger.log_result(tmp_str)
 
-        frame = frame_to_device(frame, device)
 
         # Get the number of candidates from the initial warm-up phase
         n_candidates = image_encoder_manager.preset.warmup.phases[0].candidates
 
         list_candidates = []
         for idx_candidate in range(n_candidates):
-            assert frame.data is not None
-            cur_frame_encoder = FrameEncoder(
-                coolchic_enc_param=coolchic_enc_param,
-                frame_type=frame.frame_type,
-                frame_data_type=frame.data.frame_data_type,
-                bitdepth=frame.data.bitdepth,
-                index_references=frame.index_references,
-                frame_display_index=frame.display_order,
-            )
+            cur_image_encoder = CoolChicEncoder(param=encoder_param)
+            list_candidates.append(cur_image_encoder)
 
-            list_candidates.append(cur_frame_encoder)
+        # # Use the first candidate of the list to log the architecture
+        # with open(f"{prefix_save}archi.txt", "w") as f_out:
+        #     for cc_name, cc_enc in list_candidates[0].coolchic_enc.items():
+        #         f_out.write(cc_name + "\n\n" + str(cc_enc) + "\n\n")
+        #         f_out.write(cc_enc.str_complexity() + "\n")
 
-        # Use the first candidate of the list to log the architecture
-        with open(f"{prefix_save}archi.txt", "w") as f_out:
-            for cc_name, cc_enc in list_candidates[0].coolchic_enc.items():
-                f_out.write(cc_name + "\n\n" + str(cc_enc) + "\n\n")
-                f_out.write(cc_enc.str_complexity() + "\n")
-
-        print(
-            list_candidates[0].pretty_string(
-                print_detailed_archi=print_detailed_archi
-            )
-            + "\n\n"
-        )
+        # print(
+        #     list_candidates[0].pretty_string(
+        #         print_detailed_archi=print_detailed_archi
+        #     )
+        #     + "\n\n"
+        # )
 
         # Use warm-up to find the best initialization among the list
         # of candidates parameters.
@@ -234,7 +208,9 @@ def encode_one_image(
                 fullgraph=frame.data.frame_data_type != "yuv420",
             )
 
-        for idx_phase, training_phase in enumerate(image_encoder_manager.preset.training_phases):
+        for idx_phase, training_phase in enumerate(
+            image_encoder_manager.preset.training_phases
+        ):
             print(f'{"-" * 30} Training phase: {idx_phase:>2} {"-" * 30}\n')
             mem_info("Training phase " + str(idx_phase))
             frame_encoder = train(
@@ -373,59 +349,59 @@ def encode_one_image(
     return TrainingExitCode.END
 
 
-def _get_frame_path_prefix(frame_display_order: int) -> str:
-    """Return a string with a prefix that should be appended to every file
-    linked to a frame.
+# def _get_frame_path_prefix(frame_display_order: int) -> str:
+#     """Return a string with a prefix that should be appended to every file
+#     linked to a frame.
 
-    Args:
-        frame_display_order: Display order of the frame
+#     Args:
+#         frame_display_order: Display order of the frame
 
-    Returns:
-        The prefix
-    """
-    return str(frame_display_order).zfill(4) + "-"
-
-
-def frame_to_device(frame: Frame, device: POSSIBLE_DEVICE) -> Frame:
-    """
-    Push a frame and its reference to a device
-
-    Args:
-        frame: Frame to be pushed to a device
-        device: Required device
-
-    Returns:
-        Frame: Frame pushed to a device
-    """
-
-    if frame.data is not None:
-        frame_data_to_device(frame.data, device)
-
-    for index_ref in range(len(frame.refs_data)):
-        if frame.refs_data[index_ref] is not None:
-            frame_data_to_device(frame.refs_data[index_ref], device)
-
-    return frame
+#     Returns:
+#         The prefix
+#     """
+#     return str(frame_display_order).zfill(4) + "-"
 
 
-def frame_data_to_device(
-    frame_data: FrameData, device: POSSIBLE_DEVICE
-) -> FrameData:
-    """Push the data attribute to the relevant device **in place**.
+# def frame_to_device(frame: Frame, device: POSSIBLE_DEVICE) -> Frame:
+#     """
+#     Push a frame and its reference to a device
 
-    Args:
-        frame_data: The data to be pushed
-        device: The device on which the frame data should be pushed.
+#     Args:
+#         frame: Frame to be pushed to a device
+#         device: Required device
 
-    Returns:
-        FrameData: The data on the correct device
+#     Returns:
+#         Frame: Frame pushed to a device
+#     """
 
-    """
-    from enc.io.format.yuv import yuv_dict_to_device
+#     if frame.data is not None:
+#         frame_data_to_device(frame.data, device)
 
-    if frame_data.frame_data_type == "yuv420":
-        frame_data.data = yuv_dict_to_device(frame_data.data, device)
-    else:
-        frame_data.data = frame_data.data.to(device)
+#     for index_ref in range(len(frame.refs_data)):
+#         if frame.refs_data[index_ref] is not None:
+#             frame_data_to_device(frame.refs_data[index_ref], device)
 
-    return frame_data
+#     return frame
+
+
+# def frame_data_to_device(
+#     frame_data: FrameData, device: POSSIBLE_DEVICE
+# ) -> FrameData:
+#     """Push the data attribute to the relevant device **in place**.
+
+#     Args:
+#         frame_data: The data to be pushed
+#         device: The device on which the frame data should be pushed.
+
+#     Returns:
+#         FrameData: The data on the correct device
+
+#     """
+#     from enc.io.format.yuv import yuv_dict_to_device
+
+#     if frame_data.frame_data_type == "yuv420":
+#         frame_data.data = yuv_dict_to_device(frame_data.data, device)
+#     else:
+#         frame_data.data = frame_data.data.to(device)
+
+#     return frame_data

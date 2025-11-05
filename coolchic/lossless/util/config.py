@@ -30,7 +30,6 @@ args = {
     "workdir": TEST_WORKDIR,
     "network_yaml_path": NETWORK_YAML_PATH,
 
-    "lmbda": 1e-3,
     "job_duration_min": -1,
     "print_detailed_archi": False,
     "print_detailed_struct": False,
@@ -69,7 +68,6 @@ def str_args(args: dict) -> str:
         "TEST_WORKDIR",
         "LOG_PATH",
         "workdir",
-        "lmbda",
         "job_duration_min",
         "print_detailed_archi",
         "print_detailed_struct",

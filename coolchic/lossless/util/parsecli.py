@@ -119,11 +119,11 @@ def get_manager_from_args(args: dict) -> Dict[str, Any]:
         Dict[str, Any]: Dictionary ready to be plugged into the
             ``FrameEncoderManager`` constructor.
     """
-    frame_encoder_manager = {
+    image_encoder_manager = {
         "preset_name": args["preset"],
         "start_lr": args["start_lr"],
         "lmbda": args["lmbda"],
         "n_loops": args["n_train_loops"],
         "n_itr": args["n_itr"],
     }
-    return frame_encoder_manager
+    return image_encoder_manager
