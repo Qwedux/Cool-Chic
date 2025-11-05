@@ -23,15 +23,23 @@ from lossless.nnquant.quantizemodel import quantize_model
 torch.autograd.set_detect_anomaly(True)
 
 if len(sys.argv) < 4:
-    print("Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm>")
+    print(
+        "Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm>"
+    )
     print("<color_space> must be `YCoCg` or `RGB`")
     print("<use_image_arm> must be `true` or `false`")
     sys.exit(1)
 
+# ==========================================================================================
+# LOAD IMAGE
+# ==========================================================================================
 image_index = int(sys.argv[1])
 color_space = sys.argv[2]
 use_image_arm = sys.argv[3].lower() == "true"
-assert sys.argv[3].lower() in ["true", "false"], "<use_image_arm> must be `true` or `false`"
+assert sys.argv[3].lower() in [
+    "true",
+    "false",
+], "<use_image_arm> must be `true` or `false`"
 assert color_space in [
     "YCoCg",
     "RGB",
@@ -42,14 +50,14 @@ im_path = args["input"][image_index]
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
-
-dataset = im_path.split("/")[-2]
-
+# ==========================================================================================
+# SETUP LOGGER
+# ==========================================================================================
+dataset_name = im_path.split("/")[-2]
 logger = TrainingLogger(
     log_folder_path=args["LOG_PATH"],
-    image_name=f"{dataset}_" + im_path.split("/")[-1].split(".")[0],
+    image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0],
 )
-# load the network yaml file and print if to logger
 with open(args["network_yaml_path"], "r") as f:
     network_yaml = f.read()
 logger.log_result(f"Network YAML configuration:\n{network_yaml}")
@@ -59,7 +67,9 @@ logger.log_result(
     f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
 )
 logger.log_result(f"Using image ARM: {use_image_arm}")
-
+# ==========================================================================================
+# LOAD PRESETS, COOLCHIC PARAMETERS
+# ==========================================================================================
 image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(
     **get_coolchic_param_from_args(args, "residue")
@@ -71,7 +81,9 @@ encoder_param.layers_synthesis = change_n_out_synth(
 encoder_param.use_image_arm = use_image_arm
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
-
+# ==========================================================================================
+# TRAIN
+# ==========================================================================================
 if args["use_pretrained"]:
     coolchic.load_state_dict(torch.load(args["pretrained_model_path"]))
 else:
@@ -94,7 +106,9 @@ else:
         loss_latent_multiplier=1.0,
         logger=logger,
     )
-
+# ==========================================================================================
+# QUANTIZE AND EVALUATE
+# ==========================================================================================
 quantized_coolchic = CoolChicEncoder(param=encoder_param)
 quantized_coolchic.to_device("cuda:0")
 quantized_coolchic.set_param(coolchic.get_param())
