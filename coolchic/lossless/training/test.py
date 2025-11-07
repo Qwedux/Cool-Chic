@@ -26,7 +26,7 @@ from lossless.training.loss import (
     # _compute_mse,
     loss_function,
 )
-from lossless.util.codingstructure import Frame
+# from lossless.util.codingstructure import Frame
 from lossless.training.manager import ImageEncoderManager
 from torch import Tensor
 from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput

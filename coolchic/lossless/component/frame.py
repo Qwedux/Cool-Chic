@@ -27,7 +27,7 @@ from lossless.component.core.quantizer import (
 )
 from lossless.io.types import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
 from lossless.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
-from lossless.util.codingstructure import FRAME_TYPE
+# from lossless.util.codingstructure import FRAME_TYPE
 from lossless.training.manager import ImageEncoderManager
 from lossless.util.device import POSSIBLE_DEVICE
 from torch import Tensor, nn
@@ -63,7 +63,7 @@ class FrameEncoder(nn.Module):
     def __init__(
         self,
         coolchic_enc_param: Dict[NAME_COOLCHIC_ENC, CoolChicEncoderParameter],
-        frame_type: FRAME_TYPE = "I",
+        # frame_type: FRAME_TYPE = "I",
         frame_data_type: FRAME_DATA_TYPE = "rgb",
         bitdepth: POSSIBLE_BITDEPTH = 8,
         index_references: List[int] = [],
@@ -89,17 +89,17 @@ class FrameEncoder(nn.Module):
 
         # ----- Copy the parameters
         self.coolchic_enc_param = coolchic_enc_param
-        self.frame_type = frame_type
+        # self.frame_type = frame_type
         self.frame_data_type = frame_data_type
         self.bitdepth = bitdepth
         self.index_references = index_references
         self.frame_display_index = frame_display_index
 
-        assert self.frame_type == "I" and len(self.index_references) == 0, (
-            f"An I frame should not have any reference. "
-            f"Found {self.frame_type} frame with {len(self.index_references)} references: "
-            f"{self.index_references}."
-        )
+        # assert self.frame_type == "I" and len(self.index_references) == 0, (
+        #     f"An I frame should not have any reference. "
+        #     f"Found {self.frame_type} frame with {len(self.index_references)} references: "
+        #     f"{self.index_references}."
+        # )
 
         # "Core" CoolChic codec. This will be reset by the warm-up function
         self.coolchic_enc: Dict[NAME_COOLCHIC_ENC, CoolChicEncoder] = nn.ModuleDict()
