@@ -179,7 +179,8 @@ def encode(
         f.write(original_data)
 
     print(f"Theoretical bits per sub pixel: {bits_theoretical/float(W*H*C)}")
-    return probs_logistic
+
+    return bitstream, probs_logistic
 
 
 def decode(

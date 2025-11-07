@@ -20,9 +20,9 @@ from lossless.training.train import train
 from lossless.training.loss import loss_function
 from lossless.nnquant.quantizemodel import quantize_model
 
-from lossless.util.encoding import encode, decode, get_bits_per_pixel
 from lossless.util.distribution import get_mu_and_scale_linear_color
 import numpy as np
+from till_encode import encode, decode, get_bits_per_pixel
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
@@ -189,10 +189,10 @@ model_file_size_bits = (
 )
 num_pixels = im_tensor.numel()
 model_bpd = model_file_size_bits / num_pixels
-print(f"Model bpd (without latent grids): {model_bpd}")
+logger.log_result(f"Rate NN (without latent grids): {model_bpd}")
 
 # ==========================================================================================
-# ENCODE THE IMAGE
+# ENCODE-DECODE THE IMAGE // Takes ~few minutes!!!
 # ==========================================================================================
 
 np.save(
@@ -202,22 +202,34 @@ np.save("testing/data/original_image.npy", im_tensor.cpu().numpy())
 
 mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
 
-enc = encode(im_tensor, mu, scale, c_bitdepths, distribution="logistic")
-dec = decode(enc, mu, scale, c_bitdepths, distribution="logistic")
-
-print(dec.shape)
-print(im_tensor.shape)
-diff = torch.abs(im_tensor.cpu()*256 - dec * 256).to(torch.uint8)
-print(f"Max difference after decoding: {diff.max().item()}")
-# assert torch.allclose(
-#     im_tensor.cpu(), dec.cpu()
-# ), "Decoded image does not match original!"
-print("Decoded image matches original!")
-
-bpp = get_bits_per_pixel(1.0, 1.0, 1.0, enc) / im_tensor.numel()
-print(f"Image bpd: {bpp}")
-# from till_encode import encode as till_encode
-# enc = till_encode(im_tensor, mu, scale)
+logger.log_result("Starting encoding...")
+bitstream, probs_logistic = encode(
+    im_tensor,
+    mu,
+    scale,
+    c_bitdepths,
+    distribution="logistic",
+    output_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+)
+logger.log_result("Starting decoding...")
+decoded_image, probs_logistic = decode(
+    "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    mu,
+    scale,
+    c_bitdepths,
+    distribution="logistic",
+)
+logger.log_result("Encode-decode finished.")
+# get filesize of encoded file
+encoded_file_size = os.path.getsize(
+    "./test-workdir/encoder_size_test/coolchic_encoded_image.binary"
+)
+image_bpd = encoded_file_size * 8 / im_tensor.numel()
+logger.log_result(f"Rate Img: {image_bpd}")
+assert torch.allclose(
+    im_tensor.cpu(), decoded_image.cpu()
+), "Decoded image does not match original!"
+logger.log_result("Decoded image matches original!")
 
 
 # ==========================================================================================
@@ -227,3 +239,7 @@ torch.save(
     latent_grids_state_dict,
     "test-workdir/encoder_size_test/coolchic_latent_grids.pth",
 )
+
+latent_bpd = predicted_priors_rates.rate_latent_bpd
+logger.log_result(f"Rate Latent: {latent_bpd}")
+logger.log_result(f"Loss: {image_bpd + model_bpd + latent_bpd}")
