@@ -6,6 +6,7 @@ class ColorBitdepths:
     def __init__(self) -> None:
         self.bitdepths = []
         self.scaling_factors = []
+        self.bins = []
         self.ranges_int = []
 
 

@@ -20,7 +20,12 @@ from lossless.training.train import train
 from lossless.training.loss import loss_function
 from lossless.nnquant.quantizemodel import quantize_model
 
+from lossless.util.encoding import encode, decode, get_bits_per_pixel
+from lossless.util.distribution import get_mu_and_scale_linear_color
+import numpy as np
+
 torch.autograd.set_detect_anomaly(True)
+torch.set_float32_matmul_precision("high")
 
 if len(sys.argv) < 4:
     print(
@@ -93,15 +98,27 @@ else:
         image_encoder_manager=image_encoder_manager,
         color_bitdepths=c_bitdepths,
         start_lr=image_encoder_manager.start_lr,
-        cosine_scheduling_lr=args["schedule_lr"], # this is set by training phase
+        cosine_scheduling_lr=args[
+            "schedule_lr"
+        ],  # this is set by training phase
         max_iterations=image_encoder_manager.n_itr,
-        frequency_validation=args["freq_valid"], # this is set by training phase
-        patience=args["patience"], # this is set by training phase
-        optimized_module=args["optimized_module"], # this is set by training phase
-        quantizer_type=args["quantizer_type"], # this is set by training phase
-        quantizer_noise_type=args["quantizer_noise_type"], # this is set by training phase
-        softround_temperature=args["softround_temperature"], # this is set by training phase
-        noise_parameter=args["noise_parameter"], # this is set by training phase
+        frequency_validation=args[
+            "freq_valid"
+        ],  # this is set by training phase
+        patience=args["patience"],  # this is set by training phase
+        optimized_module=args[
+            "optimized_module"
+        ],  # this is set by training phase
+        quantizer_type=args["quantizer_type"],  # this is set by training phase
+        quantizer_noise_type=args[
+            "quantizer_noise_type"
+        ],  # this is set by training phase
+        softround_temperature=args[
+            "softround_temperature"
+        ],  # this is set by training phase
+        noise_parameter=args[
+            "noise_parameter"
+        ],  # this is set by training phase
         loss_latent_multiplier=1.0,
         logger=logger,
     )
@@ -143,4 +160,70 @@ logger.log_result(
     f"Final frame_encoder_manager state: {image_encoder_manager},\n"
     f"Rate per module: {rate_per_module},\n"
     f"Final results after quantization: {predicted_priors_rates}"
+)
+
+# ==========================================================================================
+# SAVE MODEL
+# ==========================================================================================
+cool_chic_state_dict = {
+    k: v
+    for k, v in quantized_coolchic.state_dict().items()
+    if not k.startswith("latent_grids")
+}
+latent_grids_state_dict = {
+    k: v
+    for k, v in quantized_coolchic.state_dict().items()
+    if k.startswith("latent_grids")
+}
+
+torch.save(
+    cool_chic_state_dict,
+    "test-workdir/encoder_size_test/coolchic_model_no_latents.pth",
+)
+# model bpd is size of `coolchic_model_no_latents.pth` in bits divided by number of pixels in image
+model_file_size_bits = (
+    os.path.getsize(
+        "test-workdir/encoder_size_test/coolchic_model_no_latents.pth"
+    )
+    * 8
+)
+num_pixels = im_tensor.numel()
+model_bpd = model_file_size_bits / num_pixels
+print(f"Model bpd (without latent grids): {model_bpd}")
+
+# ==========================================================================================
+# ENCODE THE IMAGE
+# ==========================================================================================
+
+np.save(
+    "testing/data/encoded_raw_out.npy", predicted_prior["raw_out"].cpu().numpy()
+)
+np.save("testing/data/original_image.npy", im_tensor.cpu().numpy())
+
+mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
+
+enc = encode(im_tensor, mu, scale, c_bitdepths, distribution="logistic")
+dec = decode(enc, mu, scale, c_bitdepths, distribution="logistic")
+
+print(dec.shape)
+print(im_tensor.shape)
+diff = torch.abs(im_tensor.cpu()*256 - dec * 256).to(torch.uint8)
+print(f"Max difference after decoding: {diff.max().item()}")
+# assert torch.allclose(
+#     im_tensor.cpu(), dec.cpu()
+# ), "Decoded image does not match original!"
+print("Decoded image matches original!")
+
+bpp = get_bits_per_pixel(1.0, 1.0, 1.0, enc) / im_tensor.numel()
+print(f"Image bpd: {bpp}")
+# from till_encode import encode as till_encode
+# enc = till_encode(im_tensor, mu, scale)
+
+
+# ==========================================================================================
+# ENCODE LATENT GRIDS
+# ==========================================================================================
+torch.save(
+    latent_grids_state_dict,
+    "test-workdir/encoder_size_test/coolchic_latent_grids.pth",
 )

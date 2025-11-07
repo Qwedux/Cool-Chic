@@ -36,16 +36,16 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 500,
+    "n_itr": 20000,
     "n_train_loops": 1,
     "preset": "fnlic",
     # decoder side
-    "layers_synthesis_residue": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
-    "arm_residue": "16,2",
+    "layers_synthesis_lossless": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
+    "arm_lossless": "16,2",
     "arm_image_context_size": "8",
-    "n_ft_per_res_residue": "1,1,1,1,1,1,1",
-    "ups_k_size_residue": 8,
-    "ups_preconcat_k_size_residue": 7,
+    "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
+    "ups_k_size_lossless": 8,
+    "ups_preconcat_k_size_lossless": 7,
     "output_dim_size": 9,
     # training preset
     "patience": 5000,
@@ -77,12 +77,12 @@ def str_args(args: dict) -> str:
         "n_train_loops",
         "preset",
         # decoder side
-        "layers_synthesis_residue",
-        "arm_residue",
+        "layers_synthesis_lossless",
+        "arm_lossless",
         "arm_image_context_size",
-        "n_ft_per_res_residue",
-        "ups_k_size_residue",
-        "ups_preconcat_k_size_residue",
+        "n_ft_per_res_lossless",
+        "ups_k_size_lossless",
+        "ups_preconcat_k_size_lossless",
         "output_dim_size",
         # training preset
         "patience",
