@@ -29,6 +29,7 @@ args = {
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
     "network_yaml_path": NETWORK_YAML_PATH,
+    "experiment_name": "11_11_2025_kodak",
 
     "job_duration_min": -1,
     "print_detailed_archi": False,
@@ -36,7 +37,7 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 140000,
+    "n_itr": 100,
     "n_train_loops": 1,
     "preset": "fnlic",
     # decoder side
