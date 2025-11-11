@@ -6,8 +6,14 @@ from lossless.util.config import start_print
 
 
 class TrainingLogger:
-    def __init__(self, log_folder_path: str, image_name: str):
+    def __init__(self, log_folder_path: str, image_name: str, debug_mode: bool = False, experiment_name: str = "kodak"):
         self.log_folder_path = log_folder_path
+        self.debug_mode = debug_mode
+        if self.debug_mode:
+            self.log_folder_path += "debug/"
+        else:
+            self.log_folder_path += "full_runs/"
+        self.log_folder_path += experiment_name + "/"
         self.train_logs_path = self.log_folder_path + "train_logs/"
         self.results_logs_path = self.log_folder_path + "results/"
         self.trained_models_path = self.log_folder_path + "trained_models/"
@@ -48,6 +54,9 @@ class TrainingLogger:
         return
 
     def save_model(self, model, total_bpd: float):
+        # Save the model to disk only if not in debug mode (don't bother with 6.0 Loss models)
+        if self.debug_mode:
+            return
         model_file_name = f"{timestamp_string()}_trained_coolchic_{self.image_name}_img_rate_{total_bpd}.pth"
         model_file_path = os.path.join(
             self.trained_models_path, model_file_name

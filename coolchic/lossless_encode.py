@@ -55,23 +55,7 @@ im_path = args["input"][image_index]
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
-# ==========================================================================================
-# SETUP LOGGER
-# ==========================================================================================
-dataset_name = im_path.split("/")[-2]
-logger = TrainingLogger(
-    log_folder_path=args["LOG_PATH"],
-    image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0],
-)
-with open(args["network_yaml_path"], "r") as f:
-    network_yaml = f.read()
-logger.log_result(f"Network YAML configuration:\n{network_yaml}")
-logger.log_result(f"{str_args(args)}")
-logger.log_result(f"Processing image {im_path}")
-logger.log_result(
-    f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
-)
-logger.log_result(f"Using image ARM: {use_image_arm}")
+
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
 # ==========================================================================================
@@ -86,6 +70,25 @@ encoder_param.layers_synthesis = change_n_out_synth(
 encoder_param.use_image_arm = use_image_arm
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
+# ==========================================================================================
+# SETUP LOGGER
+# ==========================================================================================
+dataset_name = im_path.split("/")[-2]
+logger = TrainingLogger(
+    log_folder_path=args["LOG_PATH"],
+    image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0],
+    debug_mode=image_encoder_manager.n_itr < 1000,
+    experiment_name=args["experiment_name"],
+)
+with open(args["network_yaml_path"], "r") as f:
+    network_yaml = f.read()
+logger.log_result(f"Network YAML configuration:\n{network_yaml}")
+logger.log_result(f"{str_args(args)}")
+logger.log_result(f"Processing image {im_path}")
+logger.log_result(
+    f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
+)
+logger.log_result(f"Using image ARM: {use_image_arm}")
 # ==========================================================================================
 # TRAIN
 # ==========================================================================================
@@ -191,55 +194,55 @@ num_pixels = im_tensor.numel()
 model_bpd = model_file_size_bits / num_pixels
 logger.log_result(f"Rate NN (without latent grids): {model_bpd}")
 
-# ==========================================================================================
-# ENCODE-DECODE THE IMAGE // Takes ~few minutes!!!
-# ==========================================================================================
+# # ==========================================================================================
+# # ENCODE-DECODE THE IMAGE // Takes ~few minutes!!!
+# # ==========================================================================================
 
-np.save(
-    "testing/data/encoded_raw_out.npy", predicted_prior["raw_out"].cpu().numpy()
-)
-np.save("testing/data/original_image.npy", im_tensor.cpu().numpy())
+# np.save(
+#     "testing/data/encoded_raw_out.npy", predicted_prior["raw_out"].cpu().numpy()
+# )
+# np.save("testing/data/original_image.npy", im_tensor.cpu().numpy())
 
-mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
+# mu, scale = get_mu_and_scale_linear_color(predicted_prior["raw_out"], im_tensor)
 
-logger.log_result("Starting encoding...")
-bitstream, probs_logistic = encode(
-    im_tensor,
-    mu,
-    scale,
-    c_bitdepths,
-    distribution="logistic",
-    output_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
-)
-logger.log_result("Starting decoding...")
-decoded_image, probs_logistic = decode(
-    "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
-    mu,
-    scale,
-    c_bitdepths,
-    distribution="logistic",
-)
-logger.log_result("Encode-decode finished.")
-# get filesize of encoded file
-encoded_file_size = os.path.getsize(
-    "./test-workdir/encoder_size_test/coolchic_encoded_image.binary"
-)
-image_bpd = encoded_file_size * 8 / im_tensor.numel()
-logger.log_result(f"Rate Img: {image_bpd}")
-assert torch.allclose(
-    im_tensor.cpu(), decoded_image.cpu()
-), "Decoded image does not match original!"
-logger.log_result("Decoded image matches original!")
+# logger.log_result("Starting encoding...")
+# bitstream, probs_logistic = encode(
+#     im_tensor,
+#     mu,
+#     scale,
+#     c_bitdepths,
+#     distribution="logistic",
+#     output_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+# )
+# logger.log_result("Starting decoding...")
+# decoded_image, probs_logistic = decode(
+#     "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+#     mu,
+#     scale,
+#     c_bitdepths,
+#     distribution="logistic",
+# )
+# logger.log_result("Encode-decode finished.")
+# # get filesize of encoded file
+# encoded_file_size = os.path.getsize(
+#     "./test-workdir/encoder_size_test/coolchic_encoded_image.binary"
+# )
+# image_bpd = encoded_file_size * 8 / im_tensor.numel()
+# logger.log_result(f"Rate Img: {image_bpd}")
+# assert torch.allclose(
+#     im_tensor.cpu(), decoded_image.cpu()
+# ), "Decoded image does not match original!"
+# logger.log_result("Decoded image matches original!")
 
 
-# ==========================================================================================
-# ENCODE LATENT GRIDS
-# ==========================================================================================
-torch.save(
-    latent_grids_state_dict,
-    "test-workdir/encoder_size_test/coolchic_latent_grids.pth",
-)
+# # ==========================================================================================
+# # ENCODE LATENT GRIDS
+# # ==========================================================================================
+# torch.save(
+#     latent_grids_state_dict,
+#     "test-workdir/encoder_size_test/coolchic_latent_grids.pth",
+# )
 
-latent_bpd = predicted_priors_rates.rate_latent_bpd
-logger.log_result(f"Rate Latent: {latent_bpd}")
-logger.log_result(f"Loss: {image_bpd + model_bpd + latent_bpd}")
+# latent_bpd = predicted_priors_rates.rate_latent_bpd
+# logger.log_result(f"Rate Latent: {latent_bpd}")
+# logger.log_result(f"Loss: {image_bpd + model_bpd + latent_bpd}")
