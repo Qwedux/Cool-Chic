@@ -29,7 +29,7 @@ args = {
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
     "network_yaml_path": NETWORK_YAML_PATH,
-    "experiment_name": "11_11_2025_kodak",
+    "experiment_name": "11_11_2025_encode_decode_test",
 
     "job_duration_min": -1,
     "print_detailed_archi": False,
@@ -57,8 +57,9 @@ args = {
     "quantizer_noise_type": "kumaraswamy",
     "softround_temperature": (0.3, 0.1),
     "noise_parameter": (0.25, 0.1),
-    "pretrained_model_path": "../logs/trained_models/2025_10_27__16_52_28__trained_coolchic_synthetic_random_noise_256_256_white_gray_img_rate_7.170324325561523.pth",
-    "use_pretrained": False,
+    "pretrained_model_path": "../logs/full_runs/trained_models/2025_11_10__23_56_17__trained_coolchic_kodak_kodim17_img_rate_2.167128562927246.pth",
+    "use_pretrained": True
+    ,
     # Other presets
     "quantize_model": True,
 }

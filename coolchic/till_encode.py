@@ -114,11 +114,6 @@ def calculate_probability_distribution(
     return prob_t
 
 
-import torch
-import constriction
-import struct
-
-
 def encode(
     x: torch.Tensor,
     mu: torch.Tensor,
