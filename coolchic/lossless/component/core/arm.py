@@ -11,6 +11,7 @@ from typing import OrderedDict, Tuple
 
 import torch
 import torch.nn.functional as F
+from lossless.util.misc import safe_get_from_nested_lists
 from torch import Tensor, index_select, nn
 
 
@@ -54,9 +55,7 @@ class ArmLinear(nn.Module):
         self.out_channels = out_channels
 
         # -------- Instantiate empty parameters, set by the initialize function
-        self.weight = nn.Parameter(
-            torch.empty(out_channels, in_channels), requires_grad=True
-        )
+        self.weight = nn.Parameter(torch.empty(out_channels, in_channels), requires_grad=True)
         self.bias = nn.Parameter(torch.empty((out_channels)), requires_grad=True)
         self.initialize_parameters()
         # -------- Instantiate empty parameters, set by the initialize function
@@ -72,9 +71,7 @@ class ArmLinear(nn.Module):
         """
         self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
         if self.residual:
-            self.weight = nn.Parameter(
-                torch.zeros_like(self.weight), requires_grad=True
-            )
+            self.weight = nn.Parameter(torch.zeros_like(self.weight), requires_grad=True)
         else:
             out_channel = self.weight.size()[0]
             self.weight = nn.Parameter(
@@ -160,13 +157,22 @@ class Arm(nn.Module):
 
         # Construct the hidden layer(s)
         for i in range(n_hidden_layers_arm):
-            layers_list.append(ArmLinear(self.hidden_layer_dim, self.hidden_layer_dim, residual=True))
+            layers_list.append(
+                ArmLinear(self.hidden_layer_dim, self.hidden_layer_dim, residual=True)
+            )
             layers_list.append(nn.ReLU())
 
         # Construct the output layer. It always has 2 outputs (mu and scale)
         layers_list.append(ArmLinear(self.hidden_layer_dim, 2, residual=False))
         self.mlp = nn.Sequential(*layers_list)
         # ======================== Construct the MLP ======================== #
+
+        self.non_zero_pixel_ctx_index = _get_non_zero_pixel_ctx_index(self.dim_arm)
+        self.non_zero_pixel_ctx_shifts = {
+            # row = index // 9, col = index % 9
+            index: [index // 9 - 4, index % 9 - 4]
+            for index in self.non_zero_pixel_ctx_index.tolist()
+        }
 
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """Perform the auto-regressive module (ARM) forward pass. The ARM takes
@@ -209,6 +215,29 @@ class Arm(nn.Module):
         scale = torch.exp(torch.clamp(log_scale - 4, min=-4.6, max=5.0))
 
         return mu, scale, log_scale
+
+    def get_neighbor_context(self, grid_so_far: list[list], h: int, w: int) -> Tensor:
+        """Get the neighbor context pixels for the pixel at position (h, w)
+        in the latent grid.
+
+        Args:
+            grid_so_far: 2D list of already decoded pixels.
+            h: Height index of the pixel to decode.
+            w: Width index of the pixel to decode.
+        """
+        neighbor_context = []
+        for idx in self.non_zero_pixel_ctx_index:
+            shift = self.non_zero_pixel_ctx_shifts[idx.item()]
+            neighbor_h = h + shift[0]
+            neighbor_w = w + shift[1]
+            pixel_value = safe_get_from_nested_lists(
+                grid_so_far,
+                [neighbor_h, neighbor_w],
+                default=0,
+            )
+            neighbor_context.append(pixel_value)
+        # Return as a tensor of shape [1, dim_arm]
+        return torch.tensor(neighbor_context).unsqueeze(0)
 
     def get_param(self) -> OrderedDict[str, Tensor]:
         """Return **a copy** of the weights and biases inside the module.
@@ -361,4 +390,5 @@ def _get_non_zero_pixel_ctx_index(dim_arm: int) -> Tensor:
                 36, 37, 38, 39, #
             ]
         )
+    # fmt: on
     # fmt: on
