@@ -6,10 +6,11 @@
 #
 # Authors: see CONTRIBUTORS.md
 
-import psutil
-import torch
 import os
 from datetime import datetime
+
+import psutil
+import torch
 
 
 def mem_info(strinfo: str = "Memory allocated") -> None:
@@ -59,3 +60,17 @@ def clean_workdir(workdir_path: str) -> None:
                     os.rmdir(file_path)
             except Exception as e:
                 print(f"Failed to delete {file_path}. Reason: {e}")
+
+
+def safe_get_from_nested_lists(a: list, indices: list[int], default=0):
+    """Safely get a nested element from a arbitrarily nested list of lists.
+    Add try-except outside if you have more indices than levels of nesting.
+    We do not provide it here for faster execution.
+    """
+    x = a
+    for idx in indices:
+        if 0 <= idx < len(x):
+            x = x[idx]
+        else:
+            return default
+    return x
