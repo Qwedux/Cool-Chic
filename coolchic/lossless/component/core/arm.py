@@ -210,7 +210,10 @@ class Arm(nn.Module):
         raw_proba_param = self.mlp(x)
         mu = raw_proba_param[:, 0]
         log_scale = raw_proba_param[:, 1]
-
+        print("ARM mu: ")
+        for i in range(min(10, mu.size(0))):
+            print(f"{mu[i].item():.16f}")
+            
         # no scale smaller than exp(-4.6) = 1e-2 or bigger than exp(5.01) = 150
         scale = torch.exp(torch.clamp(log_scale - 4, min=-4.6, max=5.0))
 
