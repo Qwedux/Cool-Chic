@@ -11,32 +11,23 @@ import typing
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, TypedDict
 
-from lossless.component.types import DescriptorCoolChic, DescriptorNN
-from lossless.nnquant.expgolomb import measure_expgolomb_rate
-from lossless.util.termprint import pretty_string_nn, pretty_string_ups
-from torch import nn, Tensor
-
 import torch
 import torch.nn.functional as F
 from fvcore.nn import FlopCountAnalysis, flop_count_table
-
-from lossless.component.core.arm import (
-    Arm,
-    _get_neighbor,
-    _get_non_zero_pixel_ctx_index,
-    _laplace_cdf,
-)
+from lossless.component.core.arm import (Arm, _get_neighbor,
+                                         _get_non_zero_pixel_ctx_index,
+                                         _laplace_cdf)
 from lossless.component.core.arm_image import ImageArm
 from lossless.component.core.quantizer import (
-    POSSIBLE_QUANTIZATION_NOISE_TYPE,
-    POSSIBLE_QUANTIZER_TYPE,
-    quantize,
-)
+    POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE, quantize)
 from lossless.component.core.synthesis import Synthesis
 from lossless.component.core.upsampling import Upsampling
-from lossless.util.distribution import get_latent_rate, weak_colorar_rate
-
+from lossless.component.types import DescriptorCoolChic, DescriptorNN
+from lossless.nnquant.expgolomb import measure_expgolomb_rate
 from lossless.util.device import POSSIBLE_DEVICE
+from lossless.util.distribution import get_latent_rate, weak_colorar_rate
+from lossless.util.termprint import pretty_string_nn, pretty_string_ups
+from torch import Tensor, nn
 
 """A cool-chic encoder is composed of:
     - A set of 2d hierarchical latent grids
@@ -188,9 +179,7 @@ class CoolChicEncoder(nn.Module):
         self.size_per_latent = []
         self.latent_grids = nn.ParameterList()
         for i in range(self.param.latent_n_grids):
-            h_grid, w_grid = [
-                int(math.ceil(x / (2**i))) for x in self.param.img_size
-            ]
+            h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.param.img_size]
             c_grid = self.param.n_ft_per_res[i]
             cur_size = (1, c_grid, h_grid, w_grid)
 
@@ -198,9 +187,7 @@ class CoolChicEncoder(nn.Module):
 
             # Instantiate empty tensor, we fill them later on with the function
             # self.initialize_latent_grids()
-            self.latent_grids.append(
-                nn.Parameter(torch.empty(cur_size), requires_grad=True)
-            )
+            self.latent_grids.append(nn.Parameter(torch.empty(cur_size), requires_grad=True))
 
         self.initialize_latent_grids()
 
@@ -372,9 +359,7 @@ class CoolChicEncoder(nn.Module):
         # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
         # to a single flat vector. This allows to call the quantization
         # only once, which is faster
-        encoder_side_flat_latent = torch.cat(
-            [latent_i.view(-1) for latent_i in self.latent_grids]
-        )
+        encoder_side_flat_latent = torch.cat([latent_i.view(-1) for latent_i in self.latent_grids])
 
         flat_decoder_side_latent = quantize(
             encoder_side_flat_latent * self.encoder_gains,
@@ -399,9 +384,7 @@ class CoolChicEncoder(nn.Module):
             b, c, h, w = latent_size  # b should be one
             latent_numel = b * c * h * w
             decoder_side_latent.append(
-                flat_decoder_side_latent[cnt : cnt + latent_numel].view(
-                    latent_size
-                )
+                flat_decoder_side_latent[cnt : cnt + latent_numel].view(latent_size)
             )
             cnt += latent_numel
 
@@ -426,10 +409,7 @@ class CoolChicEncoder(nn.Module):
 
         # Get all the B latent variables as a single one dimensional vector
         flat_latent = torch.cat(
-            [
-                spatial_latent_i.view(-1)
-                for spatial_latent_i in decoder_side_latent
-            ],
+            [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
             dim=0,
         )
 
@@ -469,13 +449,9 @@ class CoolChicEncoder(nn.Module):
             cnt = 0
             # for i, _ in enumerate(filtered_latent):
             for index_latent_res, _ in enumerate(self.latent_grids):
-                c_i, h_i, w_i = decoder_side_latent[index_latent_res].size()[
-                    -3:
-                ]
+                c_i, h_i, w_i = decoder_side_latent[index_latent_res].size()[-3:]
                 additional_data["detailed_sent_latent"].append(
-                    decoder_side_latent[index_latent_res].view(
-                        (1, c_i, h_i, w_i)
-                    )
+                    decoder_side_latent[index_latent_res].view((1, c_i, h_i, w_i))
                 )
 
                 # Scale, mu and rate are 1D tensors where the N latent grids
@@ -495,20 +471,67 @@ class CoolChicEncoder(nn.Module):
                 additional_data["detailed_centered_latent"].append(
                     additional_data["detailed_sent_latent"][-1] - mu_i
                 )
-        
+
         assert self.param.img_size is not None
         res: CoolChicEncoderOutput = {
             "raw_out": raw_synth_out,
             "rate": flat_rate,
-            "latent_bpd": flat_rate.sum()
-            / self.param.img_size[0]
-            / self.param.img_size[1]
-            / 3,
+            "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
             "additional_data": additional_data,
         }
 
         return res
 
+    def get_raw_synth_out(
+        self,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
+        noise_parameter: Optional[Tensor] = torch.tensor(1.0),
+        AC_MAX_VAL: int = -1,
+    ):
+        # ! Order of the operations are important as these are asynchronous
+        # ! CUDA operations. Some ordering are faster than other...
+
+        # ------ Encoder-side: quantize the latent
+        # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
+        # to a single flat vector. This allows to call the quantization
+        # only once, which is faster
+        encoder_side_flat_latent = torch.cat([latent_i.view(-1) for latent_i in self.latent_grids])
+
+        flat_decoder_side_latent = quantize(
+            encoder_side_flat_latent * self.encoder_gains,
+            quantizer_noise_type if self.training else "none",
+            quantizer_type if self.training else "hardround",
+            soft_round_temperature,
+            noise_parameter,
+        )
+
+        # Clamp latent if we need to write a bitstream
+        if AC_MAX_VAL != -1:
+            flat_decoder_side_latent = torch.clamp(
+                flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
+            )
+
+        # Convert back the 1d tensor to a list of N [1, C, H_i, W_i] 4d latents.
+        # This require a few additional information about each individual
+        # latent dimension, stored in self.size_per_latent
+        decoder_side_latent = []
+        cnt = 0
+        for latent_size in self.size_per_latent:
+            b, c, h, w = latent_size  # b should be one
+            latent_numel = b * c * h * w
+            decoder_side_latent.append(
+                flat_decoder_side_latent[cnt : cnt + latent_numel].view(latent_size)
+            )
+            cnt += latent_numel
+
+        # Upsampling and synthesis to get the output
+        ups_out = self.upsampling(decoder_side_latent)
+        # has e.g. shape [1, 9, H, W]
+        raw_synth_out = self.synthesis(ups_out)
+        return raw_synth_out
+    
     # ------- Getter / Setter and Initializer
     def get_param(self) -> OrderedDict[str, Tensor]:
         """Return **a copy** of the weights and biases inside the module.
@@ -528,20 +551,10 @@ class CoolChicEncoder(nn.Module):
         # I broke the following as image_arms is now a list of modules
         if self.param.use_image_arm:
             param.update(
-                {
-                    f"image_arm.{k}": v.detach().clone()
-                    for k, v in self.image_arm.named_parameters()
-                }
+                {f"image_arm.{k}": v.detach().clone() for k, v in self.image_arm.named_parameters()}
             )
-        param.update(
-            {
-                f"upsampling.{k}": v
-                for k, v in self.upsampling.get_param().items()
-            }
-        )
-        param.update(
-            {f"synthesis.{k}": v for k, v in self.synthesis.get_param().items()}
-        )
+        param.update({f"upsampling.{k}": v for k, v in self.upsampling.get_param().items()})
+        param.update({f"synthesis.{k}": v for k, v in self.synthesis.get_param().items()})
         return param
 
     def set_param(self, param: OrderedDict[str, Tensor]):
@@ -623,8 +636,7 @@ class CoolChicEncoder(nn.Module):
 
     def _load_full_precision_param(self) -> None:
         assert self.full_precision_param is not None, (
-            "Trying to load full precision parameters but "
-            "self.full_precision_param is None"
+            "Trying to load full precision parameters but " "self.full_precision_param is None"
         )
 
         self.set_param(self.full_precision_param)
@@ -661,9 +673,7 @@ class CoolChicEncoder(nn.Module):
         flops = FlopCountAnalysis(
             self,
             (
-                torch.empty(
-                    1, 3, *self.param.img_size, device=self.device
-                ),  # image
+                torch.empty(1, 3, *self.param.img_size, device=self.device),  # image
                 "none",  # Quantization noise
                 "hardround",  # Quantizer type
                 0.3,  # Soft round temperature
@@ -694,8 +704,7 @@ class CoolChicEncoder(nn.Module):
             in bits.
         """
         rate_per_module: DescriptorCoolChic = {
-            module_name: {"weight": 0.0, "bias": 0.0}
-            for module_name in self.modules_to_send
+            module_name: {"weight": 0.0, "bias": 0.0} for module_name in self.modules_to_send
         }
 
         total_rate = 0.0
@@ -746,9 +755,7 @@ class CoolChicEncoder(nn.Module):
             self.get_flops()
 
         msg_total_mac = "----------------------------------\n"
-        msg_total_mac += (
-            f"Total MAC / decoded pixel: {self.get_total_mac_per_pixel():.1f}"
-        )
+        msg_total_mac += f"Total MAC / decoded pixel: {self.get_total_mac_per_pixel():.1f}"
         msg_total_mac += "\n----------------------------------"
 
         return self.flops_str + "\n\n" + msg_total_mac
@@ -791,16 +798,18 @@ class CoolChicEncoder(nn.Module):
                 if layer.qb is not None:
                     self.arm.mlp[idx_layer].qb = layer.qb.to(device)
 
-        # for model in self.image_arm.models:
-        #     for idx_layer, layer in enumerate(model):
-        #         layer.to(device)
-        # if hasattr(layer, "qw"):
-        #     if layer.qw is not None:
-        #         model[idx_layer].qw = layer.qw.to(device)
+        self.image_arm = self.image_arm.to(device)
+        self.image_arm.non_zero_image_arm_ctx_index = self.image_arm.non_zero_image_arm_ctx_index.to(device)
+        for model in self.image_arm.models:
+            for idx_layer, layer in enumerate(model):
+                layer.to(device)
+                if hasattr(layer, "qw"):
+                    if layer.qw is not None:
+                        model[idx_layer].qw = layer.qw.to(device)
 
-        # if hasattr(layer, "qb"):
-        #     if layer.qb is not None:
-        #         model[idx_layer].qb = layer.qb.to(device)
+                if hasattr(layer, "qb"):
+                    if layer.qb is not None:
+                        model[idx_layer].qb = layer.qb.to(device)
 
     def pretty_string(self, print_detailed_archi: bool = False) -> str:
         """Get a pretty string representing the layer of a ``CoolChicEncoder``
@@ -837,13 +846,13 @@ class CoolChicEncoder(nn.Module):
 
         arm_complexity = self.flops_per_module["arm"] / n_pixels
         arm_share_complexity = 100 * arm_complexity / total_mac_per_pix
-        title = f"ARM {arm_complexity:.0f} MAC/pixel ; {arm_share_complexity:.1f} % of the complexity"
+        title = (
+            f"ARM {arm_complexity:.0f} MAC/pixel ; {arm_share_complexity:.1f} % of the complexity"
+        )
         long_description += f"\n\n\n{title}\n" f"{'=' * len(title)}\n\n\n"
         input_arm = f"{self.arm.dim_arm}-pixel context"
         output_arm = "mu, log scale"
-        long_description += pretty_string_nn(
-            self.arm.mlp, "", input_arm, output_arm
-        )
+        long_description += pretty_string_nn(self.arm.mlp, "", input_arm, output_arm)
 
         syn_complexity = self.flops_per_module["synthesis"] / n_pixels
         syn_share_complexity = 100 * syn_complexity / total_mac_per_pix
@@ -851,9 +860,7 @@ class CoolChicEncoder(nn.Module):
         long_description += f"\n\n\n{title}\n" f"{'=' * len(title)}\n\n\n"
         input_syn = f"{self.synthesis.input_ft} features"
         output_syn = "Decoded image"
-        long_description += pretty_string_nn(
-            self.synthesis.layers, "", input_syn, output_syn
-        )
+        long_description += pretty_string_nn(self.synthesis.layers, "", input_syn, output_syn)
 
         if print_detailed_archi:
             return long_description

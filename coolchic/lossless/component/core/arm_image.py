@@ -8,15 +8,13 @@
 
 
 from typing import OrderedDict, Tuple
-from lossless.component.core.arm import (
-    _get_neighbor,
-    _get_non_zero_pixel_ctx_index,
-)
-import torch
 
+import torch
+from lossless.component.core.arm import (ArmLinear, _get_neighbor,
+                                         _get_non_zero_pixel_ctx_index)
+from lossless.util.misc import safe_get_from_nested_lists
 # import torch.nn.functional as F
 from torch import Tensor, nn  # , index_select
-from lossless.component.core.arm import ArmLinear, _get_neighbor
 
 
 class ImageArm(nn.Module):
@@ -88,28 +86,20 @@ class ImageArm(nn.Module):
         self.channel_separation = channel_separation
 
         if not channel_separation:
-            raise NotImplementedError(
-                "Non channel-separated ARM is not implemented yet."
-            )
+            raise NotImplementedError("Non channel-separated ARM is not implemented yet.")
 
         # ======================== Construct the MLPs ======================== #
         self.model_layers = [
-            nn.ModuleList()
-            for _ in range(len(self.synthesis_out_params_per_channel))
+            nn.ModuleList() for _ in range(len(self.synthesis_out_params_per_channel))
         ]
         self.models = nn.ModuleList(
-            nn.Sequential()
-            for _ in range(len(self.synthesis_out_params_per_channel))
+            nn.Sequential() for _ in range(len(self.synthesis_out_params_per_channel))
         )
-        for channel_idx, output_dim in enumerate(
-            self.synthesis_out_params_per_channel
-        ):
+        for channel_idx, output_dim in enumerate(self.synthesis_out_params_per_channel):
             self.model_layers[channel_idx].append(
                 ArmLinear(
                     context_size
-                    * len(
-                        self.synthesis_out_params_per_channel
-                    )  # context size * num_channels
+                    * len(self.synthesis_out_params_per_channel)  # context size * num_channels
                     + sum(
                         self.synthesis_out_params_per_channel
                     )  # we can use all information from synthesis output
@@ -131,21 +121,24 @@ class ImageArm(nn.Module):
             self.model_layers[channel_idx].append(
                 ArmLinear(hidden_layer_dim, output_dim * 2, residual=False)
             )
-            self.models[channel_idx] = nn.Sequential(
-                *self.model_layers[channel_idx]
-            )
+            self.models[channel_idx] = nn.Sequential(*self.model_layers[channel_idx])
 
         self.mask_size = 9
+        # self.non_zero_image_arm_ctx_index = _get_non_zero_pixel_ctx_index(self.context_size)
         self.register_buffer(
             "non_zero_image_arm_ctx_index",
             _get_non_zero_pixel_ctx_index(self.context_size),
             persistent=False,
         )
+        self.non_zero_image_arm_ctx_shifts = {
+            # row = index // 9, col = index % 9
+            index: [index // 9 - 4, index % 9 - 4]
+            for index in self.non_zero_image_arm_ctx_index.tolist()
+        }
 
     def prepare_inputs(self, image: Tensor, raw_synth_out: Tensor):
         assert len(self.synthesis_out_params_per_channel) == image.shape[1], (
-            "Number of channels in image and synthesis_out_params_per_channel "
-            "must be equal."
+            "Number of channels in image and synthesis_out_params_per_channel " "must be equal."
         )
 
         contexts = []
@@ -200,19 +193,7 @@ class ImageArm(nn.Module):
         return prepared_inputs
 
     def forward(self, image: Tensor, raw_synth_out: Tensor) -> Tensor:
-        # print(synthesis_proba.shape)
-        # print(image.shape)
-        # exit()
         prepared_inputs = self.prepare_inputs(image, raw_synth_out)
-
-        # print(prepared_inputs[0].shape)
-        # # exit()
-        # print(image[0, 0, :5, :5])
-        # print(image[0, 1, :5, :5])
-        # print(x[0, 2, :5, :5])
-        # print(prepared_inputs[2].view((256, 256, -1))[:5, :5].detach().cpu().numpy())
-
-        # exit()
 
         cutoffs = [
             sum(self.synthesis_out_params_per_channel[:i])
@@ -238,10 +219,36 @@ class ImageArm(nn.Module):
         ).permute(0, 3, 1, 2)
 
         return reshaped_image_arm_out
+    
+    def inference(self, features, relevant_raw_synth_out, channel):
+        raw_outs = self.models[channel](features)
+        raw_proba_param, gate = raw_outs.chunk(2, dim=1)
+        return relevant_raw_synth_out + raw_proba_param * torch.sigmoid(gate)
 
-    def predict_final_distributions(
-        self, image: Tensor, raw_synth_out: Tensor
-    ) -> Tensor:
+    def get_neighbor_context(self, grid_so_far: list[list] | torch.Tensor, h: int, w: int) -> Tensor:
+        """Get the neighbor context for a given spatial position (h, w)
+        in the image grid_so_far.
+
+        Args:
+            grid_so_far: The image grid decoded so far of shape [1, C, H, W]
+            h: The height position
+            w: The width position
+        """
+        neighbor_context = []
+        for idx in self.non_zero_image_arm_ctx_index:
+            shift = self.non_zero_image_arm_ctx_shifts[idx.item()]
+            neighbor_h = h + shift[0]
+            neighbor_w = w + shift[1]
+            pixel_value = safe_get_from_nested_lists(
+                grid_so_far,
+                [neighbor_h, neighbor_w],
+                default=0,
+            )
+            neighbor_context.append(pixel_value)
+        # Return as a tensor of shape [1, context_size]
+        return torch.tensor(neighbor_context, dtype=torch.float32).unsqueeze(0)
+
+    def predict_final_distributions(self, image: Tensor, raw_synth_out: Tensor) -> Tensor:
         access_mask = [
             [-3, 0],
             [-2, 0],
@@ -257,29 +264,18 @@ class ImageArm(nn.Module):
         for c in range(len(self.models)):
             for h in range(image.shape[2]):
                 for w in range(image.shape[3]):
-                    context_pixels = torch.zeros(
-                        (8 * 3), dtype=image.dtype, device=image.device
-                    )
+                    context_pixels = torch.zeros((8 * 3), dtype=image.dtype, device=image.device)
                     for offset_index, offset in enumerate(access_mask):
                         nh = h + offset[0]
                         nw = w + offset[1]
-                        if (
-                            nh >= 0
-                            and nw >= 0
-                            and nh < image.shape[2]
-                            and nw < image.shape[3]
-                        ):
-                            context_pixels[
-                                offset_index * 3 : (offset_index + 1) * 3
-                            ] = image[0, :, nh, nw].unsqueeze(0)
+                        if nh >= 0 and nw >= 0 and nh < image.shape[2] and nw < image.shape[3]:
+                            context_pixels[offset_index * 3 : (offset_index + 1) * 3] = image[
+                                0, :, nh, nw
+                            ].unsqueeze(0)
                     # Add synthesis output and already decoded channels information
-                    synthesis_out_flat = raw_synth_out[
-                        0, :, h, w
-                    ].unsqueeze(0)
+                    synthesis_out_flat = raw_synth_out[0, :, h, w].unsqueeze(0)
                     if c > 0:
-                        already_decoded_channels = image[0, :c, h, w].unsqueeze(
-                            0
-                        )
+                        already_decoded_channels = image[0, :c, h, w].unsqueeze(0)
                         model_input = torch.cat(
                             [
                                 context_pixels.reshape(1, -1),
@@ -310,7 +306,7 @@ class ImageArm(nn.Module):
             The parameters of the module.
         """
         return self.state_dict()
-    
+
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
         """Replace the current parameters of the module with param.
 
