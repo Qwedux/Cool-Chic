@@ -62,7 +62,7 @@ def clean_workdir(workdir_path: str) -> None:
                 print(f"Failed to delete {file_path}. Reason: {e}")
 
 
-def safe_get_from_nested_lists(a: list, indices: list[int], default=0):
+def safe_get_from_nested_lists(a: list | torch.Tensor, indices: list[int], default=0.0):
     """Safely get a nested element from a arbitrarily nested list of lists.
     Add try-except outside if you have more indices than levels of nesting.
     We do not provide it here for faster execution.

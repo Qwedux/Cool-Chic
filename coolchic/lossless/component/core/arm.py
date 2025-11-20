@@ -210,9 +210,9 @@ class Arm(nn.Module):
         raw_proba_param = self.mlp(x)
         mu = raw_proba_param[:, 0]
         log_scale = raw_proba_param[:, 1]
-        print("ARM mu: ")
-        for i in range(min(10, mu.size(0))):
-            print(f"{mu[i].item():.16f}")
+        # print("ARM mu: ")
+        # for i in range(min(10, mu.size(0))):
+        #     print(f"{mu[i].item():.16f}")
             
         # no scale smaller than exp(-4.6) = 1e-2 or bigger than exp(5.01) = 150
         scale = torch.exp(torch.clamp(log_scale - 4, min=-4.6, max=5.0))
@@ -240,7 +240,7 @@ class Arm(nn.Module):
             )
             neighbor_context.append(pixel_value)
         # Return as a tensor of shape [1, dim_arm]
-        return torch.tensor(neighbor_context).unsqueeze(0)
+        return torch.tensor(neighbor_context, dtype=torch.float32).unsqueeze(0)
 
     def get_param(self) -> OrderedDict[str, Tensor]:
         """Return **a copy** of the weights and biases inside the module.
