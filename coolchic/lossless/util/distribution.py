@@ -1,8 +1,9 @@
-import torch
-import numpy as np
-from torch import Tensor
 from typing import Tuple
+
+import numpy as np
+import torch
 from lossless.util.color_transform import ColorBitdepths
+from torch import Tensor
 
 rans_freq_precision: int = 16
 
@@ -132,7 +133,17 @@ def get_mu_and_scale_linear_color(
     """
     function to calculate the mean and scale from the parameters
     """
-    _mu, log_scale, pp = torch.chunk(params, 3, dim=1)
+    # _mu, log_scale, pp = torch.chunk(params, 3, dim=1)
+    # in the 1st dimension we have the following structure:
+    # [0     , 1        , 2       , 3          , 4    , 5      , 6         , 7    , 8   ]
+    # [mu_red, scale_red, mu_green, scale_green, alpha, mu_blue, scale_blue, beta, gamma]
+    _mu = torch.cat([params[:, 0:1, ...], params[:, 2:3, ...], params[:, 5:6, ...]], dim=1)
+    log_scale = torch.cat(
+        [params[:, 1:2, ...], params[:, 3:4, ...], params[:, 6:7, ...]], dim=1
+    )
+    pp = torch.cat(
+        [params[:, 4:5, ...], params[:, 7:8, ...], params[:, 8:9, ...]], dim=1
+    )
     alpha, beta, gamma = torch.chunk(pp, 3, dim=1)
     mu = torch.zeros_like(_mu)
     mu[:, 0:1, ...] = _mu[:, 0:1, ...]
@@ -151,6 +162,7 @@ def weak_colorar_rate(
     params N 9 H W, x normalized to [0,1]
     """
     mu, scale = get_mu_and_scale_linear_color(params, x)
+    # mu, scale = torch.chunk(params, 2, dim=1)
     logp = discretized_logistic_logp(mu, scale, x, channel_ranges)
     return -logp
 

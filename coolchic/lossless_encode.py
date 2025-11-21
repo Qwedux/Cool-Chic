@@ -2,27 +2,23 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-import torch
-from lossless.component.coolchic import CoolChicEncoderParameter
-from lossless.training.manager import (
-    ImageEncoderManager,
-)
-from lossless.component.coolchic import CoolChicEncoder
-from lossless.util.config import args, str_args
-from lossless.util.parsecli import (
-    change_n_out_synth,
-    get_coolchic_param_from_args,
-    get_manager_from_args,
-)
-from lossless.util.logger import TrainingLogger
-from lossless.util.image_loading import load_image_as_tensor
-from lossless.training.train import train
-from lossless.training.loss import loss_function
-from lossless.nnquant.quantizemodel import quantize_model
-
-from lossless.util.distribution import get_mu_and_scale_linear_color
+# from lossless.util.distribution import get_mu_and_scale_linear_color
 import numpy as np
-from till_encode import encode, decode, get_bits_per_pixel
+import torch
+from lossless.component.coolchic import (CoolChicEncoder,
+                                         CoolChicEncoderParameter)
+from lossless.nnquant.quantizemodel import quantize_model
+from lossless.training.loss import loss_function
+from lossless.training.manager import ImageEncoderManager
+from lossless.training.train import train
+from lossless.util.config import args, str_args
+from lossless.util.image_loading import load_image_as_tensor
+from lossless.util.logger import TrainingLogger
+from lossless.util.parsecli import (change_n_out_synth,
+                                    get_coolchic_param_from_args,
+                                    get_manager_from_args)
+
+# from till_encode import encode, decode, get_bits_per_pixel
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
@@ -158,7 +154,7 @@ with torch.no_grad():
         latent_multiplier=1.0,
         channel_ranges=c_bitdepths,
     )
-# logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
+logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
 logger.log_result(
     f"Final frame_encoder_manager state: {image_encoder_manager},\n"
     f"Rate per module: {rate_per_module},\n"
@@ -168,31 +164,31 @@ logger.log_result(
 # ==========================================================================================
 # SAVE MODEL
 # ==========================================================================================
-cool_chic_state_dict = {
-    k: v
-    for k, v in quantized_coolchic.state_dict().items()
-    if not k.startswith("latent_grids")
-}
-latent_grids_state_dict = {
-    k: v
-    for k, v in quantized_coolchic.state_dict().items()
-    if k.startswith("latent_grids")
-}
+# cool_chic_state_dict = {
+#     k: v
+#     for k, v in quantized_coolchic.state_dict().items()
+#     if not k.startswith("latent_grids")
+# }
+# latent_grids_state_dict = {
+#     k: v
+#     for k, v in quantized_coolchic.state_dict().items()
+#     if k.startswith("latent_grids")
+# }
 
-torch.save(
-    cool_chic_state_dict,
-    "test-workdir/encoder_size_test/coolchic_model_no_latents.pth",
-)
+# torch.save(
+#     cool_chic_state_dict,
+#     "test-workdir/encoder_size_test/coolchic_model_no_latents.pth",
+# )
 # model bpd is size of `coolchic_model_no_latents.pth` in bits divided by number of pixels in image
-model_file_size_bits = (
-    os.path.getsize(
-        "test-workdir/encoder_size_test/coolchic_model_no_latents.pth"
-    )
-    * 8
-)
-num_pixels = im_tensor.numel()
-model_bpd = model_file_size_bits / num_pixels
-logger.log_result(f"Rate NN (without latent grids): {model_bpd}")
+# model_file_size_bits = (
+#     os.path.getsize(
+#         "test-workdir/encoder_size_test/coolchic_model_no_latents.pth"
+#     )
+#     * 8
+# )
+# num_pixels = im_tensor.numel()
+# model_bpd = model_file_size_bits / num_pixels
+# logger.log_result(f"Rate NN (without latent grids): {model_bpd}")
 
 # # ==========================================================================================
 # # ENCODE-DECODE THE IMAGE // Takes ~few minutes!!!
