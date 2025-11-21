@@ -1,8 +1,9 @@
 import os
 import time
+
 import torch
-from lossless.util.misc import timestamp_string
 from lossless.util.config import start_print
+from lossless.util.misc import timestamp_string
 
 
 class TrainingLogger:

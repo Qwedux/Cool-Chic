@@ -1,5 +1,5 @@
-import os
 import glob
+import os
 
 if os.path.exists("/itet-stor/jparada/net_scratch/"):
     BASE_PATH = "/itet-stor/jparada/net_scratch/"
@@ -29,7 +29,7 @@ args = {
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
     "network_yaml_path": NETWORK_YAML_PATH,
-    "experiment_name": "11_11_2025_encode_decode_test",
+    "experiment_name": "21_11_2025_YCoCg_with_fixed_colorregression",
 
     "job_duration_min": -1,
     "print_detailed_archi": False,
@@ -37,7 +37,7 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 100,
+    "n_itr": 140000,
     "n_train_loops": 1,
     "preset": "fnlic",
     # decoder side
@@ -58,7 +58,7 @@ args = {
     "softround_temperature": (0.3, 0.1),
     "noise_parameter": (0.25, 0.1),
     "pretrained_model_path": "../logs/full_runs/trained_models/2025_11_10__23_56_17__trained_coolchic_kodak_kodim17_img_rate_2.167128562927246.pth",
-    "use_pretrained": True
+    "use_pretrained": False
     ,
     # Other presets
     "quantize_model": True,

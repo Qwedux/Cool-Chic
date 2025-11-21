@@ -49,8 +49,8 @@ echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
-python3 lossless_encode.py $SLURM_ARRAY_TASK_ID RGB false
-python3 lossless_encode.py $SLURM_ARRAY_TASK_ID YCoCg false
+# python3 lossless_encode.py $SLURM_ARRAY_TASK_ID RGB false
+python3 lossless_encode.py $SLURM_ARRAY_TASK_ID YCoCg true
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
