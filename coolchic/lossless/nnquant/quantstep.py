@@ -11,8 +11,8 @@
 
 from typing import Optional
 
-from lossless.component.types import DescriptorNN
 import torch
+from lossless.component.types import DescriptorNN
 
 # Shifts for ARM, record the shift.
 POSSIBLE_Q_STEP_SHIFT = {

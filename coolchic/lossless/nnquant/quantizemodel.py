@@ -13,19 +13,17 @@ import itertools
 import time
 from typing import Optional, OrderedDict
 
-from lossless.component.types import DescriptorNN
 import torch
-from lossless.nnquant.expgolomb import POSSIBLE_EXP_GOL_COUNT, exp_golomb_nbins
-from lossless.nnquant.quantstep import (
-    POSSIBLE_Q_STEP,
-    get_q_step_from_parameter_name,
-)
-from lossless.training.loss import loss_function, LossFunctionOutput
-from lossless.training.manager import ImageEncoderManager
 from lossless.component.coolchic import CoolChicEncoder
-from torch import Tensor
-from lossless.util.logger import TrainingLogger
+from lossless.component.types import DescriptorNN
+from lossless.nnquant.expgolomb import POSSIBLE_EXP_GOL_COUNT, exp_golomb_nbins
+from lossless.nnquant.quantstep import (POSSIBLE_Q_STEP,
+                                        get_q_step_from_parameter_name)
+from lossless.training.loss import LossFunctionOutput, loss_function
+from lossless.training.manager import ImageEncoderManager
 from lossless.util.color_transform import ColorBitdepths
+from lossless.util.logger import TrainingLogger
+from torch import Tensor
 
 
 def _quantize_parameters(
@@ -245,6 +243,8 @@ def quantize_model(
                 best_loss = loss_fn_output
                 best_q_step = current_q_step
                 final_best_expgol_cnt = best_expgol_cnt
+                if module_name == "image_arm":
+                    print(loss_fn_output.loss.cpu().item(), q_step_w.cpu().item(), q_step_b.cpu().item())
 
         # Once we've tested all the possible quantization step and expgol_cnt,
         # quantize one last time with the best one we've found to actually use it.
@@ -260,6 +260,8 @@ def quantize_model(
         )
         if logger is not None:
             logger.log_result(f"Best loss for module {module_name}: {best_loss}")
+        else:
+            print(f"Best loss for module {module_name}: {best_loss}")
 
         cur_module.set_param(q_param)
         # Plug the quantized module back into Cool-chic
@@ -271,6 +273,8 @@ def quantize_model(
         logger.log_result(
             f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n"
         )
+    else:
+        print(f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n")
     if image_encoder_manager is not None:
         image_encoder_manager.total_training_time_sec += time_nn_quantization
 

@@ -1,10 +1,11 @@
-import torch
-import constriction
 import struct
-from lossless.component.types import POSSIBLE_ENCODING_DISTRIBUTIONS
+
+import constriction
 import lossless.util.color_transform as color_transform
-from lossless.util.color_transform import ColorBitdepths
 import numpy as np
+import torch
+from lossless.component.types import POSSIBLE_ENCODING_DISTRIBUTIONS
+from lossless.util.color_transform import ColorBitdepths
 
 
 def get_bits_per_pixel(w, h, c, encoded_bytes):
@@ -15,9 +16,7 @@ def get_bits_per_pixel(w, h, c, encoded_bytes):
     return num_bits / num_pixels
 
 
-def _laplace_cdf(
-    x: torch.Tensor, expectation: torch.Tensor, scale: torch.Tensor
-) -> torch.Tensor:
+def _laplace_cdf(x: torch.Tensor, expectation: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
     """Compute the laplace cumulative evaluated in x. All parameters
     must have the same dimension.
     Re-implemented here coz it is faster than calling the Laplace distribution
@@ -32,14 +31,10 @@ def _laplace_cdf(
         Tensor: CDF(x, mu, scale)
     """
     shifted_x = x - expectation
-    return 0.5 - 0.5 * (shifted_x).sign() * torch.expm1(
-        -(shifted_x).abs() / scale
-    )
+    return 0.5 - 0.5 * (shifted_x).sign() * torch.expm1(-(shifted_x).abs() / scale)
 
 
-def _logistic_cdf(
-    x: torch.Tensor, mu: torch.Tensor, s: torch.Tensor
-) -> torch.Tensor:
+def _logistic_cdf(x: torch.Tensor, mu: torch.Tensor, s: torch.Tensor) -> torch.Tensor:
     """Compute the logistic cumulative evaluated in x. All parameters
     must have the same dimension.
     Re-implemented here coz it is faster than calling the Logistic distribution
@@ -70,10 +65,7 @@ def calculate_probability_distribution(
     # Create the base tensor of quantized values
     new_tensor = torch.linspace(
         0.0,
-        (
-            color_bitdepths.ranges_int[channel_idx][1]
-            - color_bitdepths.ranges_int[channel_idx][0]
-        )
+        (color_bitdepths.ranges_int[channel_idx][1] - color_bitdepths.ranges_int[channel_idx][0])
         / color_bitdepths.scaling_factors[channel_idx],
         steps=color_bitdepths.bins[channel_idx],
         device=mu.device,
@@ -82,9 +74,9 @@ def calculate_probability_distribution(
         *mu.shape,
         color_bitdepths.bins[channel_idx],
     )  # add one dimension at the end
-    new_tensor = new_tensor.view(
-        *([1] * mu.ndim), color_bitdepths.bins[channel_idx]
-    ).expand(*new_shape)
+    new_tensor = new_tensor.view(*([1] * mu.ndim), color_bitdepths.bins[channel_idx]).expand(
+        *new_shape
+    )
 
     # Compute boundaries for each bin
     x_minus = new_tensor - 0.5 / color_bitdepths.bins[channel_idx]
@@ -98,12 +90,15 @@ def calculate_probability_distribution(
     if distribution == "laplace":
         cdf_minus = _laplace_cdf(x_minus, mu_expanded, s_expanded)
         cdf_plus = _laplace_cdf(x_plus, mu_expanded, s_expanded)
-    else:
+    elif distribution == "logistic":
         cdf_minus = _logistic_cdf(x_minus, mu_expanded, s_expanded)
         cdf_plus = _logistic_cdf(x_plus, mu_expanded, s_expanded)
+    elif distribution == "dummy":
+        cdf_plus = torch.ones_like(x_plus)
+        cdf_minus = torch.zeros_like(x_minus)
+    else:
+        raise ValueError(f"Unknown distribution: {distribution}")
     prob_t = cdf_plus - cdf_minus
-    if distribution == "dummy":
-        prob_t = torch.ones_like(cdf_plus)
     prob_t = torch.clamp_min(prob_t, 2 ** (-16))
     prob_t = prob_t / prob_t.sum(dim=-1, keepdim=True)
 
@@ -215,8 +210,7 @@ def decode(
                         prob_array, perfect=False
                     )
                     decoded_char = (
-                        torch.tensor(dec.decode(model, 1)[0]).float()
-                        + ct.ranges_int[c][0]
+                        torch.tensor(dec.decode(model, 1)[0]).float() + ct.ranges_int[c][0]
                     )
                     x[0, c, h, w] = decoded_char
 

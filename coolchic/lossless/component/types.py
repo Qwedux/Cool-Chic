@@ -8,12 +8,9 @@
 
 from dataclasses import dataclass
 from typing import Literal, Optional, Union
+
 from torch import Tensor
 
-
-from dataclasses import dataclass
-from typing import Literal, Optional, Union
-from torch import Tensor
 
 @dataclass
 class DescriptorNN:
@@ -47,10 +44,10 @@ class DescriptorNN:
 class DescriptorCoolChic:
     """Contains information about the different sub-networks of Cool-chic."""
 
-    # arm: Optional[DescriptorNN] = None
+    arm: Optional[DescriptorNN] = None
     # image_arm: Optional[DescriptorNN] = None
-    # upsampling: Optional[DescriptorNN] = None
-    # synthesis: Optional[DescriptorNN] = None
+    upsampling: Optional[DescriptorNN] = None
+    synthesis: Optional[DescriptorNN] = None
 
 
 # For now, it is only possible to have a Cool-chic encoder
