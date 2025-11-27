@@ -2,26 +2,21 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-import torch
-from lossless.component.coolchic import CoolChicEncoderParameter
-from lossless.training.manager import (
-    ImageEncoderManager,
-)
-from lossless.component.coolchic import CoolChicEncoder
-from lossless.util.config import args, str_args
-from lossless.util.parsecli import (
-    change_n_out_synth,
-    get_coolchic_param_from_args,
-    get_manager_from_args,
-)
-from lossless.util.logger import TrainingLogger
-from lossless.util.image_loading import load_image_as_tensor
-from lossless.training.train import train
-from lossless.training.loss import loss_function
-from lossless.nnquant.quantizemodel import quantize_model
-
 import numpy as np
-from till_encode import encode, decode, get_bits_per_pixel
+import torch
+from lossless.component.coolchic import (CoolChicEncoder,
+                                         CoolChicEncoderParameter)
+from lossless.nnquant.quantizemodel import quantize_model
+from lossless.training.loss import loss_function
+from lossless.training.manager import ImageEncoderManager
+from lossless.training.train import train
+from lossless.util.config import args, str_args
+from lossless.util.image_loading import load_image_as_tensor
+from lossless.util.logger import TrainingLogger
+from lossless.util.parsecli import (change_n_out_synth,
+                                    get_coolchic_param_from_args,
+                                    get_manager_from_args)
+from till_encode import decode, encode, get_bits_per_pixel
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
