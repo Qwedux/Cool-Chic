@@ -47,7 +47,6 @@ assert color_space in [
 ], f"Invalid color space {color_space}, must be YCoCg or RGB"
 
 im_path = args["input"][image_index]
-# im_path = "../datasets/synthetic/random_noise_256_256_white_gray.png"
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )

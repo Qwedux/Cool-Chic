@@ -29,7 +29,7 @@ args = {
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
     "network_yaml_path": NETWORK_YAML_PATH,
-    "experiment_name": "21_11_2025_YCoCg_with_fixed_colorregression",
+    "experiment_name": "30_11_2025_RGB_no_ARM_no_color_regression_Kodak",
 
     "job_duration_min": -1,
     "print_detailed_archi": False,
@@ -47,7 +47,7 @@ args = {
     "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,
-    "output_dim_size": 9,
+    "output_dim_size": 6,
     # training preset
     "patience": 5000,
     "schedule_lr": True,
