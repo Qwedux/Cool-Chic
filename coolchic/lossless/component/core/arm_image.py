@@ -82,7 +82,13 @@ class ImageArm(nn.Module):
             f"a multiple of 8. Found {context_size}."
         )
         self.context_size = context_size
-        self.synthesis_out_params_per_channel = synthesis_out_params_per_channel
+         # Temporary fix to disable color regression
+        # self.synthesis_out_params_per_channel = synthesis_out_params_per_channel
+        self.synthesis_out_params_per_channel = [
+            2,
+            2,
+            2,
+        ] 
         self.channel_separation = channel_separation
 
         if not channel_separation:
@@ -157,7 +163,25 @@ class ImageArm(nn.Module):
         flat_image_context = torch.stack(contexts, dim=2).reshape(
             (image.shape[2] * image.shape[3], -1)
         )
+        # print(raw_synth_out.shape)
+        # print(flat_image_context.shape)
+        # print(self.synthesis_out_params_per_channel)
 
+        # print(
+        #     raw_synth_out.permute(0, 2, 3, 1)
+        #     .reshape(-1, sum(self.synthesis_out_params_per_channel))
+        #     .shape
+        # )
+        # print(
+        #     torch.empty(
+        #         image.shape[2] * image.shape[3],
+        #         0,
+        #         dtype=image.dtype,
+        #         device=image.device,
+        #         requires_grad=False,
+        #     ).shape
+        # )
+        # exit()
         # Add synthesis output and already decoded channels information
         prepared_inputs = []
         for channel_idx in range(len(self.synthesis_out_params_per_channel)):
@@ -219,13 +243,15 @@ class ImageArm(nn.Module):
         ).permute(0, 3, 1, 2)
 
         return reshaped_image_arm_out
-    
+
     def inference(self, features, relevant_raw_synth_out, channel):
         raw_outs = self.models[channel](features)
         raw_proba_param, gate = raw_outs.chunk(2, dim=1)
         return relevant_raw_synth_out + raw_proba_param * torch.sigmoid(gate)
 
-    def get_neighbor_context(self, grid_so_far: list[list] | torch.Tensor, h: int, w: int) -> Tensor:
+    def get_neighbor_context(
+        self, grid_so_far: list[list] | torch.Tensor, h: int, w: int
+    ) -> Tensor:
         """Get the neighbor context for a given spatial position (h, w)
         in the image grid_so_far.
 

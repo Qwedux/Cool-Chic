@@ -32,8 +32,8 @@ POSSIBLE_Q_STEP = {
         "bias": 2.0 ** POSSIBLE_Q_STEP_SHIFT["arm"]["bias"],
     },
     "image_arm": {
-        "weight": 2.0 ** POSSIBLE_Q_STEP_SHIFT["image_arm"]["weight"],
-        "bias": 2.0 ** POSSIBLE_Q_STEP_SHIFT["image_arm"]["bias"],
+        "weight": 2.0 ** torch.linspace(-12, 0, 13, device="cpu"),
+        "bias": 2.0 ** torch.linspace(-24, 0, 25, device="cpu"),
     },
     "upsampling": {
         "weight": 2.0 ** torch.linspace(-12, 0, 13, device="cpu"),

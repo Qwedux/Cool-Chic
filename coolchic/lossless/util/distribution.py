@@ -154,6 +154,11 @@ def get_mu_and_scale_linear_color(
     scale = get_scale(log_scale)
     return mu, scale
 
+def get_mu_and_scale_no_arm(params: Tensor) -> Tuple[Tensor, Tensor]:
+    mu = params[:, ::2, ...]
+    log_scale = params[:, 1::2, ...]
+    scale = get_scale(log_scale)
+    return mu, scale
 
 def weak_colorar_rate(
     params: Tensor, x: Tensor, channel_ranges: ColorBitdepths
@@ -161,7 +166,8 @@ def weak_colorar_rate(
     """
     params N 9 H W, x normalized to [0,1]
     """
-    mu, scale = get_mu_and_scale_linear_color(params, x)
+    # mu, scale = get_mu_and_scale_linear_color(params, x)
+    mu, scale = get_mu_and_scale_no_arm(params)
     # mu, scale = torch.chunk(params, 2, dim=1)
     logp = discretized_logistic_logp(mu, scale, x, channel_ranges)
     return -logp
