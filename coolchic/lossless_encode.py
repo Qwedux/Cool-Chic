@@ -50,7 +50,9 @@ im_path = args["input"][image_index]
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
-
+a = "abcd"
+if "bc" in a:
+    pass
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
 # ==========================================================================================
@@ -58,6 +60,8 @@ image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(
     **get_coolchic_param_from_args(args, "lossless")
 )
+encoder_param.encoder_gain = 16
+if 
 encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
 encoder_param.layers_synthesis = change_n_out_synth(
     encoder_param.layers_synthesis, args["output_dim_size"]
