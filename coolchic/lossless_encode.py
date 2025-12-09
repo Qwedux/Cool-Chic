@@ -23,9 +23,9 @@ from lossless.util.parsecli import (change_n_out_synth,
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
 
-if len(sys.argv) < 4:
+if len(sys.argv) < 5:
     print(
-        "Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm>"
+        "Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm> <experiment_name>"
     )
     print("<color_space> must be `YCoCg` or `RGB`")
     print("<use_image_arm> must be `true` or `false`")
@@ -37,6 +37,7 @@ if len(sys.argv) < 4:
 image_index = int(sys.argv[1])
 color_space = sys.argv[2]
 use_image_arm = sys.argv[3].lower() == "true"
+experiment_name = sys.argv[4].lower()
 assert sys.argv[3].lower() in [
     "true",
     "false",
@@ -61,7 +62,8 @@ encoder_param = CoolChicEncoderParameter(
     **get_coolchic_param_from_args(args, "lossless")
 )
 encoder_param.encoder_gain = 16
-if 
+if "gain_test" in experiment_name:
+    encoder_param.encoder_gain = 64
 encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
 encoder_param.layers_synthesis = change_n_out_synth(
     encoder_param.layers_synthesis, args["output_dim_size"]
@@ -77,7 +79,7 @@ logger = TrainingLogger(
     log_folder_path=args["LOG_PATH"],
     image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0],
     debug_mode=image_encoder_manager.n_itr < 1000,
-    experiment_name=args["experiment_name"],
+    experiment_name=experiment_name,
 )
 with open(args["network_yaml_path"], "r") as f:
     network_yaml = f.read()
