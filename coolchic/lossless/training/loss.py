@@ -9,15 +9,14 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import torch
-from lossless.io.format.yuv import DictTensorYUV
-from torch import Tensor
-from typing import Any
 from lossless.component.coolchic import CoolChicEncoderOutput
-from lossless.util.distribution import weak_colorar_rate
+from lossless.io.format.yuv import DictTensorYUV
 from lossless.util.color_transform import ColorBitdepths
+from lossless.util.distribution import weak_colorar_rate
+from torch import Tensor
 
 # @dataclass(kw_only=True)
 # class LossFunctionOutput():
@@ -78,9 +77,10 @@ def loss_function(
     channel_ranges: ColorBitdepths,
     rate_mlp_bpd: float = 0.0,
     latent_multiplier: float = 0.00,
+    use_color_regression: bool = False,
 ) -> LossFunctionOutput:
     img_rates = weak_colorar_rate(
-        encoder_out["raw_out"], img_tensor, channel_ranges
+        encoder_out["raw_out"], img_tensor, channel_ranges, use_color_regression
     )
     img_bpd = img_rates.sum() / img_tensor.numel()
     loss = (

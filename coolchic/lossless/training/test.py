@@ -12,25 +12,19 @@ import typing
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
-from lossless.component.types import DescriptorCoolChic, DescriptorNN
 import torch
 import torch.nn.functional as F
-from lossless.component.frame import (
-    FrameEncoder,
-    FrameEncoderOutput,
-    NAME_COOLCHIC_ENC,
-)
+from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
+from lossless.component.frame import (NAME_COOLCHIC_ENC, FrameEncoder,
+                                      FrameEncoderOutput)
+from lossless.component.types import DescriptorCoolChic, DescriptorNN
 from lossless.io.format.yuv import convert_420_to_444
-from lossless.training.loss import (
-    LossFunctionOutput,
-    # _compute_mse,
-    loss_function,
-)
+from lossless.training.loss import (LossFunctionOutput,  # _compute_mse,
+                                    loss_function)
 # from lossless.util.codingstructure import Frame
 from lossless.training.manager import ImageEncoderManager
-from torch import Tensor
-from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
 from lossless.util.color_transform import ColorBitdepths
+from torch import Tensor
 
 
 @dataclass
@@ -542,6 +536,7 @@ def test(
         frame,
         latent_multiplier=latent_multiplier,
         channel_ranges=color_bitdepths,
+        use_color_regression=model.param.use_color_regression,
     )
 
     # encoder_logs = FrameEncoderLogs(

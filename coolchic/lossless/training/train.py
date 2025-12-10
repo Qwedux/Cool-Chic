@@ -12,22 +12,20 @@ import time
 from typing import List, Tuple
 
 import torch
+from lossless.component.coolchic import CoolChicEncoder
 from lossless.component.core.quantizer import (
-    POSSIBLE_QUANTIZATION_NOISE_TYPE,
-    POSSIBLE_QUANTIZER_TYPE,
-)
-
+    POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE)
 # from lossless.component.frame import FrameEncoder
 # from enc.io.format.yuv import convert_420_to_444
 from lossless.training.loss import loss_function
-from lossless.training.presets import MODULE_TO_OPTIMIZE
-from lossless.training.test import test
 # from enc.utils.codingstructure import Frame
 from lossless.training.manager import ImageEncoderManager
-from torch.nn.utils import clip_grad_norm_
-from lossless.component.coolchic import CoolChicEncoder
-from lossless.util.logger import TrainingLogger
+from lossless.training.presets import MODULE_TO_OPTIMIZE
+from lossless.training.test import test
 from lossless.util.color_transform import ColorBitdepths
+from lossless.util.logger import TrainingLogger
+from torch.nn.utils import clip_grad_norm_
+
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
 def _linear_schedule(
@@ -149,8 +147,10 @@ def train(
 
     # ------ Keep track of the best loss and model
     # Perform a first test to get the current best logs (it includes the loss)
-    
-    initial_encoder_logs = test(model, target_image, image_encoder_manager, color_bitdepths=color_bitdepths)
+
+    initial_encoder_logs = test(
+        model, target_image, image_encoder_manager, color_bitdepths=color_bitdepths
+    )
     encoder_logs_best = initial_encoder_logs
     best_model = model.get_param()
 
@@ -168,47 +168,44 @@ def train(
         else:
             raise NotImplementedError("please optimize all modules for now")
         _ = (
-        # else:
-        #     raw_cc_name, mod_name = cur_module_to_optimize.split(".")
-
-        #     if raw_cc_name == "all":
-        #         raw_cc_name = list(model.coolchic_enc.keys())
-        #     else:
-        #         raw_cc_name = [raw_cc_name]
-
-        #     for cc_name in raw_cc_name:
-        #         assert cc_name in model.coolchic_enc, (
-        #             f"Trying to optimize the parameters {cur_module_to_optimize}."
-        #             f" However, there is no {cc_name} Cool-chic encoder. Found "
-        #             f"{list(model.coolchic_enc.keys())}"
-        #         )
-
-        #         match mod_name:
-        #             case "all":
-        #                 parameters_to_optimize+= [
-        #                     *model.coolchic_enc[cc_name].parameters()
-        #                 ]
-        #             case "arm":
-        #                 parameters_to_optimize+= [
-        #                     *model.coolchic_enc[cc_name].arm.parameters()
-        #                 ]
-        #             case "upsampling":
-        #                 parameters_to_optimize+= [
-        #                     *model.coolchic_enc[cc_name].upsampling.parameters()
-        #                 ]
-        #             case "synthesis":
-        #                 parameters_to_optimize+= [
-        #                     *model.coolchic_enc[cc_name].synthesis.parameters()
-        #                 ]
-        #             case "latent":
-        #                 parameters_to_optimize+= [
-        #                     *model.coolchic_enc[cc_name].latent_grids.parameters()
-        #                 ]
-        #             case "warper":
-        #                 if model.frame_type != "I":
-        #                     parameters_to_optimize+= [
-        #                         *model.warper.parameters()
-        #                     ]
+            # else:
+            #     raw_cc_name, mod_name = cur_module_to_optimize.split(".")
+            #     if raw_cc_name == "all":
+            #         raw_cc_name = list(model.coolchic_enc.keys())
+            #     else:
+            #         raw_cc_name = [raw_cc_name]
+            #     for cc_name in raw_cc_name:
+            #         assert cc_name in model.coolchic_enc, (
+            #             f"Trying to optimize the parameters {cur_module_to_optimize}."
+            #             f" However, there is no {cc_name} Cool-chic encoder. Found "
+            #             f"{list(model.coolchic_enc.keys())}"
+            #         )
+            #         match mod_name:
+            #             case "all":
+            #                 parameters_to_optimize+= [
+            #                     *model.coolchic_enc[cc_name].parameters()
+            #                 ]
+            #             case "arm":
+            #                 parameters_to_optimize+= [
+            #                     *model.coolchic_enc[cc_name].arm.parameters()
+            #                 ]
+            #             case "upsampling":
+            #                 parameters_to_optimize+= [
+            #                     *model.coolchic_enc[cc_name].upsampling.parameters()
+            #                 ]
+            #             case "synthesis":
+            #                 parameters_to_optimize+= [
+            #                     *model.coolchic_enc[cc_name].synthesis.parameters()
+            #                 ]
+            #             case "latent":
+            #                 parameters_to_optimize+= [
+            #                     *model.coolchic_enc[cc_name].latent_grids.parameters()
+            #                 ]
+            #             case "warper":
+            #                 if model.frame_type != "I":
+            #                     parameters_to_optimize+= [
+            #                         *model.warper.parameters()
+            #                     ]
         )
 
     optimizer = torch.optim.Adam(parameters_to_optimize, lr=start_lr)
@@ -233,9 +230,7 @@ def train(
         max_iterations,
     )
     device = next(model.parameters()).device
-    cur_softround_temperature = torch.tensor(
-        cur_softround_temperature, device=device
-    )
+    cur_softround_temperature = torch.tensor(cur_softround_temperature, device=device)
 
     cur_noise_parameter = _linear_schedule(
         noise_parameter[0], noise_parameter[1], 0, max_iterations
@@ -284,27 +279,25 @@ def train(
         )
 
         loss_function_output = loss_function(
-            out_forward, target_image, latent_multiplier=loss_latent_multiplier, channel_ranges=color_bitdepths
+            out_forward,
+            target_image,
+            latent_multiplier=loss_latent_multiplier,
+            channel_ranges=color_bitdepths,
+            use_color_regression=model.param.use_color_regression,
         )
         loss_function_output.loss.backward()
 
-        clip_grad_norm_(
-            all_parameters, 1e-1, norm_type=2.0, error_if_nonfinite=False
-        )
+        clip_grad_norm_(all_parameters, 1e-1, norm_type=2.0, error_if_nonfinite=False)
         optimizer.step()
 
         image_encoder_manager.iterations_counter += 1
 
         # ------- Validation
         # Each freq_valid iteration or at the end of the phase, compute validation loss and log stuff
-        if ((cnt + 1) % frequency_validation == 0) or (
-            cnt + 1 == max_iterations
-        ):
+        if ((cnt + 1) % frequency_validation == 0) or (cnt + 1 == max_iterations):
             #  a. Update iterations counter and training time and test model
             current_time = time.time()
-            image_encoder_manager.total_training_time_sec += (
-                current_time - start_time
-            )
+            image_encoder_manager.total_training_time_sec += current_time - start_time
             start_time = current_time
 
             # b. Test the model and check whether we've beaten our record
@@ -318,8 +311,7 @@ def train(
 
             flag_new_record = False
             new_rate = (
-                encoder_logs.rate_img_bpd
-                + encoder_logs.rate_latent_bpd * loss_latent_multiplier
+                encoder_logs.rate_img_bpd + encoder_logs.rate_latent_bpd * loss_latent_multiplier
             )
             best_old_rate = (
                 encoder_logs_best.rate_img_bpd
@@ -329,14 +321,10 @@ def train(
             if new_rate < best_old_rate:
                 # A record must have at least -0.001 bpp or + 0.001 dB. A smaller improvement
                 # does not matter.
-                delta_psnr = (
-                    encoder_logs_best.rate_img_bpd - encoder_logs.rate_img_bpd
-                )
+                delta_psnr = encoder_logs_best.rate_img_bpd - encoder_logs.rate_img_bpd
                 delta_loss = encoder_logs_best.loss - encoder_logs.loss
                 flag_new_record = delta_psnr > 0.001 or delta_loss > 0.001
-                logger.log_training(
-                    f"delta loss: {delta_loss}, flag new record: {flag_new_record}"
-                )
+                logger.log_training(f"delta loss: {delta_loss}, flag new record: {flag_new_record}")
 
             if flag_new_record:
                 logger.log_training("Found new best model!")
@@ -345,10 +333,7 @@ def train(
                 best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
                 # ========================= reporting ========================= #
-                this_phase_psnr_gain = (
-                    encoder_logs.rate_img_bpd
-                    - initial_encoder_logs.rate_img_bpd
-                )
+                this_phase_psnr_gain = encoder_logs.rate_img_bpd - initial_encoder_logs.rate_img_bpd
 
                 log_new_record = ""
                 log_new_record += f"{this_phase_psnr_gain:+6.3f} db"
@@ -371,12 +356,9 @@ def train(
             #     "n_type": f"{quantizer_noise_type:12s}",
             #     "noise": f"{cur_noise_parameter:.2f}",
             #     "record": log_new_record,
-            # } 
+            # }
 
-            logger.log_training(
-                f"Iteration: {cnt+1}, "
-                + str(encoder_logs)
-            )
+            logger.log_training(f"Iteration: {cnt+1}, " + str(encoder_logs))
 
             # Update soft rounding temperature and noise_parameter
             cur_softround_temperature = _linear_schedule(
@@ -385,9 +367,7 @@ def train(
                 cnt,
                 max_iterations,
             )
-            cur_softround_temperature = torch.tensor(
-                cur_softround_temperature, device=device
-            )
+            cur_softround_temperature = torch.tensor(cur_softround_temperature, device=device)
 
             cur_noise_parameter = _linear_schedule(
                 noise_parameter[0],
@@ -395,9 +375,7 @@ def train(
                 cnt,
                 max_iterations,
             )
-            cur_noise_parameter = torch.tensor(
-                cur_noise_parameter, device=device
-            )
+            cur_noise_parameter = torch.tensor(cur_noise_parameter, device=device)
 
             if cosine_scheduling_lr is not None:
                 assert learning_rate_scheduler is not None
@@ -409,7 +387,11 @@ def train(
     model.set_param(best_model)
     image_encoder_manager.total_training_time_sec += time.time() - start_time
     encoder_logs = test(
-        model, target_image, image_encoder_manager, latent_multiplier=1.0, color_bitdepths=color_bitdepths
+        model,
+        target_image,
+        image_encoder_manager,
+        latent_multiplier=1.0,
+        color_bitdepths=color_bitdepths,
     )
     logger.log_result(f"At the end of the training: " + str(encoder_logs))
     return model

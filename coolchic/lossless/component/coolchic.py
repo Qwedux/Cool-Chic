@@ -83,7 +83,10 @@ class CoolChicEncoderParameter:
     ups_preconcat_k_size: int = 7
     latent_freq_precision: int = 12
     arm_image_context_size: int = 8
+    arm_image_hidden_layer_dim: int = 6
+    arm_hidden_layer_dim: int = 8
     use_image_arm: bool = True
+    use_color_regression: bool = False
 
     # ==================== Not set by the init function ===================== #
     #: Automatically computed, number of different latent resolutions
@@ -252,9 +255,13 @@ class CoolChicEncoder(nn.Module):
         )
 
         # ===================== ARM related stuff ==================== #
-        self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm)
+        self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm, self.param.arm_hidden_layer_dim)
         if self.param.use_image_arm:
-            self.image_arm = ImageArm()
+            self.image_arm = ImageArm(
+                context_size=self.param.arm_image_context_size,
+                hidden_layer_dim=self.param.arm_image_hidden_layer_dim,
+                use_color_regression=self.param.use_color_regression,
+            )
 
         # Something like ['arm', 'synthesis', 'upsampling']
         self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
@@ -531,7 +538,7 @@ class CoolChicEncoder(nn.Module):
         # has e.g. shape [1, 9, H, W]
         raw_synth_out = self.synthesis(ups_out)
         return raw_synth_out
-    
+
     # ------- Getter / Setter and Initializer
     def get_param(self) -> OrderedDict[str, Tensor]:
         """Return **a copy** of the weights and biases inside the module.
@@ -800,7 +807,9 @@ class CoolChicEncoder(nn.Module):
 
         if self.param.use_image_arm:
             self.image_arm = self.image_arm.to(device)
-            self.image_arm.non_zero_image_arm_ctx_index = self.image_arm.non_zero_image_arm_ctx_index.to(device)
+            self.image_arm.non_zero_image_arm_ctx_index = (
+                self.image_arm.non_zero_image_arm_ctx_index.to(device)
+            )
             for model in self.image_arm.models:
                 for idx_layer, layer in enumerate(model):
                     layer.to(device)
