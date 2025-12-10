@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 
 def parse_synthesis_layers(layers_synthesis: str) -> List[str]:
@@ -79,7 +79,10 @@ def get_coolchic_param_from_args(
         "ups_preconcat_k_size": args[
             f"ups_preconcat_k_size_{coolchic_enc_name}"
         ],
-        "arm_image_context_size": int(args[f"arm_image_context_size"]),
+        "arm_image_context_size": int(args["arm_image_context_size"]),
+        "use_color_regression": args["use_color_regression"],
+        "arm_image_hidden_layer_dim": int(args[f"arm_image_hidden_layer_dim"]),
+        "arm_hidden_layer_dim": int(args[f"arm_lossless_hidden_layer_dim"]),
     }
 
     # Add ARM parameters

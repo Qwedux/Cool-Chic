@@ -134,7 +134,7 @@ class Arm(nn.Module):
     from the ``ArmLinear`` class.
     """
 
-    def __init__(self, dim_arm: int, n_hidden_layers_arm: int):
+    def __init__(self, dim_arm: int, n_hidden_layers_arm: int, hidden_layer_dim: int = 8):
         """
         Args:
             dim_arm: Number of context pixels AND dimension of all hidden
@@ -149,7 +149,7 @@ class Arm(nn.Module):
             f"a multiple of 8. Found {dim_arm}."
         )
         self.dim_arm = dim_arm
-        self.hidden_layer_dim = 8
+        self.hidden_layer_dim = hidden_layer_dim
 
         # ======================== Construct the MLP ======================== #
         layers_list = nn.ModuleList()

@@ -51,9 +51,6 @@ im_path = args["input"][image_index]
 im_tensor, c_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=color_space
 )
-a = "abcd"
-if "bc" in a:
-    pass
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
 # ==========================================================================================
@@ -66,7 +63,7 @@ if "gain_test" in experiment_name:
     encoder_param.encoder_gain = 64
 encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
 encoder_param.layers_synthesis = change_n_out_synth(
-    encoder_param.layers_synthesis, args["output_dim_size"]
+    encoder_param.layers_synthesis, 9 if args["use_color_regression"] else 6
 )
 encoder_param.use_image_arm = use_image_arm
 coolchic = CoolChicEncoder(param=encoder_param)
@@ -140,7 +137,11 @@ quantized_coolchic = quantize_model(
     color_bitdepths=c_bitdepths,
 )
 rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
-total_network_rate /= im_tensor.numel()
+if quantized_coolchic.param.use_image_arm:
+    arm_params = list(quantized_coolchic.image_arm.parameters())
+    arm_params_bits = sum(p.numel() for p in arm_params) * 32
+    total_network_rate += arm_params_bits    
+    total_network_rate /= im_tensor.numel()
 total_network_rate = float(total_network_rate)
 
 with torch.no_grad():
@@ -158,7 +159,9 @@ with torch.no_grad():
         rate_mlp_bpd=total_network_rate,
         latent_multiplier=1.0,
         channel_ranges=c_bitdepths,
+        use_color_regression=args["use_color_regression"],
     )
+    
 logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
 logger.log_result(
     f"Final frame_encoder_manager state: {image_encoder_manager},\n"

@@ -63,6 +63,7 @@ class ImageArm(nn.Module):
         hidden_layer_dim: int = 6,
         synthesis_out_params_per_channel: list[int] = [2, 3, 4],
         channel_separation: bool = True,
+        use_color_regression: bool = False,
     ):
         """
         Args:
@@ -82,13 +83,15 @@ class ImageArm(nn.Module):
             f"a multiple of 8. Found {context_size}."
         )
         self.context_size = context_size
-         # Temporary fix to disable color regression
-        # self.synthesis_out_params_per_channel = synthesis_out_params_per_channel
-        self.synthesis_out_params_per_channel = [
-            2,
-            2,
-            2,
-        ] 
+        self.use_color_regression = use_color_regression
+        if self.use_color_regression:
+            self.synthesis_out_params_per_channel = synthesis_out_params_per_channel
+        else:
+            self.synthesis_out_params_per_channel = [
+                2,
+                2,
+                2,
+            ]
         self.channel_separation = channel_separation
 
         if not channel_separation:
@@ -163,25 +166,7 @@ class ImageArm(nn.Module):
         flat_image_context = torch.stack(contexts, dim=2).reshape(
             (image.shape[2] * image.shape[3], -1)
         )
-        # print(raw_synth_out.shape)
-        # print(flat_image_context.shape)
-        # print(self.synthesis_out_params_per_channel)
 
-        # print(
-        #     raw_synth_out.permute(0, 2, 3, 1)
-        #     .reshape(-1, sum(self.synthesis_out_params_per_channel))
-        #     .shape
-        # )
-        # print(
-        #     torch.empty(
-        #         image.shape[2] * image.shape[3],
-        #         0,
-        #         dtype=image.dtype,
-        #         device=image.device,
-        #         requires_grad=False,
-        #     ).shape
-        # )
-        # exit()
         # Add synthesis output and already decoded channels information
         prepared_inputs = []
         for channel_idx in range(len(self.synthesis_out_params_per_channel)):

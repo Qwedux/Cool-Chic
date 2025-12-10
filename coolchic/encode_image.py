@@ -114,6 +114,7 @@ with torch.no_grad():
         rate_mlp_bpd=total_network_rate,
         latent_multiplier=1.0,
         channel_ranges=c_bitdepths,
+        use_color_regression=args["use_color_regression"],
     )
 logger.log_result(
     f"Rate per module: {rate_per_module},\n"

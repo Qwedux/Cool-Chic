@@ -10,11 +10,12 @@ import itertools
 import time
 from typing import Optional, OrderedDict
 
-from enc.component.types import DescriptorNN
 import torch
 from enc.component.frame import FrameEncoder
+from enc.component.types import DescriptorNN
 from enc.nnquant.expgolomb import POSSIBLE_EXP_GOL_COUNT, exp_golomb_nbins
-from enc.nnquant.quantstep import POSSIBLE_Q_STEP, get_q_step_from_parameter_name
+from enc.nnquant.quantstep import (POSSIBLE_Q_STEP,
+                                   get_q_step_from_parameter_name)
 from enc.training.loss import loss_function
 from enc.training.manager import FrameEncoderManager
 from enc.utils.codingstructure import Frame

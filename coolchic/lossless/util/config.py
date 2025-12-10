@@ -41,13 +41,15 @@ args = {
     "n_train_loops": 1,
     "preset": "fnlic",
     # decoder side
-    "layers_synthesis_lossless": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
-    "arm_lossless": "16,2",
-    "arm_image_context_size": "8",
+    "layers_synthesis_lossless": "96-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
+    "arm_lossless": "24,2", #dim arm, n_layers
+    "arm_lossless_hidden_layer_dim": 24,
+    "arm_image_context_size": 24,
+    "arm_image_hidden_layer_dim": 24,
+    "use_color_regression": False,
     "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,
-    "output_dim_size": 6,
     # training preset
     "patience": 5000,
     "schedule_lr": True,
@@ -65,39 +67,7 @@ args = {
 }
 
 def str_args(args: dict) -> str:
-    included_keys = [
-        "DATASET_PATH",
-        "TEST_WORKDIR",
-        "LOG_PATH",
-        "workdir",
-        "job_duration_min",
-        "print_detailed_archi",
-        "print_detailed_struct",
-
-        "start_lr",
-        "n_itr",
-        "n_train_loops",
-        "preset",
-        # decoder side
-        "layers_synthesis_lossless",
-        "arm_lossless",
-        "arm_image_context_size",
-        "n_ft_per_res_lossless",
-        "ups_k_size_lossless",
-        "ups_preconcat_k_size_lossless",
-        "output_dim_size",
-        # training preset
-        "patience",
-        "schedule_lr",
-        "freq_valid",
-        "optimized_module",
-        "quantizer_type",
-        "quantizer_noise_type",
-        "softround_temperature",
-        "noise_parameter",
-        # Other presets
-        "quantize_model",
-    ]
+    included_keys = args.keys()
     s = "Arguments:\n"
     for k in included_keys:
         s += f"  {k}: {args[k]}\n"
