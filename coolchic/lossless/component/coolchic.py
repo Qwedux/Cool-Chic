@@ -832,20 +832,37 @@ class CoolChicEncoder(nn.Module):
                     self.arm.mlp[idx_layer].qb = layer.qb.to(device)
 
         if self.param.use_image_arm:
-            self.image_arm = self.image_arm.to(device)
-            self.image_arm.non_zero_image_arm_ctx_index = (
-                self.image_arm.non_zero_image_arm_ctx_index.to(device)
-            )
-            for model in self.image_arm.models:
-                for idx_layer, layer in enumerate(model):
-                    layer.to(device)
-                    if hasattr(layer, "qw"):
-                        if layer.qw is not None:
-                            model[idx_layer].qw = layer.qw.to(device)
+            if not self.param.multi_region_image_arm:
+                self.image_arm = self.image_arm.to(device)
+                self.image_arm.non_zero_image_arm_ctx_index = (
+                    self.image_arm.non_zero_image_arm_ctx_index.to(device)
+                )
+                for model in self.image_arm.models:
+                    for idx_layer, layer in enumerate(model):
+                        layer.to(device)
+                        if hasattr(layer, "qw"):
+                            if layer.qw is not None:
+                                model[idx_layer].qw = layer.qw.to(device)
 
-                    if hasattr(layer, "qb"):
-                        if layer.qb is not None:
-                            model[idx_layer].qb = layer.qb.to(device)
+                        if hasattr(layer, "qb"):
+                            if layer.qb is not None:
+                                model[idx_layer].qb = layer.qb.to(device)
+            else:
+                for img_arm in self.image_arm:
+                    img_arm = img_arm.to(device)
+                    img_arm.non_zero_image_arm_ctx_index = (
+                        img_arm.non_zero_image_arm_ctx_index.to(device)
+                    )
+                    for model in img_arm.models:
+                        for idx_layer, layer in enumerate(model):
+                            layer.to(device)
+                            if hasattr(layer, "qw"):
+                                if layer.qw is not None:
+                                    model[idx_layer].qw = layer.qw.to(device)
+
+                            if hasattr(layer, "qb"):
+                                if layer.qb is not None:
+                                    model[idx_layer].qb = layer.qb.to(device)
 
     def pretty_string(self, print_detailed_archi: bool = False) -> str:
         """Get a pretty string representing the layer of a ``CoolChicEncoder``

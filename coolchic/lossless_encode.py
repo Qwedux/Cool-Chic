@@ -66,6 +66,7 @@ encoder_param.layers_synthesis = change_n_out_synth(
     encoder_param.layers_synthesis, 9 if args["use_color_regression"] else 6
 )
 encoder_param.use_image_arm = use_image_arm
+encoder_param.multi_region_image_arm = True
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
 # ==========================================================================================
