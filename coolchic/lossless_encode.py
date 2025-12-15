@@ -137,11 +137,11 @@ quantized_coolchic = quantize_model(
     color_bitdepths=c_bitdepths,
 )
 rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
-if quantized_coolchic.param.use_image_arm:
+if use_image_arm:
     arm_params = list(quantized_coolchic.image_arm.parameters())
     arm_params_bits = sum(p.numel() for p in arm_params) * 32
-    total_network_rate += (arm_params_bits / im_tensor.numel())
-total_network_rate = float(total_network_rate)
+    total_network_rate += arm_params_bits 
+total_network_rate = float(total_network_rate) / im_tensor.numel()
 
 with torch.no_grad():
     # Forward pass with no quantization noise

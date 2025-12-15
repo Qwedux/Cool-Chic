@@ -87,6 +87,7 @@ class CoolChicEncoderParameter:
     arm_hidden_layer_dim: int = 8
     use_image_arm: bool = True
     use_color_regression: bool = False
+    multi_region_image_arm: bool = False
 
     # ==================== Not set by the init function ===================== #
     #: Automatically computed, number of different latent resolutions
@@ -257,11 +258,23 @@ class CoolChicEncoder(nn.Module):
         # ===================== ARM related stuff ==================== #
         self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm, self.param.arm_hidden_layer_dim)
         if self.param.use_image_arm:
-            self.image_arm = ImageArm(
-                context_size=self.param.arm_image_context_size,
-                hidden_layer_dim=self.param.arm_image_hidden_layer_dim,
-                use_color_regression=self.param.use_color_regression,
-            )
+            if not self.param.multi_region_image_arm:
+                self.image_arm = ImageArm(
+                    context_size=self.param.arm_image_context_size,
+                    hidden_layer_dim=self.param.arm_image_hidden_layer_dim,
+                    use_color_regression=self.param.use_color_regression,
+                )
+            else:
+                # we split the image into 4 regions, each with its own image arm
+                self.image_arm = nn.ModuleList()
+                for _ in range(4):
+                    self.image_arm.append(
+                        ImageArm(
+                            context_size=self.param.arm_image_context_size,
+                            hidden_layer_dim=self.param.arm_image_hidden_layer_dim,
+                            use_color_regression=self.param.use_color_regression,
+                        )
+                    )
 
         # Something like ['arm', 'synthesis', 'upsampling']
         self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
@@ -438,7 +451,20 @@ class CoolChicEncoder(nn.Module):
 
         # print("until now fine")
         if self.param.use_image_arm:
-            raw_synth_out = self.image_arm(image, raw_synth_out)
+            if not self.param.multi_region_image_arm:
+                raw_synth_out = self.image_arm(image, raw_synth_out)
+            else:
+                b, c, h, w = raw_synth_out.shape
+                h_half, w_half = h // 2, w // 2
+                top_left = self.image_arm[0](image[:, :, :h_half, :w_half], raw_synth_out[:, :, :h_half, :w_half])
+                top_right = self.image_arm[1](image[:, :, :h_half, w_half:], raw_synth_out[:, :, :h_half, w_half:])
+                bottom_left = self.image_arm[2](image[:, :, h_half:, :w_half], raw_synth_out[:, :, h_half:, :w_half])
+                bottom_right = self.image_arm[3](image[:, :, h_half:, w_half:], raw_synth_out[:, :, h_half:, w_half:])
+                raw_synth_out = torch.zeros_like(raw_synth_out)
+                raw_synth_out[:, :, :h_half, :w_half] = top_left
+                raw_synth_out[:, :, :h_half, w_half:] = top_right
+                raw_synth_out[:, :, h_half:, :w_half] = bottom_left
+                raw_synth_out[:, :, h_half:, w_half:] = bottom_right
 
         additional_data = {}
         if flag_additional_outputs:
