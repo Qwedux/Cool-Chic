@@ -23,9 +23,9 @@ from lossless.util.parsecli import (change_n_out_synth,
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
 
-if len(sys.argv) < 5:
+if len(sys.argv) < 6:
     print(
-        "Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm> <experiment_name>"
+        "Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm> <experiment_name> <encoder_gain>"
     )
     print("<color_space> must be `YCoCg` or `RGB`")
     print("<use_image_arm> must be `true` or `false`")
@@ -38,6 +38,7 @@ image_index = int(sys.argv[1])
 color_space = sys.argv[2]
 use_image_arm = sys.argv[3].lower() == "true"
 experiment_name = sys.argv[4].lower()
+encoder_gain = int(sys.argv[5]) if len(sys.argv) > 5 else 16
 assert sys.argv[3].lower() in [
     "true",
     "false",
@@ -58,15 +59,13 @@ image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
 encoder_param = CoolChicEncoderParameter(
     **get_coolchic_param_from_args(args, "lossless")
 )
-encoder_param.encoder_gain = 16
-if "gain_test" in experiment_name:
-    encoder_param.encoder_gain = 64
+encoder_param.encoder_gain = encoder_gain
 encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
 encoder_param.layers_synthesis = change_n_out_synth(
     encoder_param.layers_synthesis, 9 if args["use_color_regression"] else 6
 )
 encoder_param.use_image_arm = use_image_arm
-encoder_param.multi_region_image_arm = True
+encoder_param.multi_region_image_arm = args["multi_region_image_arm"]
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
 # ==========================================================================================
@@ -88,6 +87,9 @@ logger.log_result(
     f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
 )
 logger.log_result(f"Using image ARM: {use_image_arm}")
+logger.log_result(f"Using encoder gain: {encoder_gain}")
+logger.log_result(f"Using multi-region image ARM: {args['multi_region_image_arm']}")
+logger.log_result(f"Using color regression: {args['use_color_regression']}")
 # ==========================================================================================
 # TRAIN
 # ==========================================================================================

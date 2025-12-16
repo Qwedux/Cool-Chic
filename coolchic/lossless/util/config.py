@@ -37,16 +37,17 @@ args = {
     # config file paths
     # encoder side
     "start_lr": 1e-2,
-    "n_itr": 50000,
+    "n_itr": 140000,
     "n_train_loops": 1,
     "preset": "fnlic",
     # decoder side
-    "layers_synthesis_lossless": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
-    "arm_lossless": "16,2", #dim arm, n_layers
-    "arm_lossless_hidden_layer_dim": 8,
-    "arm_image_context_size": 8,
-    "arm_image_hidden_layer_dim": 6,
+    "layers_synthesis_lossless": "96-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
+    "arm_lossless": "24,2", #dim arm, n_layers
+    "arm_lossless_hidden_layer_dim": 24,
+    "arm_image_context_size": 24,
+    "arm_image_hidden_layer_dim": 24,
     "use_color_regression": False,
+    "multi_region_image_arm": False,
     "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,
