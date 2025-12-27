@@ -2,7 +2,7 @@ import os
 import time
 
 import torch
-from lossless.util.config import start_print
+from lossless.configs.config import start_print
 from lossless.util.misc import timestamp_string
 
 

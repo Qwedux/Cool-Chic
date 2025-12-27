@@ -8,14 +8,12 @@
 
 """Gather the different encoding presets here."""
 
+import typing
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Tuple
-import typing
 
 from lossless.component.core.quantizer import (
-    POSSIBLE_QUANTIZATION_NOISE_TYPE,
-    POSSIBLE_QUANTIZER_TYPE,
-)
+    POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE)
 from lossless.component.types import NAME_COOLCHIC_ENC
 
 MODULE_TO_OPTIMIZE = Literal[
@@ -292,13 +290,13 @@ class Preset:
 
 
 class PresetFNLIC(Preset):
-    def __init__(self, start_lr: float = 1e-2, itr_main_training: int = 100000):
+    def __init__(self):
         super().__init__(preset_name="fnlic")
         # 1st stage: with soft round and kumaraswamy noise
         self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
-                lr=start_lr,
-                max_itr=itr_main_training,
+                lr=1e-2,
+                max_itr=140000,
                 freq_valid=100,
                 patience=100000,
                 quantize_model=False,
@@ -306,11 +304,12 @@ class PresetFNLIC(Preset):
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(2.0, 1.0),
                 quantizer_noise_type="kumaraswamy",
+                quantizer_type="softround",
                 optimized_module=["all"],
             )
         ]
 
-        # Second stage with STE
+        # 2nd stage with STE
         lr = 0.0001
         while lr > 10.0e-6:
             self.training_phases.append(
@@ -319,41 +318,47 @@ class PresetFNLIC(Preset):
                     max_itr=100,
                     freq_valid=10,
                     patience=50,
+                    quantize_model=False,
                     schedule_lr=True,
                     # This is only used to parameterize the backward of the quantization
                     softround_temperature=(1e-4, 1e-4),
-                    # Kumaraswamy noise with parameter = 1 --> Uniform noise
-                    noise_parameter=(1.0, 1.0),
-                    quantizer_noise_type="none",
+                    noise_parameter=(1.0, 1.0), # Kumaraswamy noise with parameter = 1 --> Uniform noise
+                    quantizer_noise_type="kumaraswamy",
                     quantizer_type="ste",
                     optimized_module=["all"],
                 )
             )
             lr *= 0.8
 
-        # Final stage: quantize the networks and then re-tuned the latent
+        # 3rd stage: quantize the networks and then re-tune the latent
         self.training_phases.append(
             TrainerPhase(
                 lr=lr,
                 max_itr=100,
+                freq_valid=100,
                 patience=100,
+                quantize_model=True,
+                schedule_lr=False,
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),
-                optimized_module=["all"],
+                quantizer_noise_type="kumaraswamy",
                 quantizer_type="ste",
-                quantize_model=True,  # ! This is the important parameter
+                optimized_module=["all"],
             )
         )
         self.training_phases.append(
             TrainerPhase(
                 lr=1e-4,
                 max_itr=1000,
-                patience=50,
-                optimized_module=["latent"],  # ! Only fine tune the latent
                 freq_valid=10,
-                quantizer_type="ste",
+                patience=50,
+                quantize_model=False,
+                schedule_lr=False,
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),
+                quantizer_noise_type="kumaraswamy",
+                quantizer_type="ste",
+                optimized_module=["latent"],  # ! Only fine tune the latent                
             )
         )
 
@@ -363,7 +368,7 @@ class PresetFNLIC(Preset):
                 WarmupPhase(
                     candidates=5,
                     training_phase=TrainerPhase(
-                        lr=start_lr,
+                        lr=1e-2,
                         max_itr=400,
                         freq_valid=400,
                         patience=100000,
@@ -379,7 +384,7 @@ class PresetFNLIC(Preset):
                 WarmupPhase(
                     candidates=2,
                     training_phase=TrainerPhase(
-                        lr=start_lr,
+                        lr=1e-2,
                         max_itr=1000,
                         freq_valid=10,
                         patience=100000,

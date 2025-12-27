@@ -10,7 +10,7 @@ from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
-from lossless.util.config import args, str_args
+from coolchic.lossless.configs.config import args, str_args
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import (change_n_out_synth,

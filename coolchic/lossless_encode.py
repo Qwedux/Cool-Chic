@@ -2,23 +2,20 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-# from lossless.util.distribution import get_mu_and_scale_linear_color
 import numpy as np
 import torch
 from lossless.component.coolchic import (CoolChicEncoder,
                                          CoolChicEncoderParameter)
+from lossless.configs.config import args, str_args
 from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
-from lossless.util.config import args, str_args
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import (change_n_out_synth,
                                     get_coolchic_param_from_args,
                                     get_manager_from_args)
-
-# from till_encode import encode, decode, get_bits_per_pixel
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
@@ -49,16 +46,16 @@ assert color_space in [
 ], f"Invalid color space {color_space}, must be YCoCg or RGB"
 
 im_path = args["input"][image_index]
-im_tensor, c_bitdepths = load_image_as_tensor(
-    im_path, device="cuda:0", color_space=color_space
-)
+im_tensor, c_bitdepths = load_image_as_tensor(im_path, device="cuda:0", color_space=color_space)
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
 # ==========================================================================================
 image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
-encoder_param = CoolChicEncoderParameter(
-    **get_coolchic_param_from_args(args, "lossless")
-)
+
+print(f"Preset: {image_encoder_manager.preset.pretty_string()}")
+exit()
+
+encoder_param = CoolChicEncoderParameter(**get_coolchic_param_from_args(args, "lossless"))
 encoder_param.encoder_gain = encoder_gain
 encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
 encoder_param.layers_synthesis = change_n_out_synth(
@@ -83,9 +80,7 @@ with open(args["network_yaml_path"], "r") as f:
 logger.log_result(f"Network YAML configuration:\n{network_yaml}")
 logger.log_result(f"{str_args(args)}")
 logger.log_result(f"Processing image {im_path}")
-logger.log_result(
-    f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}"
-)
+logger.log_result(f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}")
 logger.log_result(f"Using image ARM: {use_image_arm}")
 logger.log_result(f"Using encoder gain: {encoder_gain}")
 logger.log_result(f"Using multi-region image ARM: {args['multi_region_image_arm']}")
@@ -102,27 +97,15 @@ else:
         image_encoder_manager=image_encoder_manager,
         color_bitdepths=c_bitdepths,
         start_lr=image_encoder_manager.start_lr,
-        cosine_scheduling_lr=args[
-            "schedule_lr"
-        ],  # this is set by training phase
+        cosine_scheduling_lr=args["schedule_lr"],  # this is set by training phase
         max_iterations=image_encoder_manager.n_itr,
-        frequency_validation=args[
-            "freq_valid"
-        ],  # this is set by training phase
+        frequency_validation=args["freq_valid"],  # this is set by training phase
         patience=args["patience"],  # this is set by training phase
-        optimized_module=args[
-            "optimized_module"
-        ],  # this is set by training phase
+        optimized_module=args["optimized_module"],  # this is set by training phase
         quantizer_type=args["quantizer_type"],  # this is set by training phase
-        quantizer_noise_type=args[
-            "quantizer_noise_type"
-        ],  # this is set by training phase
-        softround_temperature=args[
-            "softround_temperature"
-        ],  # this is set by training phase
-        noise_parameter=args[
-            "noise_parameter"
-        ],  # this is set by training phase
+        quantizer_noise_type=args["quantizer_noise_type"],  # this is set by training phase
+        softround_temperature=args["softround_temperature"],  # this is set by training phase
+        noise_parameter=args["noise_parameter"],  # this is set by training phase
         loss_latent_multiplier=1.0,
         logger=logger,
     )
@@ -143,7 +126,7 @@ rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
 if use_image_arm:
     arm_params = list(quantized_coolchic.image_arm.parameters())
     arm_params_bits = sum(p.numel() for p in arm_params) * 32
-    total_network_rate += arm_params_bits 
+    total_network_rate += arm_params_bits
 total_network_rate = float(total_network_rate) / im_tensor.numel()
 
 with torch.no_grad():
@@ -163,7 +146,7 @@ with torch.no_grad():
         channel_ranges=c_bitdepths,
         use_color_regression=args["use_color_regression"],
     )
-    
+
 logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
 logger.log_result(
     f"Final frame_encoder_manager state: {image_encoder_manager},\n"
