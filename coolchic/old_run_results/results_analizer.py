@@ -1,4 +1,4 @@
-from lossless.util.config import TEST_WORKDIR, args
+from coolchic.lossless.configs.config import TEST_WORKDIR, args
 import os
 import pandas as pd
 

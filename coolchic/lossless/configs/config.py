@@ -61,9 +61,7 @@ args = {
     "softround_temperature": (0.3, 0.1),
     "noise_parameter": (0.25, 0.1),
     "pretrained_model_path": "../logs/full_runs/trained_models/2025_11_10__23_56_17__trained_coolchic_kodak_kodim17_img_rate_2.167128562927246.pth",
-    "use_pretrained": False
-    ,
-    # Other presets
+    "use_pretrained": False,
     "quantize_model": True,
 }
 

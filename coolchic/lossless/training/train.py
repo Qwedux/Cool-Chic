@@ -15,12 +15,9 @@ import torch
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE)
-# from lossless.component.frame import FrameEncoder
-# from enc.io.format.yuv import convert_420_to_444
+from lossless.configs.presets import MODULE_TO_OPTIMIZE, Preset
 from lossless.training.loss import loss_function
-# from enc.utils.codingstructure import Frame
 from lossless.training.manager import ImageEncoderManager
-from lossless.training.presets import MODULE_TO_OPTIMIZE
 from lossless.training.test import test
 from lossless.util.color_transform import ColorBitdepths
 from lossless.util.logger import TrainingLogger
@@ -58,7 +55,8 @@ def train(
     image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
     color_bitdepths: ColorBitdepths,
-    start_lr: float = 1e-2,
+    preset: Preset,
+    # start_lr: float = 1e-2,
     cosine_scheduling_lr: bool = True,
     max_iterations: int = 10000,
     frequency_validation: int = 100,
