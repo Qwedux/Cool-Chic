@@ -28,7 +28,7 @@ from torch import Tensor
 
 
 @dataclass
-class FrameEncoderLogs(LossFunctionOutput):
+class ImageEncoderLogs(LossFunctionOutput):
     """Output of the test function i.e. the actual results of the encoding
     of one frame by the frame encoder.
 

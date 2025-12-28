@@ -47,8 +47,6 @@ class ImageEncoderManager():
         assert callable(presetFactory), f'Preset factory for preset named {self.preset_name} is not callable.'
 
         self.preset = presetFactory(
-            start_lr= self.start_lr,
-            itr_main_training=self.n_itr,
         )
 
         flag_quantize_model = False
