@@ -53,7 +53,6 @@ im_tensor, c_bitdepths = load_image_as_tensor(im_path, device="cuda:0", color_sp
 image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
 
 print(f"Preset: {image_encoder_manager.preset.pretty_string()}")
-exit()
 
 encoder_param = CoolChicEncoderParameter(**get_coolchic_param_from_args(args, "lossless"))
 encoder_param.encoder_gain = encoder_gain
@@ -96,16 +95,7 @@ else:
         target_image=im_tensor,
         image_encoder_manager=image_encoder_manager,
         color_bitdepths=c_bitdepths,
-        start_lr=image_encoder_manager.start_lr,
-        cosine_scheduling_lr=args["schedule_lr"],  # this is set by training phase
-        max_iterations=image_encoder_manager.n_itr,
-        frequency_validation=args["freq_valid"],  # this is set by training phase
-        patience=args["patience"],  # this is set by training phase
-        optimized_module=args["optimized_module"],  # this is set by training phase
-        quantizer_type=args["quantizer_type"],  # this is set by training phase
-        quantizer_noise_type=args["quantizer_noise_type"],  # this is set by training phase
-        softround_temperature=args["softround_temperature"],  # this is set by training phase
-        noise_parameter=args["noise_parameter"],  # this is set by training phase
+
         loss_latent_multiplier=1.0,
         logger=logger,
     )
