@@ -24,8 +24,8 @@ class SynthesisConv2d(nn.Module):
 
         \\mathbf{y} =
         \\begin{cases}
-            \mathrm{conv}(\\mathbf{x}) + \\mathbf{x} & \\text{if residual,} \\\\
-            \mathrm{conv}(\\mathbf{x}) & \\text{otherwise.} \\\\
+            \\mathrm{conv}(\\mathbf{x}) + \\mathbf{x} & \\text{if residual,} \\\\
+            \\mathrm{conv}(\\mathbf{x}) & \\text{otherwise.} \\\\
         \\end{cases}
     """
 
@@ -88,7 +88,7 @@ class SynthesisConv2d(nn.Module):
         * Biases are always set to zero.
 
         * Weights are set to zero if ``residual`` is ``True``. Otherwise, they
-          follow a Uniform distribution: :math:`\\mathbf{W} \sim
+          follow a Uniform distribution: :math:`\\mathbf{W} \\sim
           \\mathcal{U}(-a, a)`, where :math:`a =
           \\frac{1}{C_{out}^2\\sqrt{C_{in}k^2}}` with :math:`k` the kernel size.
         """
@@ -120,10 +120,10 @@ class Synthesis(nn.Module):
 
     .. math::
 
-        \hat{\mathbf{x}} = f_{\\theta}(\hat{\mathbf{z}}).
+        \\hat{\\mathbf{x}} = f_{\\theta}(\\hat{\\mathbf{z}}).
 
-    Where :math:`\hat{\mathbf{x}}` is the :math:`[B, C_{out}, H, W]`
-    synthesis output, :math:`\hat{\mathbf{z}}` is the :math:`[B, C_{in}, H,
+    Where :math:`\\hat{\\mathbf{x}}` is the :math:`[B, C_{out}, H, W]`
+    synthesis output, :math:`\\hat{\\mathbf{z}}` is the :math:`[B, C_{in}, H,
     W]` synthesis input (i.e. the upsampled latent variable) and
     :math:`\\theta` the synthesis parameters.
 
@@ -142,8 +142,8 @@ class Synthesis(nn.Module):
 
             \\mathbf{y} =
             \\begin{cases}
-                \mathrm{conv}(\\mathbf{x}) + \\mathbf{x} & \\text{if residual,} \\\\
-                \mathrm{conv}(\\mathbf{x}) & \\text{otherwise.} \\\\
+                \\mathrm{conv}(\\mathbf{x}) + \\mathbf{x} & \\text{if residual,} \\\\
+                \\mathrm{conv}(\\mathbf{x}) & \\text{otherwise.} \\\\
             \\end{cases}
 
     * ``non_linearity``: either ``none`` (no non-linearity) or ``relu``.
@@ -203,9 +203,9 @@ class Synthesis(nn.Module):
         self.layers = nn.Sequential(*layers_list)
 
     def forward(self, x: Tensor) -> Tensor:
-        """Perform the synthesis forward pass :math:`\hat{\mathbf{x}} =
-        f_{\\theta}(\hat{\mathbf{z}})`, where :math:`\hat{\mathbf{x}}` is the
-        :math:`[B, C_{out}, H, W]` synthesis output, :math:`\hat{\mathbf{z}}` is
+        """Perform the synthesis forward pass :math:`\\hat{\\mathbf{x}} =
+        f_{\\theta}(\\hat{\\mathbf{z}})`, where :math:`\\hat{\\mathbf{x}}` is the
+        :math:`[B, C_{out}, H, W]` synthesis output, :math:`\\hat{\\mathbf{z}}` is
         the :math:`[B, C_{in}, H, W]` synthesis input (i.e. the upsampled latent
         variable) and :math:`\\theta` the synthesis parameters.
 

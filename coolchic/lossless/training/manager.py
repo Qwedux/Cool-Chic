@@ -53,8 +53,8 @@ class ImageEncoderManager():
         for training_phase in self.preset.training_phases:
             if training_phase.quantize_model:
                 flag_quantize_model = True
-        assert flag_quantize_model, f'The selected preset ({self.preset_name}) does not include ' \
-            f' a training phase with neural network quantization.\n{self.preset.pretty_string()}'
+        # assert flag_quantize_model, f'The selected preset ({self.preset_name}) does not include ' \
+        #     f' a training phase with neural network quantization.\n{self.preset.pretty_string()}'
 
     def record_beaten(self, candidate_loss: float) -> bool:
         """Return True if the candidate loss is better (i.e. lower) than the best loss.

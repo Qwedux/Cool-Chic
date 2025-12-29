@@ -127,33 +127,6 @@ def discretized_logistic_logp(
     return logp
 
 
-def get_mu_and_scale_linear_color(
-    params: Tensor, x: Tensor
-) -> Tuple[Tensor, Tensor]:
-    """
-    function to calculate the mean and scale from the parameters
-    """
-    # _mu, log_scale, pp = torch.chunk(params, 3, dim=1)
-    # in the 1st dimension we have the following structure:
-    # [0     , 1        , 2       , 3          , 4    , 5      , 6         , 7    , 8   ]
-    # [mu_red, scale_red, mu_green, scale_green, alpha, mu_blue, scale_blue, beta, gamma]
-    _mu = torch.cat([params[:, 0:1, ...], params[:, 2:3, ...], params[:, 5:6, ...]], dim=1)
-    log_scale = torch.cat(
-        [params[:, 1:2, ...], params[:, 3:4, ...], params[:, 6:7, ...]], dim=1
-    )
-    pp = torch.cat(
-        [params[:, 4:5, ...], params[:, 7:8, ...], params[:, 8:9, ...]], dim=1
-    )
-    alpha, beta, gamma = torch.chunk(pp, 3, dim=1)
-    mu = torch.zeros_like(_mu)
-    mu[:, 0:1, ...] = _mu[:, 0:1, ...]
-    mu[:, 1:2, ...] = _mu[:, 1:2, ...] + alpha * x[:, 0:1, ...]
-    mu[:, 2:3, ...] = (
-        _mu[:, 2:3, ...] + beta * x[:, 0:1, ...] + gamma * x[:, 1:2, ...]
-    )
-    scale = get_scale(log_scale)
-    return mu, scale
-
 def get_mu_and_scale_colorreg(params: Tensor) -> Tuple[Tensor, Tensor]:
     mu = params[:, ::2, ...]
     log_scale = params[:, 1::2, ...]
@@ -161,15 +134,11 @@ def get_mu_and_scale_colorreg(params: Tensor) -> Tuple[Tensor, Tensor]:
     return mu, scale
 
 def weak_colorar_rate(
-    params: Tensor, x: Tensor, channel_ranges: ColorBitdepths, use_color_regression: bool = False
+    mu: Tensor, scale: Tensor, x: Tensor, channel_ranges: ColorBitdepths
 ) -> Tensor:
     """
     params N 9 H W, x normalized to [0,1]
     """
-    if use_color_regression:
-        mu, scale = get_mu_and_scale_linear_color(params, x)
-    else:
-        mu, scale = get_mu_and_scale_colorreg(params)
     logp = discretized_logistic_logp(mu, scale, x, channel_ranges)
     return -logp
 

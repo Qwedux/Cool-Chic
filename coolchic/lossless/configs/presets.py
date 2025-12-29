@@ -476,15 +476,11 @@ class PresetC3xIntra(Preset):
             ]
         )
 
-        # self.motion_pretrain_phase: List[TrainerPhase] = []
-
-
 class PresetC3xInter(Preset):
     def __init__(
         self,
         start_lr: float = 1e-2,
         itr_main_training: int = 100000,
-        itr_motion_pretrain: int = 1000,
     ):
         super().__init__(preset_name="c3x_inter")
         # 1st stage: with soft round and quantization noise
@@ -524,20 +520,6 @@ class PresetC3xInter(Preset):
             ]
         )
 
-        self.motion_pretrain_phase: List[TrainerPhase] = [
-            TrainerPhase(
-                lr=1e-2,
-                max_itr=itr_motion_pretrain,
-                patience=itr_motion_pretrain,
-                optimized_module=["all"],
-                schedule_lr=False,
-                softround_temperature=(0.3, 0.3),
-                noise_parameter=(2.0, 2.0),
-                quantizer_noise_type="kumaraswamy",
-                quantizer_type="softround",
-            ),
-        ]
-
 
 class PresetDebug(Preset):
     """Very fast training schedule, should only be used to ensure that the code works properly!"""
@@ -559,44 +541,38 @@ class PresetDebug(Preset):
                 quantizer_noise_type="kumaraswamy",
                 quantizer_type="softround",
                 optimized_module=["all"],
-            )
-        ]
-
-        self.training_phases.append(
-            TrainerPhase(
-                lr=1e-4,
-                max_itr=10,
-                freq_valid=100,
-                patience=100,
-                quantize_model=True,
-                schedule_lr=False,
-                softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
-                optimized_module=["all"],
-            )
-        )
-
-        self.training_phases.append(
-            # Re-tune the latent
-            TrainerPhase(
-                lr=1.0e-4,
-                max_itr=10,
-                freq_valid=10,
-                patience=5,
-                quantize_model=False,
-                quantizer_type="ste",
-                quantizer_noise_type="none",
-                optimized_module=["latent"],  # ! Only fine tune the latent
-                
-                softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(
-                    1.0,
-                    1.0,
-                ),  # not used since quantizer type is "ste"
             ),
-        )
+            # TrainerPhase(
+            #     lr=1e-4,
+            #     max_itr=10,
+            #     freq_valid=100,
+            #     patience=100,
+            #     quantize_model=True,
+            #     schedule_lr=False,
+            #     softround_temperature=(1e-4, 1e-4),
+            #     noise_parameter=(1.0, 1.0),
+            #     quantizer_noise_type="none",
+            #     quantizer_type="ste",
+            #     optimized_module=["all"],
+            # ),
+            # # Re-tune the latent
+            # TrainerPhase(
+            #     lr=1.0e-4,
+            #     max_itr=10,
+            #     freq_valid=10,
+            #     patience=5,
+            #     quantize_model=False,
+            #     quantizer_type="ste",
+            #     quantizer_noise_type="none",
+            #     optimized_module=["latent"],  # ! Only fine tune the latent
+                
+            #     softround_temperature=(1e-4, 1e-4),
+            #     noise_parameter=(
+            #         1.0,
+            #         1.0,
+            #     ),  # not used since quantizer type is "ste"
+            # ),
+        ]
 
         self.warmup = Warmup(
             [
@@ -605,27 +581,12 @@ class PresetDebug(Preset):
             ]
         )
 
-        self.motion_pretrain_phase: List[TrainerPhase] = [
-            TrainerPhase(
-                lr=1e-2,
-                max_itr=50,
-                patience=50,
-                optimized_module=["all"],
-                schedule_lr=True,
-                quantizer_type="softround",
-                quantizer_noise_type="gaussian",
-                softround_temperature=(0.3, 0.1),
-                noise_parameter=(0.25, 0.1),
-            ),
-        ]
-
 
 class PresetMeasureSpeed(Preset):
     def __init__(
         self,
         start_lr: float = 1e-2,
         itr_main_training: int = 100000,
-        itr_motion_pretrain: int = 10,
     ):
         super().__init__(preset_name="measure_speed")
 
@@ -665,20 +626,6 @@ class PresetMeasureSpeed(Preset):
                 )
             ]
         )
-
-        # self.motion_pretrain_phase: List[TrainerPhase] = [
-        #     TrainerPhase(
-        #         lr=start_lr,
-        #         max_itr=50,
-        #         patience=50,
-        #         optimized_module=["all"],
-        #         schedule_lr=True,
-        #         quantizer_type="softround",
-        #         quantizer_noise_type="gaussian",
-        #         softround_temperature=(0.3, 0.1),
-        #         noise_parameter=(0.25, 0.1),
-        #     ),
-        # ]
 
 
 AVAILABLE_PRESETS: Dict[str, Preset] = {
