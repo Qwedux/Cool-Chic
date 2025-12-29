@@ -236,7 +236,6 @@ def quantize_model(
                 rate_mlp_bpd=total_rate_nn_bit / image.numel(),
                 latent_multiplier=1.0,
                 channel_ranges=color_bitdepths,
-                use_color_regression=model.param.use_color_regression,
             )
 
             # Store best quantization steps

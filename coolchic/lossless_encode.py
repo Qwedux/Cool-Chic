@@ -95,8 +95,6 @@ else:
         target_image=im_tensor,
         image_encoder_manager=image_encoder_manager,
         color_bitdepths=c_bitdepths,
-
-        loss_latent_multiplier=1.0,
         logger=logger,
     )
 # ==========================================================================================
@@ -134,7 +132,6 @@ with torch.no_grad():
         rate_mlp_bpd=total_network_rate,
         latent_multiplier=1.0,
         channel_ranges=c_bitdepths,
-        use_color_regression=args["use_color_regression"],
     )
 
 logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())

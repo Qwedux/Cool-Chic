@@ -9,22 +9,35 @@
 
 import copy
 import time
-from typing import List
+import typing
+from dataclasses import dataclass
+from typing import Literal
 
-from lossless.training.manager import ImageEncoderManager
-from lossless.component.coolchic import CoolChicEncoder
-from lossless.training.test import test
-from lossless.training.train import train
-# from lossless.util.codingstructure import Frame
-from lossless.util.device import POSSIBLE_DEVICE
-from lossless.util.misc import mem_info
 import torch
+from lossless.component.coolchic import CoolChicEncoder
+from lossless.training.loss import LossFunctionOutput
+from lossless.training.manager import ImageEncoderManager
+from lossless.training.test import test
+from lossless.training.train_phase import _train_single_phase
+from lossless.util.color_transform import ColorBitdepths
+from lossless.util.device import POSSIBLE_DEVICE
+from lossless.util.logger import TrainingLogger
+from lossless.util.misc import mem_info
+
+
+@dataclass
+class WarmupCandidate:
+    metrics: LossFunctionOutput | None
+    id: int
+    encoder: CoolChicEncoder
+
 
 def warmup(
     image_encoder_manager: ImageEncoderManager,
-    list_candidates: List[CoolChicEncoder],
-    im_tensor: torch.Tensor,
-    device: POSSIBLE_DEVICE,
+    template_model: CoolChicEncoder,
+    target_image: torch.Tensor,
+    logger: TrainingLogger,
+    color_bitdepths: ColorBitdepths,
 ) -> CoolChicEncoder:
     """Perform the warm-up for a frame encoder. It consists in multiple stages
     with several candidates, filtering out the best N candidates at each stage.
@@ -55,14 +68,20 @@ def warmup(
 
     start_time = time.time()
     warmup = image_encoder_manager.preset.warmup
+    if len(warmup.phases) == 0:
+        print("No warm-up phase defined, skipping warm-up.")
+        return template_model
 
+    num_starting_candidates = warmup.phases[0].candidates
     _col_width = 14
 
     # Construct the list of candidates. Each of them has its own parameters,
     # unique ID and metrics (not yet evaluated so it is set to None).
-    all_candidates = [
-        {"metrics": None, "id": id_candidate, "encoder": model_candidate}
-        for id_candidate, model_candidate in enumerate(list_candidates)
+    all_candidates: list[WarmupCandidate] = [
+        WarmupCandidate(
+            metrics=None, id=id_candidate, encoder=CoolChicEncoder(template_model.param)
+        )
+        for id_candidate in range(num_starting_candidates)
     ]
 
     for idx_warmup_phase, warmup_phase in enumerate(warmup.phases):
@@ -76,7 +95,6 @@ def warmup(
             n_elements_to_remove = len(all_candidates) - warmup_phase.candidates
             for _ in range(n_elements_to_remove):
                 all_candidates.pop()
-            # all_candidates = all_candidates[: warmup_phase.candidates]
 
         # i is just the index of A candidate in the all_candidates
         # list. It is **not** a unique identifier for this candidate. This is
@@ -93,40 +111,48 @@ def warmup(
         # Train all (remaining) candidates for a little bit
         for i in range(warmup_phase.candidates):
             cur_candidate_model = all_candidates[i]
-            cur_id = cur_candidate_model.get("id")
+            cur_id = cur_candidate_model.id
 
-            print(
-                f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:"
-                + "\n-------------------------\n"
-            )
+            print(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
             mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}")
 
-            frame_encoder = train(
-                frame_encoder=frame_encoder,
-                frame=frame,
-                frame_encoder_manager=image_encoder_manager,
-                start_lr=warmup_phase.training_phase.lr,
-                lmbda=image_encoder_manager.lmbda,
-                cosine_scheduling_lr=warmup_phase.training_phase.schedule_lr,
-                max_iterations=warmup_phase.training_phase.max_itr,
-                patience=warmup_phase.training_phase.patience,
-                frequency_validation=warmup_phase.training_phase.freq_valid,
-                optimized_module=warmup_phase.training_phase.optimized_module,
-                quantizer_type=warmup_phase.training_phase.quantizer_type,
-                quantizer_noise_type=warmup_phase.training_phase.quantizer_noise_type,
-                softround_temperature=warmup_phase.training_phase.softround_temperature,
-                noise_parameter=warmup_phase.training_phase.noise_parameter
+            raw_device = template_model.device
+            assert raw_device in typing.get_args(
+                POSSIBLE_DEVICE
+            ), f"Unknown device {raw_device}, should be in {typing.get_args(POSSIBLE_DEVICE)}"
+            template_device = typing.cast(POSSIBLE_DEVICE, raw_device)
+
+            cur_candidate_model.encoder.to_device(template_device)
+            initial_encoder_logs = test(
+                cur_candidate_model.encoder,
+                target_image,
+                image_encoder_manager,
+                color_bitdepths=color_bitdepths,
             )
 
-            metrics = test(frame_encoder, frame, image_encoder_manager)
-            frame_encoder.to_device("cpu")
+            cur_candidate_model.encoder = _train_single_phase(
+                model=cur_candidate_model.encoder,
+                target_image=target_image,
+                image_encoder_manager=image_encoder_manager,
+                training_phase=warmup_phase.training_phase,
+                logger=logger,
+                color_bitdepths=color_bitdepths,
+                encoder_logs_best=initial_encoder_logs,
+            )
+
+            cur_candidate_model.metrics = test(
+                cur_candidate_model.encoder,
+                target_image,
+                image_encoder_manager,
+                color_bitdepths=color_bitdepths,
+            )
 
             # Put the updated candidate back into the list.
-            cur_candidate_model["encoder"] = frame_encoder
-            cur_candidate_model["metrics"] = metrics
             all_candidates[i] = cur_candidate_model
 
-        all_candidates = sorted(all_candidates, key=lambda x: x.get("metrics").loss)
+        all_candidates = sorted(
+            all_candidates, key=lambda x: x.metrics.loss if x.metrics is not None else float("inf")
+        )
 
         # # Check that we do have different candidates with different parameters
         # for x in all_candidates:
@@ -135,24 +161,27 @@ def warmup(
 
         # Print the results of this warm-up phase
         s = "\n\nPerformance at the end of the warm-up phase:\n\n"
-        s += f'{"ID":^{6}}|{"loss":^{_col_width}}|{"rate_bpp":^{_col_width}}|{"psnr_db":^{_col_width}}|\n'
+        s += f'{"ID":^{6}}|{"loss":^{_col_width}}|{"img_bpd":^{_col_width}}|{"latent_bpd":^{_col_width}}|\n'
         s += f'------|{"-" * _col_width}|{"-" * _col_width}|{"-" * _col_width}|\n'
         for candidate in all_candidates:
-            s += f'{candidate.get("id"):^{6}}|'
-            s += f'{candidate.get("metrics").loss.item() * 1e3:^{_col_width}.4f}|'
-            s += f'{candidate.get("metrics").total_rate_latent_bpp:^{_col_width}.4f}|'
-            s += f'{candidate.get("metrics").psnr_db:^{_col_width}.4f}|'
+            assert (
+                candidate.metrics is not None
+            ), "Metrics should have been evaluated for all candidates."
+            s += f"{candidate.id:^{6}}|"
+            s += f"{candidate.metrics.loss.item():^{_col_width}.4f}|"
+            s += f"{candidate.metrics.rate_img_bpd:^{_col_width}.4f}|"
+            s += f"{candidate.metrics.rate_latent_bpd:^{_col_width}.4f}|"
             s += "\n"
         print(s)
 
     # Keep only the best model
-    frame_encoder = copy.deepcopy(all_candidates[0].get("encoder"))
+    frame_encoder = copy.deepcopy(all_candidates[0].encoder)
 
     # We've already worked for that many second during warm up
     warmup_duration = time.time() - start_time
 
     print("Intra Warm-up is done!")
     print(f"Intra Warm-up time [s]: {warmup_duration:.2f}")
-    print(f'Intra Winner ID       : {all_candidates[0].get("id")}\n')
+    print(f"Intra Winner ID       : {all_candidates[0].id}\n")
 
     return frame_encoder

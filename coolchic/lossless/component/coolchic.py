@@ -18,6 +18,7 @@ from lossless.component.core.arm import (Arm, _get_neighbor,
                                          _get_non_zero_pixel_ctx_index,
                                          _laplace_cdf)
 from lossless.component.core.arm_image import ImageArm
+from lossless.component.core.proba_output import ProbabilityOutput
 from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE, quantize)
 from lossless.component.core.synthesis import Synthesis
@@ -144,7 +145,8 @@ class CoolChicEncoderOutput(TypedDict):
             some logs, stored inside a dictionary
     """
 
-    raw_out: Tensor
+    mu: Tensor
+    scale: Tensor
     rate: Tensor
     latent_bpd: Tensor
     additional_data: Dict[str, Any]
@@ -165,7 +167,7 @@ class CoolChicEncoder(nn.Module):
 
         # Everything is stored inside param
         self.param = param
-        self.device = torch.device("cpu")
+        self.device = "cpu"
         # print(self.param.pretty_string("CoolChicEncoderParameter"))
 
         assert self.param.img_size is not None, (
@@ -275,6 +277,7 @@ class CoolChicEncoder(nn.Module):
                             use_color_regression=self.param.use_color_regression,
                         )
                     )
+        self.proba_output = ProbabilityOutput(self.param.use_color_regression)
 
         # Something like ['arm', 'synthesis', 'upsampling']
         self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
@@ -465,6 +468,8 @@ class CoolChicEncoder(nn.Module):
                 raw_synth_out[:, :, :h_half, w_half:] = top_right
                 raw_synth_out[:, :, h_half:, :w_half] = bottom_left
                 raw_synth_out[:, :, h_half:, w_half:] = bottom_right
+        
+        mu, scale = self.proba_output(raw_synth_out, image)
 
         additional_data = {}
         if flag_additional_outputs:
@@ -507,7 +512,8 @@ class CoolChicEncoder(nn.Module):
 
         assert self.param.img_size is not None
         res: CoolChicEncoderOutput = {
-            "raw_out": raw_synth_out,
+            "mu": mu,
+            "scale": scale,
             "rate": flat_rate,
             "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
             "additional_data": additional_data,
