@@ -11,7 +11,7 @@ import copy
 import time
 import typing
 from dataclasses import dataclass
-from typing import Literal
+from typing import TypeGuard, get_args
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
@@ -24,6 +24,9 @@ from lossless.util.device import POSSIBLE_DEVICE
 from lossless.util.logger import TrainingLogger
 from lossless.util.misc import mem_info
 
+
+def is_possible_device(val: str) -> TypeGuard[POSSIBLE_DEVICE]:
+    return val in get_args(POSSIBLE_DEVICE)
 
 @dataclass
 class WarmupCandidate:
@@ -116,12 +119,10 @@ def warmup(
             print(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
             mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}")
 
-            raw_device = template_model.device
-            assert raw_device in typing.get_args(
-                POSSIBLE_DEVICE
-            ), f"Unknown device {raw_device}, should be in {typing.get_args(POSSIBLE_DEVICE)}"
-            template_device = typing.cast(POSSIBLE_DEVICE, raw_device)
-
+            if is_possible_device(template_model.device):
+                template_device = template_model.device
+            else:
+                raise ValueError(f"Invalid device: {template_model.device}")
             cur_candidate_model.encoder.to_device(template_device)
             initial_encoder_logs = test(
                 cur_candidate_model.encoder,
