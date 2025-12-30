@@ -46,8 +46,10 @@ class ImageEncoderManager():
         assert presetFactory is not None, f'Preset named {self.preset_name} could not be found in AVAILABLE_PRESETS.'
         assert callable(presetFactory), f'Preset factory for preset named {self.preset_name} is not callable.'
 
-        self.preset = presetFactory(
-        )
+        self.preset = presetFactory()
+        self.n_itr = self.preset.training_phases[0].max_itr
+        self.start_lr = self.preset.training_phases[0].lr
+        self.n_loops = 1
 
         flag_quantize_model = False
         for training_phase in self.preset.training_phases:

@@ -31,15 +31,10 @@ args = {
     "network_yaml_path": NETWORK_YAML_PATH,
     "experiment_name": "30_11_2025_RGB_no_ARM_no_color_regression_Kodak",
 
-    "job_duration_min": -1,
     "print_detailed_archi": False,
     "print_detailed_struct": False,
     # config file paths
     # encoder side
-    "start_lr": 1e-2,
-    "n_itr": 140000,
-    "n_train_loops": 1,
-    "preset": "debug",
     # decoder side
     "layers_synthesis_lossless": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_lossless": "16,2", #dim arm, n_layers
@@ -52,14 +47,7 @@ args = {
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,
     # training preset
-    # "patience": 5000,
-    # "schedule_lr": True,
-    # "freq_valid": 100,
-    # "optimized_module": ["all"],
-    # "quantizer_type": "softround",
-    # "quantizer_noise_type": "kumaraswamy",
-    # "softround_temperature": (0.3, 0.1),
-    # "noise_parameter": (0.25, 0.1),
+    "preset": "fnlic",
     "pretrained_model_path": "../logs/full_runs/trained_models/2025_11_10__23_56_17__trained_coolchic_kodak_kodim17_img_rate_2.167128562927246.pth",
     "use_pretrained": False,
     "quantize_model": True,

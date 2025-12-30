@@ -72,7 +72,7 @@ def warmup(
     start_time = time.time()
     warmup = image_encoder_manager.preset.warmup
     if len(warmup.phases) == 0:
-        print("No warm-up phase defined, skipping warm-up.")
+        logger.log_result("No warm-up phase defined, skipping warm-up.")
         return template_model
 
     num_starting_candidates = warmup.phases[0].candidates
@@ -88,7 +88,7 @@ def warmup(
     ]
 
     for idx_warmup_phase, warmup_phase in enumerate(warmup.phases):
-        print(f'{"-" * 30}  Warm-up phase: {idx_warmup_phase:>2} {"-" * 30}')
+        logger.log_result(f'{"-" * 30}  Warm-up phase: {idx_warmup_phase:>2} {"-" * 30}')
 
         mem_info(f"Warmup-{idx_warmup_phase:02d}")
 
@@ -107,16 +107,16 @@ def warmup(
         # models so its order may change.
 
         # # Check that we do have different candidates with different parameters
-        # print('------\nbefore')
-        # for x in all_candidates:
-        #     print(f"{x.get('id')}   {sum([v.abs().sum() for k, v in x.get('param').items() if 'synthesis' in k])}")
+        print('------\nbefore')
+        for x in all_candidates:
+            print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
 
         # Train all (remaining) candidates for a little bit
         for i in range(warmup_phase.candidates):
             cur_candidate_model = all_candidates[i]
             cur_id = cur_candidate_model.id
 
-            print(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
+            logger.log_result(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
             mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}")
 
             if is_possible_device(template_model.device):
@@ -156,9 +156,9 @@ def warmup(
         )
 
         # # Check that we do have different candidates with different parameters
-        # for x in all_candidates:
-        #     print(f"{x.get('id')}   {sum([v.abs().sum() for k, v in x.get('encoder').get_param().items() if 'synthesis' in k])}")
-        # print('after\n------')
+        for x in all_candidates:
+            print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
+        print('after\n------')
 
         # Print the results of this warm-up phase
         s = "\n\nPerformance at the end of the warm-up phase:\n\n"
@@ -173,7 +173,7 @@ def warmup(
             s += f"{candidate.metrics.rate_img_bpd:^{_col_width}.4f}|"
             s += f"{candidate.metrics.rate_latent_bpd:^{_col_width}.4f}|"
             s += "\n"
-        print(s)
+        logger.log_result(s)
 
     # Keep only the best model
     frame_encoder = copy.deepcopy(all_candidates[0].encoder)
@@ -181,8 +181,8 @@ def warmup(
     # We've already worked for that many second during warm up
     warmup_duration = time.time() - start_time
 
-    print("Intra Warm-up is done!")
-    print(f"Intra Warm-up time [s]: {warmup_duration:.2f}")
-    print(f"Intra Winner ID       : {all_candidates[0].id}\n")
+    logger.log_result("Intra Warm-up is done!")
+    logger.log_result(f"Intra Warm-up time [s]: {warmup_duration:.2f}")
+    logger.log_result(f"Intra Winner ID       : {all_candidates[0].id}\n")
 
     return frame_encoder

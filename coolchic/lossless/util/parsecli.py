@@ -124,9 +124,9 @@ def get_manager_from_args(args: dict) -> Dict[str, Any]:
     """
     image_encoder_manager = {
         "preset_name": args["preset"],
-        "start_lr": args["start_lr"],
+        # "start_lr": args["start_lr"],
         # "lmbda": args["lmbda"],
-        "n_loops": args["n_train_loops"],
-        "n_itr": args["n_itr"],
+        # "n_loops": args["n_train_loops"],
+        # "n_itr": args["n_itr"],
     }
     return image_encoder_manager

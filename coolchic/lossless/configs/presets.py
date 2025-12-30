@@ -542,36 +542,36 @@ class PresetDebug(Preset):
                 quantizer_type="softround",
                 optimized_module=["all"],
             ),
-            # TrainerPhase(
-            #     lr=1e-4,
-            #     max_itr=10,
-            #     freq_valid=100,
-            #     patience=100,
-            #     quantize_model=True,
-            #     schedule_lr=False,
-            #     softround_temperature=(1e-4, 1e-4),
-            #     noise_parameter=(1.0, 1.0),
-            #     quantizer_noise_type="none",
-            #     quantizer_type="ste",
-            #     optimized_module=["all"],
-            # ),
-            # # Re-tune the latent
-            # TrainerPhase(
-            #     lr=1.0e-4,
-            #     max_itr=10,
-            #     freq_valid=10,
-            #     patience=5,
-            #     quantize_model=False,
-            #     quantizer_type="ste",
-            #     quantizer_noise_type="none",
-            #     optimized_module=["latent"],  # ! Only fine tune the latent
+            TrainerPhase(
+                lr=1e-4,
+                max_itr=10,
+                freq_valid=100,
+                patience=100,
+                quantize_model=True,
+                schedule_lr=False,
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),
+                quantizer_noise_type="none",
+                quantizer_type="ste",
+                optimized_module=["all"],
+            ),
+            # Re-tune the latent
+            TrainerPhase(
+                lr=1.0e-4,
+                max_itr=10,
+                freq_valid=10,
+                patience=5,
+                quantize_model=False,
+                quantizer_type="ste",
+                quantizer_noise_type="none",
+                optimized_module=["latent"],  # ! Only fine tune the latent
                 
-            #     softround_temperature=(1e-4, 1e-4),
-            #     noise_parameter=(
-            #         1.0,
-            #         1.0,
-            #     ),  # not used since quantizer type is "ste"
-            # ),
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(
+                    1.0,
+                    1.0,
+                ),  # not used since quantizer type is "ste"
+            ),
         ]
 
         self.warmup = Warmup(
