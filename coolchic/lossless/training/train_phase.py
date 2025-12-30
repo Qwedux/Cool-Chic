@@ -5,6 +5,7 @@ from lossless.component.coolchic import CoolChicEncoder
 from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE)
 from lossless.configs.presets import MODULE_TO_OPTIMIZE, Preset, TrainerPhase
+from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import LossFunctionOutput, loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
@@ -37,7 +38,7 @@ def _linear_schedule(
 
     return cur_itr * (final_value - initial_value) / max_itr + initial_value
 
-# @torch.compile
+
 def _train_single_phase(
     model: CoolChicEncoder,
     target_image: torch.Tensor,
@@ -247,5 +248,13 @@ def _train_single_phase(
 
     # At the end of the training, we load the best model
     model.set_param(best_model)
-    return model
+    if training_phase.quantize_model:
+        model = quantize_model(
+            model,
+            target_image,
+            image_encoder_manager,
+            logger,
+            color_bitdepths=color_bitdepths,
+        )
 
+    return model

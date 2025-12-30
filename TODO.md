@@ -28,7 +28,7 @@
 - if time allows:
   - [ ] make models modular to allow easy printing of layers
   - [ ] add torch compile to speed up training
-- [ ] add warmups
+- [x] add warmups
 - [ ] fix image encoder manager logs
 - [ ] fix test function output logs
-- [ ] move computation of probs to separate module inside coolchic 
+- [x] move computation of probs to separate module inside coolchic

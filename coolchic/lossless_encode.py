@@ -100,26 +100,16 @@ else:
 # ==========================================================================================
 # QUANTIZE AND EVALUATE
 # ==========================================================================================
-quantized_coolchic = CoolChicEncoder(param=encoder_param)
-quantized_coolchic.to_device("cuda:0")
-quantized_coolchic.set_param(coolchic.get_param())
-quantized_coolchic = quantize_model(
-    quantized_coolchic,
-    im_tensor,
-    image_encoder_manager,
-    logger,
-    color_bitdepths=c_bitdepths,
-)
-rate_per_module, total_network_rate = quantized_coolchic.get_network_rate()
+rate_per_module, total_network_rate = coolchic.get_network_rate()
 if use_image_arm:
-    arm_params = list(quantized_coolchic.image_arm.parameters())
+    arm_params = list(coolchic.image_arm.parameters())
     arm_params_bits = sum(p.numel() for p in arm_params) * 32
     total_network_rate += arm_params_bits
 total_network_rate = float(total_network_rate) / im_tensor.numel()
 
 with torch.no_grad():
     # Forward pass with no quantization noise
-    predicted_prior = quantized_coolchic.forward(
+    predicted_prior = coolchic.forward(
         image=im_tensor,
         quantizer_noise_type="none",
         quantizer_type="hardround",
@@ -134,7 +124,7 @@ with torch.no_grad():
         channel_ranges=c_bitdepths,
     )
 
-logger.save_model(quantized_coolchic, predicted_priors_rates.loss.item())
+logger.save_model(coolchic, predicted_priors_rates.loss.item())
 logger.log_result(
     f"Final frame_encoder_manager state: {image_encoder_manager},\n"
     f"Rate per module: {rate_per_module},\n"
