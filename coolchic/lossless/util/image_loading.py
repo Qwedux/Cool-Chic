@@ -1,8 +1,8 @@
-import numpy as np
-import torch
 import cv2
 import lossless.util.color_transform as color_transform
-import matplotlib.pyplot as plt
+import numpy as np
+import torch
+
 
 def load_image_as_tensor(image_path, device="cuda:0", color_space="YCoCg"):
     assert color_space in color_transform.VALID_COLORSPACE, f"Invalid color space {color_space}"

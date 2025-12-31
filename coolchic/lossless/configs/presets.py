@@ -237,9 +237,9 @@ class Preset:
             f"{self.pretty_string()}"
         )
 
-    def _get_total_training_iterations(self, train_phases: List[TrainerPhase]) -> int:
+    def _get_total_training_iterations(self) -> int:
         """Return the total number of iterations for the whole warm-up."""
-        return sum([phase.max_itr for phase in train_phases])
+        return sum([phase.max_itr for phase in self.training_phases])
 
     def pretty_string(self) -> str:
         """Return a pretty string describing a warm-up phase"""
@@ -266,7 +266,7 @@ class Preset:
 
         s += "\nMaximum number of iterations (warm-up / training / total):"
         warmup_max_itr = self.warmup._get_total_warmup_iterations()
-        training_max_itr = self._get_total_training_iterations(self.training_phases)
+        training_max_itr = self._get_total_training_iterations()
         total_max_itr = warmup_max_itr + training_max_itr
         s += f"{warmup_max_itr:^8} / " f"{training_max_itr:^8} / " f"{total_max_itr:^8}\n"
         return s

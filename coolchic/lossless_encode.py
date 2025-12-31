@@ -7,60 +7,41 @@ import torch
 from lossless.component.coolchic import (CoolChicEncoder,
                                          CoolChicEncoderParameter)
 from lossless.configs.config import args, str_args
-from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
+from lossless.util.command_line_args_loading import load_args
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import (change_n_out_synth,
-                                    get_coolchic_param_from_args,
-                                    get_manager_from_args)
+                                    get_coolchic_param_from_args)
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
 
-if len(sys.argv) < 6:
-    print(
-        "Usage: python3 lossless_encode.py <image_index> <color_space> <use_image_arm> <experiment_name> <encoder_gain>"
-    )
-    print("<color_space> must be `YCoCg` or `RGB`")
-    print("<use_image_arm> must be `true` or `false`")
-    sys.exit(1)
-
 # ==========================================================================================
-# LOAD IMAGE
+# LOAD COMMAND LINE ARGS AND IMAGE
 # ==========================================================================================
-image_index = int(sys.argv[1])
-color_space = sys.argv[2]
-use_image_arm = sys.argv[3].lower() == "true"
-experiment_name = sys.argv[4].lower()
-encoder_gain = int(sys.argv[5]) if len(sys.argv) > 5 else 16
-assert sys.argv[3].lower() in [
-    "true",
-    "false",
-], "<use_image_arm> must be `true` or `false`"
-assert color_space in [
-    "YCoCg",
-    "RGB",
-], f"Invalid color space {color_space}, must be YCoCg or RGB"
-
-im_path = args["input"][image_index]
-im_tensor, c_bitdepths = load_image_as_tensor(im_path, device="cuda:0", color_space=color_space)
+command_line_args = load_args()
+im_path = args["input"][command_line_args.image_index]
+im_tensor, colorspace_bitdepths = load_image_as_tensor(
+    im_path, device="cuda:0", color_space=command_line_args.color_space
+)
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
 # ==========================================================================================
-image_encoder_manager = ImageEncoderManager(**get_manager_from_args(args))
-
+image_encoder_manager = ImageEncoderManager(
+    preset_name=args["preset"], colorspace_bitdepths=colorspace_bitdepths
+)
 print(f"Preset: {image_encoder_manager.preset.pretty_string()}")
 
 encoder_param = CoolChicEncoderParameter(**get_coolchic_param_from_args(args, "lossless"))
-encoder_param.encoder_gain = encoder_gain
+encoder_param.encoder_gain = command_line_args.encoder_gain
 encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
 encoder_param.layers_synthesis = change_n_out_synth(
     encoder_param.layers_synthesis, 9 if args["use_color_regression"] else 6
 )
-encoder_param.use_image_arm = use_image_arm
+encoder_param.use_image_arm = command_line_args.use_image_arm
 encoder_param.multi_region_image_arm = args["multi_region_image_arm"]
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
@@ -72,16 +53,18 @@ logger = TrainingLogger(
     log_folder_path=args["LOG_PATH"],
     image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0],
     debug_mode=image_encoder_manager.n_itr < 1000,
-    experiment_name=experiment_name,
+    experiment_name=command_line_args.experiment_name,
 )
 with open(args["network_yaml_path"], "r") as f:
     network_yaml = f.read()
 logger.log_result(f"Network YAML configuration:\n{network_yaml}")
 logger.log_result(f"{str_args(args)}")
 logger.log_result(f"Processing image {im_path}")
-logger.log_result(f"Using color space {color_space} with bitdepths {c_bitdepths.bitdepths}")
-logger.log_result(f"Using image ARM: {use_image_arm}")
-logger.log_result(f"Using encoder gain: {encoder_gain}")
+logger.log_result(
+    f"Using color space {command_line_args.color_space} with bitdepths {image_encoder_manager.colorspace_bitdepths.bitdepths}"
+)
+logger.log_result(f"Using image ARM: {command_line_args.use_image_arm}")
+logger.log_result(f"Using encoder gain: {command_line_args.encoder_gain}")
 logger.log_result(f"Using multi-region image ARM: {args['multi_region_image_arm']}")
 logger.log_result(f"Using color regression: {args['use_color_regression']}")
 # ==========================================================================================
@@ -94,14 +77,13 @@ else:
         model=coolchic,
         target_image=im_tensor,
         image_encoder_manager=image_encoder_manager,
-        color_bitdepths=c_bitdepths,
         logger=logger,
     )
 # ==========================================================================================
 # QUANTIZE AND EVALUATE
 # ==========================================================================================
 rate_per_module, total_network_rate = coolchic.get_network_rate()
-if use_image_arm:
+if command_line_args.use_image_arm:
     arm_params = list(coolchic.image_arm.parameters())
     arm_params_bits = sum(p.numel() for p in arm_params) * 32
     total_network_rate += arm_params_bits
@@ -120,8 +102,7 @@ with torch.no_grad():
         predicted_prior,
         im_tensor,
         rate_mlp_bpd=total_network_rate,
-        latent_multiplier=1.0,
-        channel_ranges=c_bitdepths,
+        colorspace_bitdepths=colorspace_bitdepths,
     )
 
 logger.save_model(coolchic, predicted_priors_rates.loss.item())

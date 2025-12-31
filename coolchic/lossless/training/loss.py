@@ -40,12 +40,12 @@ class LossFunctionOutput:
 def loss_function(
     encoder_out: CoolChicEncoderOutput,
     img_tensor: torch.Tensor,
-    channel_ranges: ColorBitdepths,
+    colorspace_bitdepths: ColorBitdepths,
     rate_mlp_bpd: float = 0.0,
     latent_multiplier: float = 1.00,
 ) -> LossFunctionOutput:
     img_rates = weak_colorar_rate(
-        encoder_out["mu"], encoder_out["scale"], img_tensor, channel_ranges
+        encoder_out["mu"], encoder_out["scale"], img_tensor, colorspace_bitdepths
     )
     img_bpd = img_rates.sum() / img_tensor.numel()
     loss = img_bpd + rate_mlp_bpd + encoder_out["latent_bpd"] * latent_multiplier

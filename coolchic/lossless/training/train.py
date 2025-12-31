@@ -26,7 +26,6 @@ def train(
     target_image: torch.Tensor,
     image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
-    color_bitdepths: ColorBitdepths,
 ) -> CoolChicEncoder:
     """Train a ``CoolChicEncoder`` and return the updated module. This function is
     supposed to be called any time we want to optimize the parameters of a
@@ -113,22 +112,20 @@ def train(
         template_model=model,
         target_image=target_image,
         logger=logger,
-        color_bitdepths=color_bitdepths,
     )
     initial_encoder_logs = test(
-        model, target_image, image_encoder_manager, color_bitdepths=color_bitdepths
+        model, target_image, image_encoder_manager
     )
     encoder_logs_best = initial_encoder_logs
 
     for training_phase in image_encoder_manager.preset.training_phases:
         logger.log_training(f"Starting new training phase:\n{training_phase.pretty_string()}")
-        model = _train_single_phase(
+        model, encoder_logs_best = _train_single_phase(
             model=model,
             target_image=target_image,
             image_encoder_manager=image_encoder_manager,
             training_phase=training_phase,
             logger=logger,
-            color_bitdepths=color_bitdepths,
             encoder_logs_best=encoder_logs_best,
         )
     image_encoder_manager.total_training_time_sec += time.time() - start_time
@@ -137,7 +134,6 @@ def train(
         model,
         target_image,
         image_encoder_manager,
-        color_bitdepths=color_bitdepths,
     )
     logger.log_result(f"At the end of the training: " + str(encoder_logs))
     return model

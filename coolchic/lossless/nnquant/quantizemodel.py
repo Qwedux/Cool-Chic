@@ -68,7 +68,6 @@ def quantize_model(
     image: Tensor,
     image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
-    color_bitdepths: ColorBitdepths,
 ) -> CoolChicEncoder:
     """Quantize a ``FrameEncoder`` compressing a ``Frame`` under a rate
     constraint ``lmbda`` and return it.
@@ -91,8 +90,8 @@ def quantize_model(
         .. math::
 
             (\\Delta_w^m, \\Delta_b^m) = \\arg\\min ||\\mathbf{x}
-            - \hat{\\mathbf{x}}||^2 + \\lambda
-            (\\mathrm{R}(\hat{\\mathbf{x}}) + \\mathrm{R}_{NN}), \\text{ with }
+            - \\hat{\\mathbf{x}}||^2 + \\lambda
+            (\\mathrm{R}(\\hat{\\mathbf{x}}) + \\mathrm{R}_{NN}), \\text{ with }
             \\begin{cases}
                 \\mathbf{x} & \\text{the original image}\\\\ \\hat{\\mathbf{x}} &
                 \\text{the coded image}\\\\ \\mathrm{R}(\\hat{\\mathbf{x}}) &
@@ -126,8 +125,7 @@ def quantize_model(
 
     # We have to quantize all the modules that we want to send
     module_to_quantize = {
-        module_name: getattr(model, module_name)
-        for module_name in model.modules_to_send
+        module_name: getattr(model, module_name) for module_name in model.modules_to_send
     }
 
     for module_name, cur_module in sorted(module_to_quantize.items()):
@@ -135,9 +133,9 @@ def quantize_model(
         # arbitrary high value for the RD cost.
         best_loss = LossFunctionOutput(
             loss=Tensor([1e6]).to(image.device),
-            rate_nn_bpd=None,
-            rate_latent_bpd=None,
-            rate_img_bpd=Tensor([1e6]).to(image.device),
+            rate_nn_bpd=0.0,
+            rate_latent_bpd=0.0,
+            rate_img_bpd=1e6,
         )
 
         # All possible quantization steps for this module
@@ -157,9 +155,7 @@ def quantize_model(
         assert all_q_step_weight is not None
         assert all_q_step_bias is not None
 
-        for q_step_w, q_step_b in itertools.product(
-            all_q_step_weight, all_q_step_bias
-        ):
+        for q_step_w, q_step_b in itertools.product(all_q_step_weight, all_q_step_bias):
             # Reset full precision parameters, set the quantization step
             # and quantize the model.
             current_q_step: DescriptorNN = DescriptorNN(
@@ -207,9 +203,7 @@ def quantize_model(
 
                     # Quantization is round(parameter_value / q_step) * q_step so we divide by q_step
                     # to obtain the sent latent.
-                    current_sent_param = (
-                        parameter_value / current_q_step[weight_or_bias]
-                    ).view(-1)
+                    current_sent_param = (parameter_value / current_q_step[weight_or_bias]).view(-1)
 
                     if weight_or_bias in parameter_name:
                         sent_param.append(current_sent_param)
@@ -223,7 +217,8 @@ def quantize_model(
                     if cur_rate < cur_best_rate:
                         cur_best_rate = cur_rate
                         cur_best_expgol_cnt = expgol_cnt
-
+                
+                assert cur_best_expgol_cnt is not None
                 best_expgol_cnt[weight_or_bias] = cur_best_expgol_cnt
 
             model.nn_expgol_cnt[module_name] = best_expgol_cnt
@@ -235,7 +230,7 @@ def quantize_model(
                 image,
                 rate_mlp_bpd=total_rate_nn_bit / image.numel(),
                 latent_multiplier=1.0,
-                channel_ranges=color_bitdepths,
+                colorspace_bitdepths=image_encoder_manager.colorspace_bitdepths,
             )
 
             # Store best quantization steps
@@ -244,19 +239,20 @@ def quantize_model(
                 best_q_step = current_q_step
                 final_best_expgol_cnt = best_expgol_cnt
                 if module_name == "image_arm":
-                    print(loss_fn_output.loss.cpu().item(), q_step_w.cpu().item(), q_step_b.cpu().item())
+                    print(
+                        loss_fn_output.loss.cpu().item(),
+                        q_step_w.cpu().item(),
+                        q_step_b.cpu().item(),
+                    )
 
         # Once we've tested all the possible quantization step and expgol_cnt,
         # quantize one last time with the best one we've found to actually use it.
         model.nn_q_step[module_name] = best_q_step
         model.nn_expgol_cnt[module_name] = final_best_expgol_cnt
 
-        q_param = _quantize_parameters(
-            full_precision_param, model.nn_q_step[module_name]
-        )
+        q_param = _quantize_parameters(full_precision_param, model.nn_q_step[module_name])
         assert q_param is not None, (
-            "_quantize_parameters() failed with q_step "
-            f"{model.nn_q_step[module_name]}"
+            "_quantize_parameters() failed with q_step " f"{model.nn_q_step[module_name]}"
         )
         if logger is not None:
             logger.log_result(f"Best loss for module {module_name}: {best_loss}")
@@ -270,9 +266,7 @@ def quantize_model(
     time_nn_quantization = time.time() - start_time
 
     if logger is not None:
-        logger.log_result(
-            f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n"
-        )
+        logger.log_result(f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n")
     else:
         print(f"\nTime quantize_model(): {time_nn_quantization:4.1f} seconds\n")
     if image_encoder_manager is not None:
