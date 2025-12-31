@@ -87,7 +87,7 @@ def warmup(
     ]
 
     for idx_warmup_phase, warmup_phase in enumerate(warmup.phases):
-        logger.log_result(f'{"-" * 30}  Warm-up phase: {idx_warmup_phase:>2} {"-" * 30}')
+        logger.log_training(f'{"-" * 30}  Warm-up phase: {idx_warmup_phase:>2} {"-" * 30}')
 
         mem_info(f"Warmup-{idx_warmup_phase:02d}")
 
@@ -108,8 +108,8 @@ def warmup(
             cur_candidate_model = all_candidates[i]
             cur_id = cur_candidate_model.id
 
-            logger.log_result(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
-            logger.log_result(mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}"))
+            logger.log_training(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
+            logger.log_training(mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}"))
 
             if is_possible_device(template_model.device):
                 template_device = template_model.device

@@ -67,6 +67,9 @@ logger.log_result(f"Using image ARM: {command_line_args.use_image_arm}")
 logger.log_result(f"Using encoder gain: {command_line_args.encoder_gain}")
 logger.log_result(f"Using multi-region image ARM: {args['multi_region_image_arm']}")
 logger.log_result(f"Using color regression: {args['use_color_regression']}")
+with torch.no_grad():
+    logger.log_result(f"Total MAC per pixel: {coolchic.get_total_mac_per_pixel()}")
+    logger.log_result(coolchic.str_complexity())
 # ==========================================================================================
 # TRAIN
 # ==========================================================================================
