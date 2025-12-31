@@ -109,24 +109,3 @@ def change_n_out_synth(layers_synth: List[str], n_out: int) -> List[str]:
     """
     return [lay.replace("X", str(n_out)) for lay in layers_synth]
 
-
-def get_manager_from_args(args: dict) -> Dict[str, Any]:
-    """Perform some check on the argparse object used to collect the command
-    line parameters. Return a dictionary ready to be plugged into the
-    ``FrameEncoderManager`` constructor.
-
-    Args:
-        args (argparse.Namespace): Command-line argument parser.
-
-    Returns:
-        Dict[str, Any]: Dictionary ready to be plugged into the
-            ``FrameEncoderManager`` constructor.
-    """
-    image_encoder_manager = {
-        "preset_name": args["preset"],
-        # "start_lr": args["start_lr"],
-        # "lmbda": args["lmbda"],
-        # "n_loops": args["n_train_loops"],
-        # "n_itr": args["n_itr"],
-    }
-    return image_encoder_manager

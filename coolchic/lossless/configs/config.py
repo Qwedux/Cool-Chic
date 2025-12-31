@@ -47,7 +47,7 @@ args = {
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,
     # training preset
-    "preset": "fnlic",
+    "preset": "debug",
     "pretrained_model_path": "../logs/full_runs/trained_models/2025_11_10__23_56_17__trained_coolchic_kodak_kodim17_img_rate_2.167128562927246.pth",
     "use_pretrained": False,
     "quantize_model": True,

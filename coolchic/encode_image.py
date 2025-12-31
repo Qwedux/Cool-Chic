@@ -10,13 +10,14 @@ from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
-from coolchic.lossless.configs.config import args, str_args
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import (change_n_out_synth,
                                     get_coolchic_param_from_args,
                                     get_manager_from_args)
 from till_encode import decode, encode, get_bits_per_pixel
+
+from coolchic.lossless.configs.config import args, str_args
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
@@ -113,7 +114,7 @@ with torch.no_grad():
         im_tensor,
         rate_mlp_bpd=total_network_rate,
         latent_multiplier=1.0,
-        channel_ranges=c_bitdepths,
+        colorspace_bitdepths=c_bitdepths,
         use_color_regression=args["use_color_regression"],
     )
 logger.log_result(

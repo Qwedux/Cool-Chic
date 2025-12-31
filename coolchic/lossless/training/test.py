@@ -494,7 +494,6 @@ def test(
     model: CoolChicEncoder,
     frame: torch.Tensor,
     image_encoder_manager: ImageEncoderManager,
-    color_bitdepths: ColorBitdepths,
 ) -> LossFunctionOutput:
     """Evaluate the performance of a ``FrameEncoder`` when encoding a ``Frame``.
 
@@ -533,7 +532,7 @@ def test(
     loss_fn_output = loss_function(
         frame_encoder_out,
         frame,
-        channel_ranges=color_bitdepths,
+        colorspace_bitdepths=image_encoder_manager.colorspace_bitdepths,
     )
 
     # encoder_logs = FrameEncoderLogs(

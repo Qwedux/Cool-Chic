@@ -13,7 +13,7 @@ import psutil
 import torch
 
 
-def mem_info(strinfo: str = "Memory allocated") -> None:
+def mem_info(strinfo: str = "Memory allocated") -> str:
     """Convenient printing of the current CPU / GPU memory allocated,
     prefixed by strinfo.
 
@@ -28,9 +28,8 @@ def mem_info(strinfo: str = "Memory allocated") -> None:
 
     str_display = f"| {strinfo:30s} cpu:{mem_cpu_GB:7.3f} GB --- gpu:{mem_gpu_GB:7.3f} GB |"
     L = len(str_display)
-    print(f'{" "*100}{"-"*L}')
-    print(f'{" "*100}{str_display}')
-    print(f'{" "*100}{"-"*L}')
+    output_string = f'{"-"*L}\n{str_display}\n{"-"*L}'
+    return output_string
 
 
 def timestamp_string(time: float | None = None) -> str:

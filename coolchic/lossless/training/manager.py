@@ -9,6 +9,7 @@
 from dataclasses import dataclass, field, fields
 
 from lossless.configs.presets import AVAILABLE_PRESETS, Preset
+from lossless.util.color_transform import ColorBitdepths
 
 
 @dataclass
@@ -19,11 +20,12 @@ class ImageEncoderManager():
     of loops already done.
     """
     # ----- Encoding (i.e. training) options
+    colorspace_bitdepths: ColorBitdepths                # Additional color space information for the image encoding
     preset_name: str                                    # Preset name, should be a key in AVAILABLE_PRESETS utils/encoding_management/presets.py
-    start_lr: float = 1e-2                              # Initial learning rate
-    n_itr: int = int(1e4)                               # Number of iterations for the main training stage
-    n_loops: int = 1                                    # Number of training loop
-
+    start_lr: float = field(default=1e-2, init=False)   # Initial learning rate
+    n_itr: int = field(default=int(1e4), init=False)    # Number of iterations for the main training stage
+    n_loops: int = field(default=1, init=False)         # Number of training loop
+    
     # ==================== Not set by the init function ===================== #
     # ----- Actual preset, instantiated from its name
     preset: Preset = field(init=False)                  # It contains the learning rate in the different phase
@@ -47,7 +49,7 @@ class ImageEncoderManager():
         assert callable(presetFactory), f'Preset factory for preset named {self.preset_name} is not callable.'
 
         self.preset = presetFactory()
-        self.n_itr = self.preset.training_phases[0].max_itr
+        self.n_itr = self.preset._get_total_training_iterations()
         self.start_lr = self.preset.training_phases[0].lr
         self.n_loops = 1
 

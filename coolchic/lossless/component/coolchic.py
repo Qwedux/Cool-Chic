@@ -312,7 +312,7 @@ class CoolChicEncoder(nn.Module):
         self.full_precision_param = None
 
     # ------- Actual forward
-    @torch.compile
+    # @torch.compile
     def forward(
         self,
         image: Tensor = torch.empty(0),

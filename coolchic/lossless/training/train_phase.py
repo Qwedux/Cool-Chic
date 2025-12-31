@@ -45,15 +45,10 @@ def _train_single_phase(
     image_encoder_manager: ImageEncoderManager,
     training_phase: TrainerPhase,
     logger: TrainingLogger,
-    color_bitdepths: ColorBitdepths,
     encoder_logs_best: LossFunctionOutput,
-) -> CoolChicEncoder:
+) -> tuple[CoolChicEncoder, LossFunctionOutput]:
     """Train a ``CoolChicEncoder`` for a single training phase with parameters
     defined in ``training_phase``."""
-
-    initial_encoder_logs = test(
-        model, target_image, image_encoder_manager, color_bitdepths=color_bitdepths
-    )
 
     model.train()
     best_model = model.get_param()
@@ -155,7 +150,7 @@ def _train_single_phase(
         loss_function_output = loss_function(
             out_forward,
             target_image,
-            channel_ranges=color_bitdepths,
+            colorspace_bitdepths=image_encoder_manager.colorspace_bitdepths,
         )
         loss_function_output.loss.backward()
 
@@ -174,7 +169,6 @@ def _train_single_phase(
                 model,
                 target_image,
                 image_encoder_manager,
-                color_bitdepths=color_bitdepths,
             )
 
             flag_new_record = False
@@ -196,7 +190,7 @@ def _train_single_phase(
                 best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
                 # ========================= reporting ========================= #
-                this_phase_psnr_gain = encoder_logs.rate_img_bpd - initial_encoder_logs.rate_img_bpd
+                this_phase_psnr_gain = encoder_logs.rate_img_bpd - encoder_logs_best.rate_img_bpd
 
                 log_new_record = ""
                 log_new_record += f"{this_phase_psnr_gain:+6.3f} db"
@@ -205,8 +199,6 @@ def _train_single_phase(
                 # Update new record
                 encoder_logs_best = encoder_logs
                 cnt_record = cnt
-            else:
-                log_new_record = ""
 
             # # Show column name a single time
             # additional_data = {
@@ -254,7 +246,6 @@ def _train_single_phase(
             target_image,
             image_encoder_manager,
             logger,
-            color_bitdepths=color_bitdepths,
         )
 
-    return model
+    return model, encoder_logs_best

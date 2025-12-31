@@ -40,7 +40,6 @@ def warmup(
     template_model: CoolChicEncoder,
     target_image: torch.Tensor,
     logger: TrainingLogger,
-    color_bitdepths: ColorBitdepths,
 ) -> CoolChicEncoder:
     """Perform the warm-up for a frame encoder. It consists in multiple stages
     with several candidates, filtering out the best N candidates at each stage.
@@ -99,17 +98,10 @@ def warmup(
             for _ in range(n_elements_to_remove):
                 all_candidates.pop()
 
-        # i is just the index of A candidate in the all_candidates
-        # list. It is **not** a unique identifier for this candidate. This is
-        # given by:
-        #   all_candidates[i].get('id')
-        # The all_candidates list gives the ordered list of the best performing
-        # models so its order may change.
-
         # # Check that we do have different candidates with different parameters
-        print('------\nbefore')
-        for x in all_candidates:
-            print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
+        # print('------\nbefore')
+        # for x in all_candidates:
+        #     print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
 
         # Train all (remaining) candidates for a little bit
         for i in range(warmup_phase.candidates):
@@ -117,7 +109,7 @@ def warmup(
             cur_id = cur_candidate_model.id
 
             logger.log_result(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
-            mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}")
+            logger.log_result(mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}"))
 
             if is_possible_device(template_model.device):
                 template_device = template_model.device
@@ -128,16 +120,14 @@ def warmup(
                 cur_candidate_model.encoder,
                 target_image,
                 image_encoder_manager,
-                color_bitdepths=color_bitdepths,
             )
 
-            cur_candidate_model.encoder = _train_single_phase(
+            cur_candidate_model.encoder, _ = _train_single_phase(
                 model=cur_candidate_model.encoder,
                 target_image=target_image,
                 image_encoder_manager=image_encoder_manager,
                 training_phase=warmup_phase.training_phase,
                 logger=logger,
-                color_bitdepths=color_bitdepths,
                 encoder_logs_best=initial_encoder_logs,
             )
 
@@ -145,7 +135,6 @@ def warmup(
                 cur_candidate_model.encoder,
                 target_image,
                 image_encoder_manager,
-                color_bitdepths=color_bitdepths,
             )
 
             # Put the updated candidate back into the list.
@@ -156,9 +145,9 @@ def warmup(
         )
 
         # # Check that we do have different candidates with different parameters
-        for x in all_candidates:
-            print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
-        print('after\n------')
+        # for x in all_candidates:
+        #     print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
+        # print('after\n------')
 
         # Print the results of this warm-up phase
         s = "\n\nPerformance at the end of the warm-up phase:\n\n"
