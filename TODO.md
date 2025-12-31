@@ -23,8 +23,8 @@
 - [x] Move args to config folder
 - [ ] Add encode/decode validation after training is finished
 - [ ] Refactor the lossless encode file to be cleaner -> should have these parts:
-  - [ ] imports
-  - [ ] initialization (args, model, image)
+  - [x] imports
+  - [x] initialization (args, model, image)
 - if time allows:
   - [ ] make models modular to allow easy printing of layers
   - [x] add torch compile to speed up training
