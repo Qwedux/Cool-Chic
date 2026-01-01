@@ -33,7 +33,6 @@ im_tensor, colorspace_bitdepths = load_image_as_tensor(
 image_encoder_manager = ImageEncoderManager(
     preset_name=args["preset"], colorspace_bitdepths=colorspace_bitdepths
 )
-print(f"Preset: {image_encoder_manager.preset.pretty_string()}")
 
 encoder_param = CoolChicEncoderParameter(**get_coolchic_param_from_args(args, "lossless"))
 encoder_param.encoder_gain = command_line_args.encoder_gain
@@ -57,7 +56,8 @@ logger = TrainingLogger(
 )
 with open(args["network_yaml_path"], "r") as f:
     network_yaml = f.read()
-logger.log_result(f"Network YAML configuration:\n{network_yaml}")
+logger.log_result(f"Preset: {image_encoder_manager.preset.pretty_string()}")
+# logger.log_result(f"Network YAML configuration:\n{network_yaml}")
 logger.log_result(f"{str_args(args)}")
 logger.log_result(f"Processing image {im_path}")
 logger.log_result(

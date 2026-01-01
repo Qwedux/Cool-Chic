@@ -18,3 +18,4 @@
 - if time allows:
   - [ ] make models modular to allow easy printing of layers
 - [ ] fix test function output logs
+- [ ] measure real MACs of trained models
