@@ -297,13 +297,13 @@ class CoolChicEncoder(nn.Module):
         # Track the quantization step of each neural network, None if the
         # module is not yet quantized
         self.nn_q_step: Dict[str, DescriptorNN] = {
-            k: {"weight": None, "bias": None} for k in self.modules_to_send
+            k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
 
         # Track the exponent of the exp-golomb code used for the NN parameters.
         # None if module is not yet quantized
         self.nn_expgol_cnt: Dict[str, DescriptorNN] = {
-            k: {"weight": None, "bias": None} for k in self.modules_to_send
+            k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
 
         # Copy of the full precision parameters, set just before calling the

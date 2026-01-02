@@ -82,6 +82,7 @@ else:
         image_encoder_manager=image_encoder_manager,
         logger=logger,
     )
+logger.log_result(f"Training completed in {image_encoder_manager.total_training_time_sec:.2f} seconds")
 # ==========================================================================================
 # QUANTIZE AND EVALUATE
 # ==========================================================================================
