@@ -139,10 +139,8 @@ def quantize_model(
         )
 
         # All possible quantization steps for this module
-        all_q_step = POSSIBLE_Q_STEP.get(module_name)
-        all_expgol_cnt = POSSIBLE_EXP_GOL_COUNT.get(module_name)
-        assert all_q_step is not None
-        assert all_expgol_cnt is not None
+        all_q_step = POSSIBLE_Q_STEP[module_name]
+        all_expgol_cnt = POSSIBLE_EXP_GOL_COUNT[module_name]
 
         # Save full precision parameter.
         full_precision_param = cur_module.get_param()
@@ -150,10 +148,8 @@ def quantize_model(
         best_q_step: DescriptorNN = DescriptorNN()
         # Overall best expgol count for this module weights and biases
         final_best_expgol_cnt = DescriptorNN()
-        all_q_step_weight = all_q_step.get("weight")
-        all_q_step_bias = all_q_step.get("bias")
-        assert all_q_step_weight is not None
-        assert all_q_step_bias is not None
+        all_q_step_weight = all_q_step["weight"]
+        all_q_step_bias = all_q_step["bias"]
 
         for q_step_w, q_step_b in itertools.product(all_q_step_weight, all_q_step_bias):
             # Reset full precision parameters, set the quantization step
@@ -238,12 +234,6 @@ def quantize_model(
                 best_loss = loss_fn_output
                 best_q_step = current_q_step
                 final_best_expgol_cnt = best_expgol_cnt
-                if module_name == "image_arm":
-                    print(
-                        loss_fn_output.loss.cpu().item(),
-                        q_step_w.cpu().item(),
-                        q_step_b.cpu().item(),
-                    )
 
         # Once we've tested all the possible quantization step and expgol_cnt,
         # quantize one last time with the best one we've found to actually use it.
