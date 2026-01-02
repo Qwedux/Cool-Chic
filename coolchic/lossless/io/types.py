@@ -9,6 +9,6 @@
 
 from typing import Literal
 
-
 FRAME_DATA_TYPE = Literal["rgb", "yuv420", "yuv444", "flow"]
 POSSIBLE_BITDEPTH = Literal[8, 9, 10, 11, 12, 13, 14, 15, 16]
+POSSIBLE_ENCODING_DISTRIBUTIONS = Literal["logistic", "laplace", "dummy"]

@@ -10,9 +10,9 @@
 from typing import OrderedDict, Tuple
 
 import torch
-from lossless.component.core.arm import (ArmLinear, _get_neighbor,
-                                         _get_non_zero_pixel_ctx_index)
+from lossless.component.core.arm import ArmLinear, _get_neighbor, _get_non_zero_pixel_ctx_index
 from lossless.util.misc import safe_get_from_nested_lists
+
 # import torch.nn.functional as F
 from torch import Tensor, nn  # , index_select
 
@@ -316,7 +316,7 @@ class ImageArm(nn.Module):
         Returns:
             The parameters of the module.
         """
-        return self.state_dict()
+        return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
 
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
         """Replace the current parameters of the module with param.
@@ -331,5 +331,3 @@ class ImageArm(nn.Module):
         for layer in self.mlp.children():
             if isinstance(layer, ArmLinear):
                 layer.initialize_parameters()
-
-    

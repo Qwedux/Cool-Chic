@@ -531,7 +531,7 @@ class PresetDebug(Preset):
         self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=1e-2,
-                max_itr=50,
+                max_itr=2000,
                 freq_valid=10,
                 patience=100000,
                 quantize_model=False,

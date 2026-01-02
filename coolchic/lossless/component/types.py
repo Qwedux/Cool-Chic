@@ -53,4 +53,3 @@ class DescriptorCoolChic:
 # For now, it is only possible to have a Cool-chic encoder
 # with this name i.e. this key in frame_encoder.coolchic_enc
 NAME_COOLCHIC_ENC = Literal["lossless"]
-POSSIBLE_ENCODING_DISTRIBUTIONS = Literal["logistic", "laplace", "dummy"]
