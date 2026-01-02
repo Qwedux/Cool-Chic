@@ -279,7 +279,7 @@ class PresetFNLIC(Preset):
         self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=1e-2,
-                max_itr=140000,
+                max_itr=2000,
                 freq_valid=100,
                 patience=100000,
                 quantize_model=False,

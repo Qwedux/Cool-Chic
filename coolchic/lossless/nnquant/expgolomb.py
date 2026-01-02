@@ -7,11 +7,10 @@
 # Authors: see CONTRIBUTORS.md
 
 
+import torch
 from lossless.component.types import DescriptorNN
 from lossless.nnquant.quantstep import get_q_step_from_parameter_name
-import torch
 from torch import Tensor, nn
-
 
 POSSIBLE_EXP_GOL_COUNT = {
     "arm": {
@@ -36,7 +35,7 @@ POSSIBLE_EXP_GOL_COUNT = {
 @torch.no_grad()
 def measure_expgolomb_rate(
     q_module: nn.Module, q_step: DescriptorNN, expgol_cnt: DescriptorNN
-) -> DescriptorNN:
+):
     """Get the rate associated with the current parameters.
 
     Returns:
@@ -44,8 +43,8 @@ def measure_expgolomb_rate(
             of float. It does **not** return tensor so no back propagation is possible
     """
     # Concatenate the sent parameters here to measure the entropy later
-    sent_param: DescriptorNN = {"bias": [], "weight": []}
-    rate_param: DescriptorNN = {"bias": 0.0, "weight": 0.0}
+    sent_param = {"bias": [], "weight": []}
+    rate_param = {"bias": 0.0, "weight": 0.0}
 
     param = q_module.get_param()
     # Retrieve all the sent item
