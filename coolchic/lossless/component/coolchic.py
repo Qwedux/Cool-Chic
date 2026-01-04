@@ -17,7 +17,7 @@ from fvcore.nn import FlopCountAnalysis, flop_count_table
 from lossless.component.core.arm import (Arm, _get_neighbor,
                                          _get_non_zero_pixel_ctx_index,
                                          _laplace_cdf)
-from lossless.component.core.arm_image import ImageArm
+from lossless.component.core.arm_image import ImageArm, ImageARMParameter
 from lossless.component.core.proba_output import ProbabilityOutput
 from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE, quantize)
@@ -77,6 +77,7 @@ class CoolChicEncoderParameter:
 
     layers_synthesis: List[str]
     n_ft_per_res: List[int]
+    image_arm_parameters: ImageARMParameter
     dim_arm: int = 24
     n_hidden_layers_arm: int = 2
     encoder_gain: int = 16
@@ -89,6 +90,7 @@ class CoolChicEncoderParameter:
     use_image_arm: bool = True
     use_color_regression: bool = False
     multi_region_image_arm: bool = False
+    
 
     # ==================== Not set by the init function ===================== #
     #: Automatically computed, number of different latent resolutions
@@ -154,7 +156,8 @@ class CoolChicEncoderOutput(TypedDict):
 
 class CoolChicEncoder(nn.Module):
     """CoolChicEncoder for a single frame."""
-
+    non_zero_pixel_ctx_index: Tensor
+    
     def __init__(self, param: CoolChicEncoderParameter):
         """Instantiate a cool-chic encoder for one frame.
 
@@ -260,23 +263,9 @@ class CoolChicEncoder(nn.Module):
         # ===================== ARM related stuff ==================== #
         self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm, self.param.arm_hidden_layer_dim)
         if self.param.use_image_arm:
-            if not self.param.multi_region_image_arm:
-                self.image_arm = ImageArm(
-                    context_size=self.param.arm_image_context_size,
-                    hidden_layer_dim=self.param.arm_image_hidden_layer_dim,
-                    use_color_regression=self.param.use_color_regression,
-                )
-            else:
-                # we split the image into 4 regions, each with its own image arm
-                self.image_arm = nn.ModuleList()
-                for _ in range(4):
-                    self.image_arm.append(
-                        ImageArm(
-                            context_size=self.param.arm_image_context_size,
-                            hidden_layer_dim=self.param.arm_image_hidden_layer_dim,
-                            use_color_regression=self.param.use_color_regression,
-                        )
-                    )
+            self.image_arm = ImageArm(
+                self.param.image_arm_parameters
+            )
         self.proba_output = ProbabilityOutput(self.param.use_color_regression)
 
         # Something like ['arm', 'synthesis', 'upsampling']
@@ -455,21 +444,7 @@ class CoolChicEncoder(nn.Module):
 
         # print("until now fine")
         if self.param.use_image_arm:
-            if not self.param.multi_region_image_arm:
-                raw_synth_out = self.image_arm(image, raw_synth_out)
-            else:
-                b, c, h, w = raw_synth_out.shape
-                h_half, w_half = h // 2, w // 2
-                top_left = self.image_arm[0](image[:, :, :h_half, :w_half], raw_synth_out[:, :, :h_half, :w_half])
-                top_right = self.image_arm[1](image[:, :, :h_half, w_half:], raw_synth_out[:, :, :h_half, w_half:])
-                bottom_left = self.image_arm[2](image[:, :, h_half:, :w_half], raw_synth_out[:, :, h_half:, :w_half])
-                bottom_right = self.image_arm[3](image[:, :, h_half:, w_half:], raw_synth_out[:, :, h_half:, w_half:])
-                raw_synth_out = torch.zeros_like(raw_synth_out)
-                raw_synth_out[:, :, :h_half, :w_half] = top_left
-                raw_synth_out[:, :, :h_half, w_half:] = top_right
-                raw_synth_out[:, :, h_half:, :w_half] = bottom_left
-                raw_synth_out[:, :, h_half:, w_half:] = bottom_right
-        
+            raw_synth_out = self.image_arm(image, raw_synth_out)
         mu, scale = self.proba_output(raw_synth_out, image)
 
         additional_data = {}

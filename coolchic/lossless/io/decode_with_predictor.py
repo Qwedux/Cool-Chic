@@ -5,7 +5,8 @@ import lossless.util.color_transform as color_transform
 import numpy as np
 import torch
 from lossless.io.distributions import calculate_probability_distribution
-from lossless.io.encoding_interfaces import EncodeDecodeInterface
+from lossless.io.encoding_interfaces.base_interface import \
+    EncodeDecodeInterface
 from lossless.io.types import POSSIBLE_ENCODING_DISTRIBUTIONS
 
 

@@ -66,7 +66,7 @@ class ArmLinear(nn.Module):
         * Biases are always set to zero.
 
         * Weights are set to zero if ``residual == True``. Otherwise, sample
-          from the Normal distribution: :math:`\\mathbf{W} \sim \\mathcal{N}(0,
+          from the Normal distribution: :math:`\\mathbf{W} \\sim \\mathcal{N}(0,
           \\tfrac{1}{(C_{out})^4})`.
         """
         self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
@@ -100,7 +100,7 @@ class Arm(nn.Module):
     conditional distribution :math:`p_{\\psi}(\\hat{y}_i \\mid
     \\mathbf{c}_i)` of a (quantized) latent pixel :math:`\\hat{y}_i`,
     conditioned on neighboring already decoded context pixels
-    :math:`\\mathbf{c}_i \in \\mathbb{Z}^C`, where :math:`C` denotes the
+    :math:`\\mathbf{c}_i \\in \\mathbb{Z}^C`, where :math:`C` denotes the
     number of context pixels.
 
     The distribution :math:`p_{\\psi}` is assumed to follow a Laplace
@@ -114,7 +114,7 @@ class Arm(nn.Module):
 
     .. math::
 
-        p_{\\psi}(\\hat{y}_i \\mid \\mathbf{c}_i) \sim \mathcal{L}(\\mu_i,
+        p_{\\psi}(\\hat{y}_i \\mid \\mathbf{c}_i) \\sim \\mathcal{L}(\\mu_i,
         b_i), \\text{ where } \\mu_i, b_i = f_{\\psi}(\\mathbf{c}_i).
 
     .. attention::
@@ -393,5 +393,6 @@ def _get_non_zero_pixel_ctx_index(dim_arm: int) -> Tensor:
                 36, 37, 38, 39, #
             ]
         )
+    raise ValueError(f"dim_arm {dim_arm} not supported.")
     # fmt: on
     # fmt: on
