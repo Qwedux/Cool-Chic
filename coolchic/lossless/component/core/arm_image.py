@@ -41,7 +41,7 @@ class MultiImageArmDescriptor:
     cells in a grid like fashion."""
 
     expert_indices: list[torch.Tensor] = field(init=False)
-    num_arms: torch.Tensor = field(default_factory=lambda: torch.tensor(1))
+    num_arms: torch.Tensor = field(init=False, default=torch.tensor(1))
     image_height: torch.Tensor = field(default_factory=lambda: torch.tensor(0))
     image_width: torch.Tensor = field(default_factory=lambda: torch.tensor(0))
     # value of cell (i,j) says which ARM to use for that pixel position
@@ -74,6 +74,16 @@ class MultiImageArmDescriptor:
             torch.where(router_flat == i)[0] for i in range(int(self.num_arms.item()))
         ]
 
+    def are_we_using_multiple_arms(self, multi_region_image_arm: bool = False) -> None:
+        if not multi_region_image_arm:
+            self.num_arms = torch.tensor(1)
+            self.routing_grid = torch.zeros(
+                (int(self.image_height.item()), int(self.image_width.item())), dtype=torch.int
+            )
+            self.expert_indices = [
+                torch.arange(int(self.image_height.item() * self.image_width.item()))
+            ]
+
 
 @dataclass
 class ImageARMParameter:
@@ -81,7 +91,6 @@ class ImageARMParameter:
     n_hidden_layers: int = 2
     hidden_layer_dim: int = 6
     synthesis_out_params_per_channel: list[int] = field(default_factory=lambda: [2, 2, 2])
-    channel_separation: bool = True
     use_color_regression: bool = False
     multi_region_image_arm: bool = False
     multi_region_image_arm_specification: MultiImageArmDescriptor = field(
@@ -105,8 +114,6 @@ class ImageArm(nn.Module):
             synthesis_out_params_per_channel: How many values from
                 synthesis_out does each channel consume and produce
                 (residual=True)
-            channel_separation: Use separate networks for each channel. Also use
-                information from previous channels appended to the context.
         """
         super().__init__()
         self.params = params
@@ -116,7 +123,9 @@ class ImageArm(nn.Module):
         )
         if self.params.use_color_regression:
             self.params.synthesis_out_params_per_channel = [2, 3, 4]
-
+        self.params.multi_region_image_arm_specification.are_we_using_multiple_arms(
+            self.params.multi_region_image_arm
+        )
         # ======================== Construct the MLPs ======================== #
         self.image_arm_models = nn.ModuleList(
             nn.ModuleList(
@@ -127,43 +136,6 @@ class ImageArm(nn.Module):
             )
             for _ in range(int(self.params.multi_region_image_arm_specification.num_arms.item()))
         )
-        # self.layers = [
-        #     nn.ModuleList() for _ in range(len(self.params.synthesis_out_params_per_channel))
-        # ]
-        # self.models = nn.ModuleList(
-        #     nn.Sequential() for _ in range(len(self.params.synthesis_out_params_per_channel))
-        # )
-        # for channel_idx, output_dim in enumerate(self.params.synthesis_out_params_per_channel):
-        #     self.layers[channel_idx].append(
-        #         ArmLinear(
-        #             self.params.context_size
-        #             * len(
-        #                 self.params.synthesis_out_params_per_channel
-        #             )  # context size * num_channels
-        #             + sum(
-        #                 self.params.synthesis_out_params_per_channel
-        #             )  # we can use all information from synthesis output
-        #             + channel_idx,  # extra information from already decoded channels for current pixel
-        #             self.params.hidden_layer_dim,
-        #             residual=False,
-        #         )
-        #     )
-        #     self.layers[channel_idx].append(nn.ReLU())
-
-        #     # Construct the hidden layer(s)
-        #     for _ in range(self.params.n_hidden_layers - 1):
-        #         self.layers[channel_idx].append(
-        #             ArmLinear(
-        #                 self.params.hidden_layer_dim, self.params.hidden_layer_dim, residual=True
-        #             )
-        #         )
-        #         self.layers[channel_idx].append(nn.ReLU())
-        #     # Construct the output layer. It always has output_dim 2*outputs
-        #     # since we use the second half for gating
-        #     self.layers[channel_idx].append(
-        #         ArmLinear(self.params.hidden_layer_dim, output_dim * 2, residual=False)
-        #     )
-        #     self.models[channel_idx] = nn.Sequential(*self.layers[channel_idx])
 
         self.mask_size = 9
         # we have to register the non zero context indices as buffer for .to(device) calls

@@ -77,19 +77,16 @@ class CoolChicEncoderParameter:
 
     layers_synthesis: List[str]
     n_ft_per_res: List[int]
-    image_arm_parameters: ImageARMParameter
+    image_arm_parameters: ImageARMParameter = field(init=False)
     dim_arm: int = 24
     n_hidden_layers_arm: int = 2
     encoder_gain: int = 16
     ups_k_size: int = 8
     ups_preconcat_k_size: int = 7
     latent_freq_precision: int = 12
-    arm_image_context_size: int = 8
-    arm_image_hidden_layer_dim: int = 6
     arm_hidden_layer_dim: int = 8
     use_image_arm: bool = True
     use_color_regression: bool = False
-    multi_region_image_arm: bool = False
     
 
     # ==================== Not set by the init function ===================== #
@@ -102,6 +99,7 @@ class CoolChicEncoderParameter:
 
     def __post_init__(self):
         self.latent_n_grids = len(self.n_ft_per_res)
+        self.image_arm_parameters = ImageARMParameter()
 
     def set_image_size(self, img_size: Tuple[int, int]) -> None:
         """Register the field self.img_size.
@@ -157,7 +155,7 @@ class CoolChicEncoderOutput(TypedDict):
 class CoolChicEncoder(nn.Module):
     """CoolChicEncoder for a single frame."""
     non_zero_pixel_ctx_index: Tensor
-    
+
     def __init__(self, param: CoolChicEncoderParameter):
         """Instantiate a cool-chic encoder for one frame.
 
@@ -814,12 +812,14 @@ class CoolChicEncoder(nn.Module):
                     self.arm.mlp[idx_layer].qb = layer.qb.to(device)
 
         if self.param.use_image_arm:
-            if not self.param.multi_region_image_arm:
-                self.image_arm = self.image_arm.to(device)
-                self.image_arm.non_zero_image_arm_ctx_index = (
-                    self.image_arm.non_zero_image_arm_ctx_index.to(device)
-                )
-                for model in self.image_arm.models:
+            self.image_arm = self.image_arm.to(device)
+            self.image_arm.non_zero_image_arm_ctx_index = (
+                self.image_arm.non_zero_image_arm_ctx_index.to(device)
+            )
+            for expert in self.image_arm.image_arm_models:
+                assert isinstance(expert, nn.ModuleList)
+                for model in expert:
+                    assert isinstance(model,torch.nn.Sequential)
                     for idx_layer, layer in enumerate(model):
                         layer.to(device)
                         if hasattr(layer, "qw"):
@@ -829,22 +829,6 @@ class CoolChicEncoder(nn.Module):
                         if hasattr(layer, "qb"):
                             if layer.qb is not None:
                                 model[idx_layer].qb = layer.qb.to(device)
-            else:
-                for img_arm in self.image_arm:
-                    img_arm = img_arm.to(device)
-                    img_arm.non_zero_image_arm_ctx_index = (
-                        img_arm.non_zero_image_arm_ctx_index.to(device)
-                    )
-                    for model in img_arm.models:
-                        for idx_layer, layer in enumerate(model):
-                            layer.to(device)
-                            if hasattr(layer, "qw"):
-                                if layer.qw is not None:
-                                    model[idx_layer].qw = layer.qw.to(device)
-
-                            if hasattr(layer, "qb"):
-                                if layer.qb is not None:
-                                    model[idx_layer].qb = layer.qb.to(device)
 
     def pretty_string(self, print_detailed_archi: bool = False) -> str:
         """Get a pretty string representing the layer of a ``CoolChicEncoder``

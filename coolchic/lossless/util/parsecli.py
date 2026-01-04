@@ -1,5 +1,9 @@
 from typing import Any, Dict, List
 
+from lossless.component.coolchic import CoolChicEncoderParameter
+from lossless.component.core.arm_image import (ImageARMParameter,
+                                               MultiImageArmDescriptor)
+
 
 def parse_synthesis_layers(layers_synthesis: str) -> List[str]:
     """The layers of the synthesis are presented in as a coma-separated string.
@@ -54,9 +58,7 @@ def parse_arm_archi(arm: str) -> Dict[str, int]:
     Returns:
         Dict[str, int]: The ARM architecture
     """
-    assert len(arm.split(",")) == 2, (
-        f"--arm format should be X,Y." f" Found {arm}"
-    )
+    assert len(arm.split(",")) == 2, f"--arm format should be X,Y." f" Found {arm}"
 
     dim_arm, n_hidden_layers_arm = [int(x) for x in arm.split(",")]
     arm_param = {"dim_arm": dim_arm, "n_hidden_layers_arm": n_hidden_layers_arm}
@@ -66,28 +68,46 @@ def parse_arm_archi(arm: str) -> Dict[str, int]:
 def get_coolchic_param_from_args(
     args: dict,
     coolchic_enc_name: str,
-) -> Dict[str, Any]:
-    layers_synthesis = parse_synthesis_layers(
-        args[f"layers_synthesis_{coolchic_enc_name}"]
-    )
+    image_size: tuple[int, int],
+    use_image_arm: bool = True,
+    encoder_gain: int = 16,
+) -> CoolChicEncoderParameter:
+    layers_synthesis = parse_synthesis_layers(args[f"layers_synthesis_{coolchic_enc_name}"])
     n_ft_per_res = parse_n_ft_per_res(args[f"n_ft_per_res_{coolchic_enc_name}"])
 
     coolchic_param = {
         "layers_synthesis": layers_synthesis,
         "n_ft_per_res": n_ft_per_res,
         "ups_k_size": args[f"ups_k_size_{coolchic_enc_name}"],
-        "ups_preconcat_k_size": args[
-            f"ups_preconcat_k_size_{coolchic_enc_name}"
-        ],
-        "arm_image_context_size": int(args["arm_image_context_size"]),
+        "ups_preconcat_k_size": args[f"ups_preconcat_k_size_{coolchic_enc_name}"],
         "use_color_regression": args["use_color_regression"],
-        "arm_image_hidden_layer_dim": int(args[f"arm_image_hidden_layer_dim"]),
         "arm_hidden_layer_dim": int(args[f"arm_lossless_hidden_layer_dim"]),
     }
 
     # Add ARM parameters
     coolchic_param.update(parse_arm_archi(args[f"arm_{coolchic_enc_name}"]))
-    return coolchic_param
+    encoder_param = CoolChicEncoderParameter(**coolchic_param)
+    encoder_param.image_arm_parameters = args["arm_image_params"]
+    encoder_param.image_arm_parameters.use_color_regression = args["use_color_regression"]
+    encoder_param.image_arm_parameters.multi_region_image_arm = args["multi_region_image_arm"]
+    encoder_param.image_arm_parameters.multi_region_image_arm_specification = (
+        MultiImageArmDescriptor()
+    )
+    encoder_param.image_arm_parameters.multi_region_image_arm_specification.set_image_size(
+        image_size
+    )
+    encoder_param.image_arm_parameters.multi_region_image_arm_specification.simple_grid_routing(
+        args["multi_region_image_arm_nums_experts"][0],
+        args["multi_region_image_arm_nums_experts"][1],
+    )
+
+    encoder_param.set_image_size(image_size)
+    encoder_param.use_image_arm = use_image_arm
+    encoder_param.layers_synthesis = change_n_out_synth(
+        encoder_param.layers_synthesis, 9 if args["use_color_regression"] else 6
+    )
+    encoder_param.encoder_gain = encoder_gain
+    return encoder_param
 
 
 def change_n_out_synth(layers_synth: List[str], n_out: int) -> List[str]:
@@ -108,4 +128,3 @@ def change_n_out_synth(layers_synth: List[str], n_out: int) -> List[str]:
         List[str]: List of strings with the proper number of output features.
     """
     return [lay.replace("X", str(n_out)) for lay in layers_synth]
-

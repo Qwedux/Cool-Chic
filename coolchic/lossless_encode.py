@@ -34,14 +34,13 @@ image_encoder_manager = ImageEncoderManager(
     preset_name=args["preset"], colorspace_bitdepths=colorspace_bitdepths
 )
 
-encoder_param = CoolChicEncoderParameter(**get_coolchic_param_from_args(args, "lossless"))
-encoder_param.encoder_gain = command_line_args.encoder_gain
-encoder_param.set_image_size((im_tensor.shape[2], im_tensor.shape[3]))
-encoder_param.layers_synthesis = change_n_out_synth(
-    encoder_param.layers_synthesis, 9 if args["use_color_regression"] else 6
+encoder_param = get_coolchic_param_from_args(
+    args,
+    "lossless",
+    image_size=(im_tensor.shape[2], im_tensor.shape[3]),
+    use_image_arm=command_line_args.use_image_arm,
+    encoder_gain=command_line_args.encoder_gain
 )
-encoder_param.use_image_arm = command_line_args.use_image_arm
-encoder_param.multi_region_image_arm = args["multi_region_image_arm"]
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
 # ==========================================================================================
@@ -82,7 +81,9 @@ else:
         image_encoder_manager=image_encoder_manager,
         logger=logger,
     )
-logger.log_result(f"Training completed in {image_encoder_manager.total_training_time_sec:.2f} seconds")
+logger.log_result(
+    f"Training completed in {image_encoder_manager.total_training_time_sec:.2f} seconds"
+)
 # ==========================================================================================
 # QUANTIZE AND EVALUATE
 # ==========================================================================================
