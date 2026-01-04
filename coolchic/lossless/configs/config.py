@@ -1,6 +1,9 @@
 import glob
 import os
 
+from lossless.component.core.arm_image import (ImageARMParameter,
+                                               MultiImageArmDescriptor)
+
 if os.path.exists("/itet-stor/jparada/net_scratch/"):
     BASE_PATH = "/itet-stor/jparada/net_scratch/"
     DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
@@ -39,10 +42,10 @@ args = {
     "layers_synthesis_lossless": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_lossless": "16,2", #dim arm, n_layers
     "arm_lossless_hidden_layer_dim": 8,
-    "arm_image_context_size": 8,
-    "arm_image_hidden_layer_dim": 6,
+    "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6),
     "use_color_regression": False,
     "multi_region_image_arm": False,
+    "multi_region_image_arm_nums_experts": [2,2],
     "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,

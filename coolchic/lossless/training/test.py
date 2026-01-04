@@ -14,11 +14,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from lossless.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
-from lossless.component.frame import (NAME_COOLCHIC_ENC, FrameEncoder,
-                                      FrameEncoderOutput)
-from lossless.component.types import DescriptorCoolChic, DescriptorNN
-from lossless.io.format.yuv import convert_420_to_444
+from lossless.component.coolchic import CoolChicEncoder
 from lossless.training.loss import LossFunctionOutput  # _compute_mse,
 from lossless.training.loss import loss_function
 # from lossless.util.codingstructure import Frame
