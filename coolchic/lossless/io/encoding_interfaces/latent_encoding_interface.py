@@ -5,12 +5,13 @@ from _io import BufferedReader
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.io.encoding_interfaces.base_interface import \
     EncodeDecodeInterface
+from lossless.util.color_transform import ColorBitdepths
 
 
 class LatentEncodeDecodeInterface(EncodeDecodeInterface):
-    def __init__(self, data: list[torch.Tensor], model: CoolChicEncoder) -> None:
+    def __init__(self, data: list[torch.Tensor], model: CoolChicEncoder, ct_range:ColorBitdepths) -> None:
         # latents are a list of tensors of shape [1, C, H, W]
-        super().__init__(data, model)
+        super().__init__(data, model, ct_range)
         self.model = model
         self.current_latent_idx = 0
         self.current_spatial_pos = [0, 0, 0, 0]
@@ -37,7 +38,7 @@ class LatentEncodeDecodeInterface(EncodeDecodeInterface):
             flat_index = flat_index // latent_shape[dim]
         return res
 
-    def advance_iterators(self) -> None:
+    def advance_iterators(self, testing_stop: int = -1) -> None:
         if self.current_latent_idx >= len(self.data):
             raise StopIteration("All latents have been processed.")
 

@@ -87,7 +87,6 @@ class CoolChicEncoderParameter:
     arm_hidden_layer_dim: int = 8
     use_image_arm: bool = True
     use_color_regression: bool = False
-    
 
     # ==================== Not set by the init function ===================== #
     #: Automatically computed, number of different latent resolutions
@@ -154,6 +153,7 @@ class CoolChicEncoderOutput(TypedDict):
 
 class CoolChicEncoder(nn.Module):
     """CoolChicEncoder for a single frame."""
+
     non_zero_pixel_ctx_index: Tensor
 
     def __init__(self, param: CoolChicEncoderParameter):
@@ -259,11 +259,11 @@ class CoolChicEncoder(nn.Module):
         )
 
         # ===================== ARM related stuff ==================== #
-        self.arm = Arm(self.param.dim_arm, self.param.n_hidden_layers_arm, self.param.arm_hidden_layer_dim)
+        self.arm = Arm(
+            self.param.dim_arm, self.param.n_hidden_layers_arm, self.param.arm_hidden_layer_dim
+        )
         if self.param.use_image_arm:
-            self.image_arm = ImageArm(
-                self.param.image_arm_parameters
-            )
+            self.image_arm = ImageArm(self.param.image_arm_parameters)
         self.proba_output = ProbabilityOutput(self.param.use_color_regression)
 
         # Something like ['arm', 'synthesis', 'upsampling']
@@ -819,7 +819,7 @@ class CoolChicEncoder(nn.Module):
             for expert in self.image_arm.image_arm_models:
                 assert isinstance(expert, nn.ModuleList)
                 for model in expert:
-                    assert isinstance(model,torch.nn.Sequential)
+                    assert isinstance(model, torch.nn.Sequential)
                     for idx_layer, layer in enumerate(model):
                         layer.to(device)
                         if hasattr(layer, "qw"):

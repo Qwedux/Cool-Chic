@@ -14,7 +14,7 @@ class EncodeDecodeInterface:
 
     def __init__(self, data, model: CoolChicEncoder, ct_range: ColorBitdepths) -> None:
         self.data = data
-        self.predictor = model
+        self.model = model
         self.ct_range = ct_range
 
     def reset_iterators(self) -> None:
@@ -27,7 +27,7 @@ class EncodeDecodeInterface:
         raise NotImplementedError
 
     def get_pdf_parameters(self, features: torch.Tensor) -> tuple:
-        return self.predictor(features)
+        return self.model(features)
 
     def get_current_element(self):
         raise NotImplementedError

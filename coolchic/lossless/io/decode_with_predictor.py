@@ -12,6 +12,7 @@ from lossless.io.types import POSSIBLE_ENCODING_DISTRIBUTIONS
 
 def decode_quick_check(
     prob_distributions: list[torch.Tensor],
+    channel_indices: list[int],
     bitstream_path: str = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
     ct: color_transform.ColorBitdepths = color_transform.YCoCgBitdepths(),
     offset: int = 4,
@@ -24,10 +25,12 @@ def decode_quick_check(
 
     decoded_symbols = []
     with torch.no_grad():
-        for prob_distribution in prob_distributions:
+        for i, prob_distribution in enumerate(prob_distributions):
             prob_array = prob_distribution.detach().cpu().flatten().numpy()
             model = constriction.stream.model.Categorical(prob_array, perfect=False)  # type: ignore
-            decoded_char = torch.tensor(dec.decode(model, 1)[0]) + ct.ranges_int[0][0]
+            decoded_char = (
+                torch.tensor(dec.decode(model, 1)[0]) + ct.ranges_int[channel_indices[i]][0]
+            )
             decoded_symbols.append(decoded_char.item())
     return decoded_symbols
 
@@ -35,7 +38,6 @@ def decode_quick_check(
 def decode_with_predictor(
     enc_dec_interface: EncodeDecodeInterface,
     bitstream_path: str = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
-    ct=color_transform.YCoCgBitdepths(),
     distribution: POSSIBLE_ENCODING_DISTRIBUTIONS = "logistic",
 ):
     enc_dec_interface.reset_iterators()
@@ -55,9 +57,11 @@ def decode_with_predictor(
                 ch_ind = enc_dec_interface.get_channel_idx()
                 prob_distributions.append(
                     calculate_probability_distribution(
-                        mu - ct.ranges_int[ch_ind][0] / ct.scaling_factors[ch_ind],
+                        mu
+                        - enc_dec_interface.ct_range.ranges_int[ch_ind][0]
+                        / enc_dec_interface.ct_range.scaling_factors[ch_ind],
                         scale,
-                        color_bitdepths=ct,
+                        color_bitdepths=enc_dec_interface.ct_range,
                         distribution=distribution,
                         channel_idx=ch_ind,
                     )
@@ -66,9 +70,14 @@ def decode_with_predictor(
                     prob_distributions[-1].detach().cpu().numpy(), perfect=False
                 )
                 symbols_decoded.append(
-                    (torch.tensor(dec.decode(model, 1)[0]) + ct.ranges_int[ch_ind][0]).item()
+                    (
+                        torch.tensor(dec.decode(model, 1)[0])
+                        + enc_dec_interface.ct_range.ranges_int[ch_ind][0]
+                    ).item()
                 )
-                enc_dec_interface.set_decoded_element(symbols_decoded[-1])
+                enc_dec_interface.set_decoded_element(
+                    symbols_decoded[-1] / enc_dec_interface.ct_range.scaling_factors[ch_ind]
+                )
                 enc_dec_interface.advance_iterators()
             except StopIteration:
                 break
