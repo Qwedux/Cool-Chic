@@ -50,8 +50,7 @@ cd ${DIRECTORY}
 
 # Execute your code
 # python3 lossless_encode.py $SLURM_ARRAY_TASK_ID RGB true 16_12_2025_RGB_arm_chongus_no_color_regression_gain_test_Kodak 128
-python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=16_12_2025_RGB_arm_chongus_no_color_regression_gain_test_Kodak
-
+python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=05_01_2026_YCoCg_arm_smol_no_color_regression_gain_test_Kodak
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
 
