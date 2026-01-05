@@ -11,8 +11,8 @@ from lossless.io.types import POSSIBLE_ENCODING_DISTRIBUTIONS
 
 
 def decode_quick_check(
-    bitstream_path: str,
     prob_distributions: list[torch.Tensor],
+    bitstream_path: str = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
     ct: color_transform.ColorBitdepths = color_transform.YCoCgBitdepths(),
     offset: int = 4,
 ):
@@ -33,9 +33,9 @@ def decode_quick_check(
 
 
 def decode_with_predictor(
-    bitstream_path: str,
     enc_dec_interface: EncodeDecodeInterface,
-    ct=color_transform.ColorBitdepths(),
+    bitstream_path: str = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    ct=color_transform.YCoCgBitdepths(),
     distribution: POSSIBLE_ENCODING_DISTRIBUTIONS = "logistic",
 ):
     enc_dec_interface.reset_iterators()

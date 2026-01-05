@@ -250,9 +250,13 @@ class ImageArm(nn.Module):
             sum(self.params.synthesis_out_params_per_channel[:i])
             for i in range(len(self.params.synthesis_out_params_per_channel) + 1)
         ]
-        out_probas_param = torch.zeros_like(
-            raw_synth_out, dtype=raw_synth_out.dtype, device=raw_synth_out.device
+        raw_synth_out_flat = raw_synth_out.permute(0, 2, 3, 1).reshape(
+            -1, sum(self.params.synthesis_out_params_per_channel)
         )
+        out_probas_param_flat = torch.zeros_like(
+            raw_synth_out_flat, dtype=raw_synth_out.dtype, device=raw_synth_out.device
+        )
+
         for expert_idx, indices in enumerate(
             self.params.multi_region_image_arm_specification.expert_indices
         ):
@@ -263,18 +267,20 @@ class ImageArm(nn.Module):
                 expert_input = prepared_inputs[channel][indices, :]
                 raw_outs = self.image_arm_models[expert_idx][channel](expert_input)  # type: ignore
                 raw_proba_param, gate = raw_outs.chunk(2, dim=1)
+
                 # f(inpt) = inpt + res_correction * gate
-                out_probas_param[:, cutoffs[channel] : cutoffs[channel + 1], :, :].view(
-                    -1, sum(self.params.synthesis_out_params_per_channel)
-                )[indices, :] = raw_synth_out.permute(0, 2, 3, 1).reshape(
-                    -1, sum(self.params.synthesis_out_params_per_channel)
-                )[
-                    indices, cutoffs[channel] : cutoffs[channel + 1]
-                ] + raw_proba_param * torch.sigmoid(
-                    gate
+                gated_value = raw_proba_param * torch.sigmoid(gate)
+
+                # Update the flattened output tensor
+                out_probas_param_flat[indices, cutoffs[channel] : cutoffs[channel + 1]] = (
+                    raw_synth_out_flat[indices, cutoffs[channel] : cutoffs[channel + 1]]
+                    + gated_value
                 )
 
-        reshaped_image_arm_out = out_probas_param.permute(0, 3, 1, 2)
+        # Reshape back to [1, H, W, S] then permute to [1, S, H, W]
+        reshaped_image_arm_out = out_probas_param_flat.view(
+            raw_synth_out.shape[0], raw_synth_out.shape[2], raw_synth_out.shape[3], -1
+        ).permute(0, 3, 1, 2)
 
         return reshaped_image_arm_out
 

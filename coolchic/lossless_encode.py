@@ -4,8 +4,7 @@ import sys
 sys.path.append(os.getcwd())
 import numpy as np
 import torch
-from lossless.component.coolchic import (CoolChicEncoder,
-                                         CoolChicEncoderParameter)
+from lossless.component.coolchic import CoolChicEncoder
 from lossless.configs.config import args, str_args
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
@@ -13,8 +12,7 @@ from lossless.training.train import train
 from lossless.util.command_line_args_loading import load_args
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
-from lossless.util.parsecli import (change_n_out_synth,
-                                    get_coolchic_param_from_args)
+from lossless.util.parsecli import get_coolchic_param_from_args
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
@@ -39,7 +37,7 @@ encoder_param = get_coolchic_param_from_args(
     "lossless",
     image_size=(im_tensor.shape[2], im_tensor.shape[3]),
     use_image_arm=command_line_args.use_image_arm,
-    encoder_gain=command_line_args.encoder_gain
+    encoder_gain=command_line_args.encoder_gain,
 )
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
