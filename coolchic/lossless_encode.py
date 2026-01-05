@@ -29,7 +29,7 @@ im_path = args["input"][command_line_args.image_index]
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=command_line_args.color_space
 )
-im_tensor = im_tensor[:,:64, :64] # for faster testing
+# im_tensor = im_tensor[:,:64, :64] # for faster testing
 
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
@@ -121,18 +121,22 @@ logger.log_result(
     f"Final results after quantization: {predicted_priors_rates}"
 )
 
+coolchic.to_device("cpu")
+im_tensor = im_tensor.to("cpu")
 raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out()
 encode_decode_interface = ImageEncodeDecodeInterface(
     data=(torch.clone(im_tensor), torch.clone(raw_synth_out)), model=coolchic, ct_range=colorspace_bitdepths
 )
 bitstream, symbols_to_encode, prob_distributions_enc, channel_indices = encode_with_predictor(
     enc_dec_interface=encode_decode_interface,
+    logger=logger,
     distribution="logistic",
-    output_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    output_path=None,
 )
 symbols_decoded, prob_distributions = decode_with_predictor(
     enc_dec_interface=encode_decode_interface,
-    bitstream_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    bitstream=bitstream,
+    bitstream_path=None,
     distribution="logistic",
 )
 logger.log_result("Encode-decode finished.")
