@@ -52,7 +52,7 @@ args = {
     # training preset
     "preset": "debug",
     "pretrained_model_path": "../logs/full_runs/2026_01_05_default_name/trained_models/2026_01_05__20_55_36__trained_coolchic_kodak_kodim01_img_rate_4.001727104187012.pth",
-    "use_pretrained": True,
+    "use_pretrained": False,
     "quantize_model": True,
 }
 
