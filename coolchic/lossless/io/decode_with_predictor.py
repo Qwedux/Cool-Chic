@@ -13,14 +13,17 @@ from lossless.io.types import POSSIBLE_ENCODING_DISTRIBUTIONS
 def decode_quick_check(
     prob_distributions: list[torch.Tensor],
     channel_indices: list[int],
-    bitstream_path: str = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    bitstream,
+    bitstream_path: str | None= "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
     ct: color_transform.ColorBitdepths = color_transform.YCoCgBitdepths(),
     offset: int = 4,
 ):
-    with open(bitstream_path, "rb") as f:
-        header = f.read(offset)  # 3 integers * 4 bytes each
-        num_symbols = struct.unpack("i" * (offset // 4), header)
-    bitstream = np.fromfile(bitstream_path, dtype=np.uint32, offset=offset)
+    if bitstream_path is not None:
+        with open(bitstream_path, "rb") as f:
+            header = f.read(offset)  # 3 integers * 4 bytes each
+            num_symbols = struct.unpack("i" * (offset // 4), header)
+        bitstream = np.fromfile(bitstream_path, dtype=np.uint32, offset=offset)
+    
     dec = constriction.stream.stack.AnsCoder(bitstream)  # type: ignore
 
     decoded_symbols = []
@@ -37,14 +40,16 @@ def decode_quick_check(
 
 def decode_with_predictor(
     enc_dec_interface: EncodeDecodeInterface,
-    bitstream_path: str = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    bitstream,
+    bitstream_path: str | None= "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    # bitstream_path: str = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
     distribution: POSSIBLE_ENCODING_DISTRIBUTIONS = "logistic",
 ):
     enc_dec_interface.reset_iterators()
-    with open(bitstream_path, "rb") as f:
-        offset = enc_dec_interface.set_packing_parameters(f)
-    print(f"offset: {offset}")
-    bitstream = np.fromfile(bitstream_path, dtype=np.uint32, offset=offset)
+    if bitstream_path is not None:
+        with open(bitstream_path, "rb") as f:
+            offset = enc_dec_interface.set_packing_parameters(f)
+        bitstream = np.fromfile(bitstream_path, dtype=np.uint32, offset=offset)
     dec = constriction.stream.stack.AnsCoder(bitstream)  # type: ignore
 
     with torch.no_grad():

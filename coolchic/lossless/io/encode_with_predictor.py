@@ -5,12 +5,14 @@ from lossless.io.distributions import calculate_probability_distribution
 from lossless.io.encoding_interfaces.base_interface import \
     EncodeDecodeInterface
 from lossless.io.types import POSSIBLE_ENCODING_DISTRIBUTIONS
+from lossless.util.logger import TrainingLogger
 
 
 def encode_with_predictor(
     enc_dec_interface: EncodeDecodeInterface,
+    logger: TrainingLogger,
     distribution: POSSIBLE_ENCODING_DISTRIBUTIONS = "logistic",
-    output_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    output_path: str | None = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
 ):
     enc_dec_interface.reset_iterators()
 
@@ -63,18 +65,19 @@ def encode_with_predictor(
             try:
                 enc.encode_reverse(symbol_to_encode, model)
             except Exception as e:
-                print(f"probability: {prob_distribution}")
-                print(f"Error encoding symbol {symbol_to_encode} at index {symbol_index}")
+                logger.log_result(f"probability: {prob_distribution}")
+                logger.log_result(f"Error encoding symbol {symbol_to_encode} at index {symbol_index}")
                 raise e
 
     bitstream = enc.get_compressed()
-    bitstream.tofile(output_path)
-    with open(output_path, "rb") as f:
-        original_data = f.read()
-    with open(output_path, "wb") as f:
-        f.write(enc_dec_interface.get_packing_parameters())
-        f.write(original_data)
+    if output_path is not None:
+        bitstream.tofile(output_path)
+        with open(output_path, "rb") as f:
+            original_data = f.read()
+        with open(output_path, "wb") as f:
+            f.write(enc_dec_interface.get_packing_parameters())
+            f.write(original_data)
 
-    print(f"Theoretical bits per sub pixel: {bits_theoretical/len(symbols_to_encode)}")
+    logger.log_result(f"Theoretical bits per sub pixel: {bits_theoretical/len(symbols_to_encode)}")
 
     return bitstream, raw_values_of_symbols_to_encode, prob_distributions, channel_indices

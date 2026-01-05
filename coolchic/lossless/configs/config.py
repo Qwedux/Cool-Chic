@@ -51,8 +51,8 @@ args = {
     "ups_preconcat_k_size_lossless": 7,
     # training preset
     "preset": "debug",
-    "pretrained_model_path": "../logs/full_runs/trained_models/2025_11_10__23_56_17__trained_coolchic_kodak_kodim17_img_rate_2.167128562927246.pth",
-    "use_pretrained": False,
+    "pretrained_model_path": "../logs/full_runs/2026_01_05_default_name/trained_models/2026_01_05__20_55_36__trained_coolchic_kodak_kodim01_img_rate_4.001727104187012.pth",
+    "use_pretrained": True,
     "quantize_model": True,
 }
 
