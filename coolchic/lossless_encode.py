@@ -6,6 +6,10 @@ import numpy as np
 import torch
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.configs.config import args, str_args
+from lossless.io.decode_with_predictor import decode_with_predictor
+from lossless.io.encode_with_predictor import encode_with_predictor
+from lossless.io.encoding_interfaces.image_encoding_interface import \
+    ImageEncodeDecodeInterface
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
@@ -25,6 +29,8 @@ im_path = args["input"][command_line_args.image_index]
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=command_line_args.color_space
 )
+im_tensor = im_tensor[:,:64, :64] # for faster testing
+
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
 # ==========================================================================================
@@ -114,6 +120,27 @@ logger.log_result(
     f"Rate per module: {rate_per_module},\n"
     f"Final results after quantization: {predicted_priors_rates}"
 )
+
+raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out()
+encode_decode_interface = ImageEncodeDecodeInterface(
+    data=(torch.clone(im_tensor), torch.clone(raw_synth_out)), model=coolchic, ct_range=colorspace_bitdepths
+)
+bitstream, symbols_to_encode, prob_distributions_enc, channel_indices = encode_with_predictor(
+    enc_dec_interface=encode_decode_interface,
+    distribution="logistic",
+    output_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+)
+symbols_decoded, prob_distributions = decode_with_predictor(
+    enc_dec_interface=encode_decode_interface,
+    bitstream_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
+    distribution="logistic",
+)
+logger.log_result("Encode-decode finished.")
+symbols_enc_tensor = torch.tensor(symbols_to_encode)
+symbols_dec_tensor = torch.tensor(symbols_decoded)
+is_encode_decode_equal = torch.equal(symbols_enc_tensor, symbols_dec_tensor)
+logger.log_result(f"Encode-decode equality check: {is_encode_decode_equal}")
+logger.log_result(f"Rate Img bistream: {bitstream.nbytes * 8 / im_tensor.numel()}")
 
 # ==========================================================================================
 # SAVE MODEL
