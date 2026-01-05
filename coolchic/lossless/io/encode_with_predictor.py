@@ -11,7 +11,7 @@ def encode_with_predictor(
     enc_dec_interface: EncodeDecodeInterface,
     ct: color_transform.ColorBitdepths = color_transform.YCoCgBitdepths(),
     distribution: POSSIBLE_ENCODING_DISTRIBUTIONS = "logistic",
-    output_path="./test-workdir/encoder_size_test/coolchic_encoded.binary",
+    output_path="./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
 ):
     enc_dec_interface.reset_iterators()
     

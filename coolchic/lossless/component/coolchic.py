@@ -495,7 +495,7 @@ class CoolChicEncoder(nn.Module):
 
         return res
 
-    def get_raw_synth_out(
+    def get_latents_raw_synth_out(
         self,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
@@ -543,7 +543,7 @@ class CoolChicEncoder(nn.Module):
         ups_out = self.upsampling(decoder_side_latent)
         # has e.g. shape [1, 9, H, W]
         raw_synth_out = self.synthesis(ups_out)
-        return raw_synth_out
+        return raw_synth_out, decoder_side_latent
 
     # ------- Getter / Setter and Initializer
     def get_param(self) -> OrderedDict[str, Tensor]:

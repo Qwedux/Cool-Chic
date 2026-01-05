@@ -3,6 +3,7 @@ import struct
 import torch
 from _io import BufferedReader
 from lossless.component.coolchic import CoolChicEncoder
+from lossless.util.color_transform import ColorBitdepths
 
 
 class EncodeDecodeInterface:
@@ -11,14 +12,15 @@ class EncodeDecodeInterface:
     The idea is to abstract the encoding and decoding logic from the specifics of what is being encoded - latents, image pixels, etc.
     """
 
-    def __init__(self, data, model: CoolChicEncoder) -> None:
+    def __init__(self, data, model: CoolChicEncoder, ct_range: ColorBitdepths) -> None:
         self.data = data
         self.predictor = model
+        self.ct_range = ct_range
 
     def reset_iterators(self) -> None:
         raise NotImplementedError
 
-    def advance_iterators(self) -> None:
+    def advance_iterators(self, testing_stop: int = -1) -> None:
         raise NotImplementedError
 
     def get_next_predictor_features(self) -> torch.Tensor:
@@ -29,7 +31,10 @@ class EncodeDecodeInterface:
 
     def get_current_element(self):
         raise NotImplementedError
-
+    
+    def get_current_element_int(self) -> int:
+        raise NotImplementedError
+    
     def set_decoded_element(self, element) -> None:
         raise NotImplementedError
 
