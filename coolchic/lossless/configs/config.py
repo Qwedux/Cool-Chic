@@ -44,7 +44,7 @@ args = {
     "arm_lossless_hidden_layer_dim": 8,
     "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6),
     "use_color_regression": False,
-    "multi_region_image_arm": False,
+    "multi_region_image_arm": True,
     "multi_region_image_arm_nums_experts": [2,2],
     "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
     "ups_k_size_lossless": 8,
