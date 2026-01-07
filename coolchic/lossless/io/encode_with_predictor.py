@@ -1,5 +1,4 @@
 import constriction
-import lossless.util.color_transform as color_transform
 import torch
 from lossless.io.distributions import calculate_probability_distribution
 from lossless.io.encoding_interfaces.base_interface import \
@@ -42,7 +41,10 @@ def encode_with_predictor(
                         channel_idx=ch_ind,
                     )
                 )
-                raw_values_of_symbols_to_encode.append(enc_dec_interface.get_current_element_int())
+                raw_values_of_symbols_to_encode.append(
+                    (enc_dec_interface.get_current_element()
+                    * enc_dec_interface.ct_range.scaling_factors[ch_ind]).int().item()
+                )
                 symbols_to_encode.append(
                     raw_values_of_symbols_to_encode[-1]
                     - enc_dec_interface.ct_range.ranges_int[ch_ind][0]
@@ -66,7 +68,9 @@ def encode_with_predictor(
                 enc.encode_reverse(symbol_to_encode, model)
             except Exception as e:
                 logger.log_result(f"probability: {prob_distribution}")
-                logger.log_result(f"Error encoding symbol {symbol_to_encode} at index {symbol_index}")
+                logger.log_result(
+                    f"Error encoding symbol {symbol_to_encode} at index {symbol_index}"
+                )
                 raise e
 
     bitstream = enc.get_compressed()
