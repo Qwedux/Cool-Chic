@@ -32,7 +32,7 @@ class LatentBitdepths(ColorBitdepths):
         self.bitdepths = [6]
         self.scaling_factors = [1]
         self.bins = [64]
-        self.ranges_int = [[-32, 31]]
+        self.ranges_int = [[-31, 32]]
 
 
 def rgb_to_ycocg(img):
