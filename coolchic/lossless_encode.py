@@ -110,7 +110,7 @@ with torch.no_grad():
         image=im_tensor,
         quantizer_noise_type="none",
         quantizer_type="hardround",
-        AC_MAX_VAL=-1,
+        AC_MAX_VAL=31,
         flag_additional_outputs=False,
     )
     predicted_priors_rates = loss_function(
@@ -133,7 +133,8 @@ logger.log_result(
 
 coolchic.to_device("cpu")
 im_tensor = im_tensor.to("cpu")
-raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out()
+with torch.no_grad():
+    raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=31)
 
 # first do image
 enc_dec_im_interface = ImageEncodeDecodeInterface(
@@ -167,7 +168,7 @@ enc_dec_latent_interface = LatentEncodeDecodeInterface(
 )
 bitstream_latent, latent_symbols_pre_encoding, _, _ = encode_with_predictor(
     enc_dec_interface=enc_dec_latent_interface,
-    distribution="logistic",
+    distribution="laplace",
     output_path=None,
     logger=logger,
     # there are only 4 latents per 9 image pixels, so total_latent_bits / (num_latents/4*9)
@@ -176,7 +177,7 @@ bitstream_latent, latent_symbols_pre_encoding, _, _ = encode_with_predictor(
 )
 latent_symbols_post_encoding, prob_distributions_dec = decode_with_predictor(
     enc_dec_interface=enc_dec_latent_interface,
-    distribution="logistic",
+    distribution="laplace",
     bitstream=bitstream_latent,
     bitstream_path=None,
 )
