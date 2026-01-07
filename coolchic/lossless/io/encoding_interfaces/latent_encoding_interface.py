@@ -12,7 +12,6 @@ class LatentEncodeDecodeInterface(EncodeDecodeInterface):
     def __init__(self, data: list[torch.Tensor], model: CoolChicEncoder, ct_range:ColorBitdepths) -> None:
         # latents are a list of tensors of shape [1, C, H, W]
         super().__init__(data, model, ct_range)
-        self.model = model
         self.current_latent_idx = 0
         self.current_spatial_pos = [0, 0, 0, 0]
         self.header_size = 4
@@ -41,9 +40,10 @@ class LatentEncodeDecodeInterface(EncodeDecodeInterface):
     def advance_iterators(self, testing_stop: int = -1) -> None:
         if self.current_latent_idx >= len(self.data):
             raise StopIteration("All latents have been processed.")
-
         flat_index = self._iterator_to_flat_index()
         flat_index += 1
+        if testing_stop > 0 and flat_index > testing_stop:
+            raise StopIteration("Partial stop for testing.")
 
         if flat_index >= self.data[self.current_latent_idx].numel():
             # move to next latent
@@ -66,7 +66,7 @@ class LatentEncodeDecodeInterface(EncodeDecodeInterface):
         # print("Getting PDF parameters for latent index", self.current_latent_idx, "at position", self.current_spatial_pos)
         # print("Features:", features.dtype, features.shape, features)
         # raise StopExecution()
-        mu, scale, log_scale = super().get_pdf_parameters(features)
+        mu, scale, log_scale = self.model.arm(features)
         return mu[0], scale[0]
 
     def get_current_element(self):
@@ -91,5 +91,3 @@ class LatentEncodeDecodeInterface(EncodeDecodeInterface):
 
     def get_channel_idx(self) -> int:
         return self.current_spatial_pos[1]
-
-
