@@ -41,3 +41,4 @@ logs_cluster/**
 util_Commands.md
 coolchic/image_arm_before_quantization.pth
 coolchic/testing/data/**
+*.svg

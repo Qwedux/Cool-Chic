@@ -16,6 +16,7 @@ class EncodeDecodeInterface:
         self.data = data
         self.model = model
         self.ct_range = ct_range
+        self.normalization_constant = 1.0
 
     def reset_iterators(self) -> None:
         raise NotImplementedError

@@ -12,7 +12,6 @@ def encode_with_predictor(
     logger: TrainingLogger | None,
     distribution: POSSIBLE_ENCODING_DISTRIBUTIONS = "logistic",
     output_path: str | None = "./test-workdir/encoder_size_test/coolchic_encoded_image.binary",
-    bpd_normlization_constant: float = 1.0,
 ):
     enc_dec_interface.reset_iterators()
 
@@ -91,7 +90,7 @@ def encode_with_predictor(
             f.write(enc_dec_interface.get_packing_parameters())
             f.write(original_data)
 
-    theoretical_bpd_string = f"Theoretical bits per sub pixel: {bits_theoretical/len(symbols_to_encode)*bpd_normlization_constant}"
+    theoretical_bpd_string = f"Theoretical bits per sub pixel: {bits_theoretical/len(symbols_to_encode)*enc_dec_interface.normalization_constant}"
     if logger is not None:
         logger.log_result(theoretical_bpd_string)
     else:

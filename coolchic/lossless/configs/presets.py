@@ -281,72 +281,73 @@ class PresetFNLIC(Preset):
                 lr=1e-2,
                 max_itr=140000,
                 freq_valid=100,
-                patience=100000,
+                patience=5000,
                 quantize_model=False,
                 schedule_lr=True,
                 softround_temperature=(0.3, 0.1),
-                noise_parameter=(2.0, 1.0),
+                noise_parameter=(0.25, 0.1),
                 quantizer_noise_type="kumaraswamy",
                 quantizer_type="softround",
                 optimized_module=["all"],
             )
         ]
 
-        # 2nd stage with STE
-        lr = 0.0001
-        while lr > 10.0e-6:
-            self.training_phases.append(
-                TrainerPhase(
-                    lr=lr,
-                    max_itr=100,
-                    freq_valid=10,
-                    patience=50,
-                    quantize_model=False,
-                    schedule_lr=True,
-                    # This is only used to parameterize the backward of the quantization
-                    softround_temperature=(1e-4, 1e-4),
-                    noise_parameter=(
-                        1.0,
-                        1.0,
-                    ),  # Kumaraswamy noise with parameter = 1 --> Uniform noise
-                    quantizer_noise_type="none",
-                    quantizer_type="ste",
-                    optimized_module=["all"],
-                )
-            )
-            lr *= 0.8
+        # # 2nd stage with STE
+        # lr = 0.0001
+        # while lr > 10.0e-6:
+        #     self.training_phases.append(
+        #         TrainerPhase(
+        #             lr=lr,
+        #             max_itr=100,
+        #             freq_valid=10,
+        #             patience=50,
+        #             quantize_model=False,
+        #             schedule_lr=True,
+        #             # This is only used to parameterize the backward of the quantization
+        #             softround_temperature=(1e-4, 1e-4),
+        #             noise_parameter=(
+        #                 1.0,
+        #                 1.0,
+        #             ),  # Kumaraswamy noise with parameter = 1 --> Uniform noise
+        #             quantizer_noise_type="none",
+        #             quantizer_type="ste",
+        #             optimized_module=["all"],
+        #         )
+        #     )
+        #     lr *= 0.8
 
-        # 3rd stage: quantize the networks and then re-tune the latent
-        self.training_phases.append(
-            TrainerPhase(
-                lr=lr,
-                max_itr=100,
-                freq_valid=100,
-                patience=100,
-                quantize_model=True,
-                schedule_lr=False,
-                softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
-                optimized_module=["all"],
-            )
-        )
-        self.training_phases.append(
-            TrainerPhase(
-                lr=1e-4,
-                max_itr=1000,
-                freq_valid=10,
-                patience=50,
-                quantize_model=False,
-                schedule_lr=False,
-                softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
-                optimized_module=["latent"],  # ! Only fine tune the latent
-            )
-        )
+        # # 3rd stage: quantize the networks and then re-tune the latent
+        # lr = 10.0e-6
+        # self.training_phases.append(
+        #     TrainerPhase(
+        #         lr=lr,
+        #         max_itr=100,
+        #         freq_valid=100,
+        #         patience=100,
+        #         quantize_model=True,
+        #         schedule_lr=False,
+        #         softround_temperature=(1e-4, 1e-4),
+        #         noise_parameter=(1.0, 1.0),
+        #         quantizer_noise_type="none",
+        #         quantizer_type="ste",
+        #         optimized_module=["all"],
+        #     )
+        # )
+        # self.training_phases.append(
+        #     TrainerPhase(
+        #         lr=1e-4,
+        #         max_itr=1000,
+        #         freq_valid=10,
+        #         patience=50,
+        #         quantize_model=False,
+        #         schedule_lr=False,
+        #         softround_temperature=(1e-4, 1e-4),
+        #         noise_parameter=(1.0, 1.0),
+        #         quantizer_noise_type="none",
+        #         quantizer_type="ste",
+        #         optimized_module=["latent"],  # ! Only fine tune the latent
+        #     )
+        # )
 
         # 5 candidates, then 2 then 1
         self.warmup = Warmup(
@@ -356,12 +357,12 @@ class PresetFNLIC(Preset):
                     training_phase=TrainerPhase(
                         lr=1e-2,
                         max_itr=400,
-                        freq_valid=400,
+                        freq_valid=100,
                         patience=100000,
                         quantize_model=False,
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
-                        noise_parameter=(2.0, 2.0),
+                        noise_parameter=(0.25, 0.2),
                         quantizer_noise_type="kumaraswamy",
                         quantizer_type="softround",
                         optimized_module=["all"],
@@ -372,12 +373,12 @@ class PresetFNLIC(Preset):
                     training_phase=TrainerPhase(
                         lr=1e-2,
                         max_itr=1000,
-                        freq_valid=10,
+                        freq_valid=100,
                         patience=100000,
                         quantize_model=False,
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
-                        noise_parameter=(2.0, 2.0),
+                        noise_parameter=(0.25, 0.2),
                         quantizer_noise_type="kumaraswamy",
                         quantizer_type="softround",
                         optimized_module=["all"],
@@ -476,6 +477,7 @@ class PresetC3xIntra(Preset):
             ]
         )
 
+
 class PresetC3xInter(Preset):
     def __init__(
         self,
@@ -565,7 +567,6 @@ class PresetDebug(Preset):
                 quantizer_type="ste",
                 quantizer_noise_type="none",
                 optimized_module=["latent"],  # ! Only fine tune the latent
-                
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(
                     1.0,

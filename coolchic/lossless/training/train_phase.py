@@ -51,6 +51,9 @@ def _train_single_phase(
     defined in ``training_phase``."""
 
     model.train()
+    model.compile(fullgraph=True)
+    # check if the model is compiled
+
     best_model = model.get_param()
 
     # ------ Build the list of parameters to optimize
@@ -139,7 +142,7 @@ def _train_single_phase(
             param.grad = None
 
         # forward / backward
-        out_forward = model.forward(
+        out_forward = model(
             image=target_image,
             quantizer_noise_type=training_phase.quantizer_noise_type,
             quantizer_type=training_phase.quantizer_type,

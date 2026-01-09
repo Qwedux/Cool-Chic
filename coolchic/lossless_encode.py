@@ -25,6 +25,7 @@ from lossless.util.parsecli import get_coolchic_param_from_args
 
 torch.autograd.set_detect_anomaly(True)
 torch.set_float32_matmul_precision("high")
+# torch._logging.set_logs(graph_code=True)
 
 # ==========================================================================================
 # LOAD COMMAND LINE ARGS AND IMAGE
@@ -131,63 +132,59 @@ logger.log_result(
 # FULL ENCODE-DECODE TO BITSTREAM
 # ==========================================================================================
 
-coolchic.to_device("cpu")
-im_tensor = im_tensor.to("cpu")
-with torch.no_grad():
-    raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=31)
+# coolchic.to_device("cpu")
+# im_tensor = im_tensor.to("cpu")
+# with torch.no_grad():
+#     raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=31)
 
-# first do image
-enc_dec_im_interface = ImageEncodeDecodeInterface(
-    data=(torch.clone(im_tensor), torch.clone(raw_synth_out)),
-    model=coolchic,
-    ct_range=colorspace_bitdepths,
-)
-bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
-    enc_dec_interface=enc_dec_im_interface,
-    logger=logger,
-    distribution="logistic",
-    output_path=None,
-    bpd_normlization_constant=1.0,
-)
-im_symbols_post_encoding, prob_distributions = decode_with_predictor(
-    enc_dec_interface=enc_dec_im_interface,
-    bitstream=bitstream_im,
-    bitstream_path=None,
-    distribution="logistic",
-)
-logger.log_result("Image encode-decode finished.")
-is_im_encode_decode_equal = torch.equal(
-    torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
-)
-logger.log_result(f"Image encode-decode equality check: {is_im_encode_decode_equal}")
-logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.numel()}")
+# # first do image
+# enc_dec_im_interface = ImageEncodeDecodeInterface(
+#     data=(torch.clone(im_tensor), torch.clone(raw_synth_out)),
+#     model=coolchic,
+#     ct_range=colorspace_bitdepths,
+# )
+# bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
+#     enc_dec_interface=enc_dec_im_interface,
+#     logger=logger,
+#     distribution="logistic",
+#     output_path=None,
+# )
+# im_symbols_post_encoding, prob_distributions = decode_with_predictor(
+#     enc_dec_interface=enc_dec_im_interface,
+#     bitstream=bitstream_im,
+#     bitstream_path=None,
+#     distribution="logistic",
+# )
+# logger.log_result("Image encode-decode finished.")
+# is_im_encode_decode_equal = torch.equal(
+#     torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
+# )
+# logger.log_result(f"Image encode-decode equality check: {is_im_encode_decode_equal}")
+# logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.numel()}")
 
-# second do latents
-enc_dec_latent_interface = LatentEncodeDecodeInterface(
-    data=copy.deepcopy(decoder_side_latent), model=coolchic, ct_range=LatentBitdepths()
-)
-bitstream_latent, latent_symbols_pre_encoding, _, _ = encode_with_predictor(
-    enc_dec_interface=enc_dec_latent_interface,
-    distribution="laplace",
-    output_path=None,
-    logger=logger,
-    # there are only 4 latents per 9 image pixels, so total_latent_bits / (num_latents/4*9)
-    # is a good approximation for latent_bpd
-    bpd_normlization_constant=4.0 / 9.0,
-)
-latent_symbols_post_encoding, prob_distributions_dec = decode_with_predictor(
-    enc_dec_interface=enc_dec_latent_interface,
-    distribution="laplace",
-    bitstream=bitstream_latent,
-    bitstream_path=None,
-)
-logger.log_result("Latent encode-decode finished.")
-is_latent_encode_decode_equal = torch.equal(
-    torch.tensor(latent_symbols_pre_encoding),
-    torch.tensor(latent_symbols_post_encoding),
-)
-logger.log_result(f"Latent encode-decode equality check: {is_latent_encode_decode_equal}")
-logger.log_result(f"Rate Latent bistream: {bitstream_latent.nbytes * 8 / im_tensor.numel()}")
-logger.log_result(
-    f"Total image+latent bpd rate: {(bitstream_im.nbytes + bitstream_latent.nbytes) * 8 / im_tensor.numel()}"
-)
+# # second do latents
+# enc_dec_latent_interface = LatentEncodeDecodeInterface(
+#     data=copy.deepcopy(decoder_side_latent), model=coolchic, ct_range=LatentBitdepths()
+# )
+# bitstream_latent, latent_symbols_pre_encoding, _, _ = encode_with_predictor(
+#     enc_dec_interface=enc_dec_latent_interface,
+#     distribution="laplace",
+#     output_path=None,
+#     logger=logger,
+# )
+# latent_symbols_post_encoding, prob_distributions_dec = decode_with_predictor(
+#     enc_dec_interface=enc_dec_latent_interface,
+#     distribution="laplace",
+#     bitstream=bitstream_latent,
+#     bitstream_path=None,
+# )
+# logger.log_result("Latent encode-decode finished.")
+# is_latent_encode_decode_equal = torch.equal(
+#     torch.tensor(latent_symbols_pre_encoding),
+#     torch.tensor(latent_symbols_post_encoding),
+# )
+# logger.log_result(f"Latent encode-decode equality check: {is_latent_encode_decode_equal}")
+# logger.log_result(f"Rate Latent bistream: {bitstream_latent.nbytes * 8 / im_tensor.numel()}")
+# logger.log_result(
+#     f"Total image+latent bpd rate: {(bitstream_im.nbytes + bitstream_latent.nbytes) * 8 / im_tensor.numel()}"
+# )

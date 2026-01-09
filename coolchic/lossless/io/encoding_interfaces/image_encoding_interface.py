@@ -18,6 +18,7 @@ class ImageEncodeDecodeInterface(EncodeDecodeInterface):
         self.ct_range = ct_range
         self.current_spatial_pos = [0, 0, 0, 0]
         self.header_size = 12  # H, W, C
+        self.normalization_constant = 1.0
 
     def reset_iterators(self) -> None:
         self.current_spatial_pos = [0, 0, 0, 0]

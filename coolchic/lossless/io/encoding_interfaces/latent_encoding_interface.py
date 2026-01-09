@@ -15,6 +15,7 @@ class LatentEncodeDecodeInterface(EncodeDecodeInterface):
         self.current_latent_idx = 0
         self.current_spatial_pos = [0, 0, 0, 0]
         self.header_size = 4
+        self.normalization_constant = 4.0 / 9.0  # there are 4 latents per 9 image pixels
 
     def reset_iterators(self) -> None:
         self.current_latent_idx = 0
