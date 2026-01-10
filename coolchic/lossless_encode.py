@@ -111,7 +111,7 @@ with torch.no_grad():
         image=im_tensor,
         quantizer_noise_type="none",
         quantizer_type="hardround",
-        AC_MAX_VAL=31,
+        AC_MAX_VAL=-1,
         flag_additional_outputs=False,
     )
     predicted_priors_rates = loss_function(

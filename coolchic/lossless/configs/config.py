@@ -42,7 +42,7 @@ args = {
     "layers_synthesis_lossless": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_lossless": "16,2", #dim arm, n_layers
     "arm_lossless_hidden_layer_dim": 8,
-    "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6),
+    "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=8),
     "use_color_regression": False,
     "multi_region_image_arm": True,
     "multi_region_image_arm_nums_experts": [2,2],
