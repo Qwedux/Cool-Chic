@@ -132,35 +132,35 @@ logger.log_result(
 # FULL ENCODE-DECODE TO BITSTREAM
 # ==========================================================================================
 
-# coolchic.to_device("cpu")
-# im_tensor = im_tensor.to("cpu")
-# with torch.no_grad():
-#     raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=31)
+coolchic.to_device("cpu")
+im_tensor = im_tensor.to("cpu")
+with torch.no_grad():
+    raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=31)
 
-# # first do image
-# enc_dec_im_interface = ImageEncodeDecodeInterface(
-#     data=(torch.clone(im_tensor), torch.clone(raw_synth_out)),
-#     model=coolchic,
-#     ct_range=colorspace_bitdepths,
-# )
-# bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
-#     enc_dec_interface=enc_dec_im_interface,
-#     logger=logger,
-#     distribution="logistic",
-#     output_path=None,
-# )
-# im_symbols_post_encoding, prob_distributions = decode_with_predictor(
-#     enc_dec_interface=enc_dec_im_interface,
-#     bitstream=bitstream_im,
-#     bitstream_path=None,
-#     distribution="logistic",
-# )
-# logger.log_result("Image encode-decode finished.")
-# is_im_encode_decode_equal = torch.equal(
-#     torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
-# )
-# logger.log_result(f"Image encode-decode equality check: {is_im_encode_decode_equal}")
-# logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.numel()}")
+# first do image
+enc_dec_im_interface = ImageEncodeDecodeInterface(
+    data=(torch.clone(im_tensor), torch.clone(raw_synth_out)),
+    model=coolchic,
+    ct_range=colorspace_bitdepths,
+)
+bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
+    enc_dec_interface=enc_dec_im_interface,
+    logger=logger,
+    distribution="logistic",
+    output_path=None,
+)
+im_symbols_post_encoding, prob_distributions = decode_with_predictor(
+    enc_dec_interface=enc_dec_im_interface,
+    bitstream=bitstream_im,
+    bitstream_path=None,
+    distribution="logistic",
+)
+logger.log_result("Image encode-decode finished.")
+is_im_encode_decode_equal = torch.equal(
+    torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
+)
+logger.log_result(f"Image encode-decode equality check: {is_im_encode_decode_equal}")
+logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.numel()}")
 
 # # second do latents
 # enc_dec_latent_interface = LatentEncodeDecodeInterface(
