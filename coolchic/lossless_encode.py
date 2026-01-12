@@ -35,7 +35,6 @@ im_path = args["input"][command_line_args.image_index]
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=command_line_args.color_space
 )
-# im_tensor = im_tensor[:,:64, :64] # for faster testing
 
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
@@ -135,7 +134,7 @@ logger.log_result(
 coolchic.to_device("cpu")
 im_tensor = im_tensor.to("cpu")
 with torch.no_grad():
-    raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=31)
+    raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=-1)
 
 # first do image
 enc_dec_im_interface = ImageEncodeDecodeInterface(

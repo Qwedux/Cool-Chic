@@ -12,7 +12,7 @@ class CommandLineArgs:
     # Has a default value -> Optional argument in CLI
 
     image_index: int = field(default_factory=lambda: 0)
-    encoder_gain: int = field(default_factory=lambda: 16)
+    encoder_gain: int = field(default_factory=lambda: 64)
     # Literal enforces "YCoCg" or "RGB".
     color_space: Literal["YCoCg", "RGB"] = field(default_factory=lambda: "YCoCg")
     # Handling booleans: --use-image-arm / --no-use-image-arm
