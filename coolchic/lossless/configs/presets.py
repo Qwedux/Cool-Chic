@@ -583,6 +583,122 @@ class PresetDebug(Preset):
         )
 
 
+class PresetSpeedTest(Preset):
+    def __init__(self):
+        super().__init__(preset_name="fnlic")
+        # 1st stage: with soft round and kumaraswamy noise
+        self.training_phases: List[TrainerPhase] = [
+            TrainerPhase(
+                lr=1e-2,
+                max_itr=2000,
+                freq_valid=100,
+                patience=10000,
+                quantize_model=False,
+                schedule_lr=True,
+                softround_temperature=(0.3, 0.1),
+                noise_parameter=(0.25, 0.1),
+                quantizer_noise_type="kumaraswamy",
+                quantizer_type="softround",
+                optimized_module=["all"],
+            )
+        ]
+
+        # 2nd stage with STE
+        lr = 0.00001
+        while lr > 10.0e-6:
+            self.training_phases.append(
+                TrainerPhase(
+                    lr=lr,
+                    max_itr=100,
+                    freq_valid=10,
+                    patience=50,
+                    quantize_model=False,
+                    schedule_lr=True,
+                    # This is only used to parameterize the backward of the quantization
+                    softround_temperature=(1e-4, 1e-4),
+                    noise_parameter=(
+                        1.0,
+                        1.0,
+                    ),  # Kumaraswamy noise with parameter = 1 --> Uniform noise
+                    quantizer_noise_type="none",
+                    quantizer_type="ste",
+                    optimized_module=["all"],
+                )
+            )
+            lr *= 0.8
+
+        # 3rd stage: quantize the networks and then re-tune the latent
+        lr = 10.0e-6
+        self.training_phases.append(
+            TrainerPhase(
+                lr=lr,
+                max_itr=100,
+                freq_valid=100,
+                patience=100,
+                quantize_model=True,
+                schedule_lr=False,
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),
+                quantizer_noise_type="none",
+                quantizer_type="ste",
+                optimized_module=["all"],
+            )
+        )
+        self.training_phases.append(
+            TrainerPhase(
+                lr=1e-4,
+                max_itr=200,
+                freq_valid=10,
+                patience=50,
+                quantize_model=False,
+                schedule_lr=False,
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),
+                quantizer_noise_type="none",
+                quantizer_type="ste",
+                optimized_module=["latent"],  # ! Only fine tune the latent
+            )
+        )
+
+        # 5 candidates, then 2 then 1
+        self.warmup = Warmup(
+            [
+                WarmupPhase(
+                    candidates=5,
+                    training_phase=TrainerPhase(
+                        lr=1e-2,
+                        max_itr=200,
+                        freq_valid=100,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(1.0, 0.5),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+                WarmupPhase(
+                    candidates=2,
+                    training_phase=TrainerPhase(
+                        lr=1e-2,
+                        max_itr=400,
+                        freq_valid=100,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(0.5, 0.25),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+            ]
+        )
+
+
 class PresetMeasureSpeed(Preset):
     def __init__(
         self,
@@ -635,4 +751,5 @@ AVAILABLE_PRESETS: Dict[str, Preset] = {
     "debug": PresetDebug,
     # "measure_speed": PresetMeasureSpeed,
     "fnlic": PresetFNLIC,  # type: ignore
+    "speed_test": PresetSpeedTest,
 }
