@@ -12,7 +12,7 @@ if os.path.exists("/itet-stor/jparada/net_scratch/"):
     NETWORK_YAML_PATH = f"{BASE_PATH}Cool-Chic/cfg/network_architecture.yaml"
 else:
     BASE_PATH = f"{os.getcwd()}/../"
-    DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
+    DATASET_PATH = f"{BASE_PATH}datasets/datasets_smol/"
     TEST_WORKDIR = f"{BASE_PATH}coolchic/test-workdir/"
     LOG_PATH = f"{BASE_PATH}logs/"
     NETWORK_YAML_PATH = f"{BASE_PATH}cfg/network_architecture.yaml"
@@ -32,7 +32,7 @@ args = {
     "output": TEST_WORKDIR + "output",
     "workdir": TEST_WORKDIR,
     "network_yaml_path": NETWORK_YAML_PATH,
-    "experiment_name": "30_11_2025_RGB_no_ARM_no_color_regression_Kodak",
+    "experiment_name": "2026_01_17_speed_test_lossless",
 
     "print_detailed_archi": False,
     "print_detailed_struct": False,
@@ -42,7 +42,7 @@ args = {
     "layers_synthesis_lossless": "24-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
     "arm_lossless": "16,2", #dim arm, n_layers
     "arm_lossless_hidden_layer_dim": 8,
-    "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=10),
+    "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6),
     "use_color_regression": False,
     "multi_region_image_arm": False,
     "multi_region_image_arm_nums_experts": [1,1],
@@ -50,7 +50,7 @@ args = {
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,
     # training preset
-    "preset": "fnlic",
+    "preset": "speed_test",
     "pretrained_model_path": "../logs/full_runs/2026_01_05_default_name/trained_models/2026_01_05__20_55_36__trained_coolchic_kodak_kodim01_img_rate_4.001727104187012.pth",
     "use_pretrained": False,
     "quantize_model": True,

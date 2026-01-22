@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 sys.path.append(os.getcwd())
 import copy
@@ -131,6 +132,7 @@ logger.log_result(
 # FULL ENCODE-DECODE TO BITSTREAM
 # ==========================================================================================
 
+encode_decode_start_time = time.time()
 coolchic.to_device("cpu")
 im_tensor = im_tensor.to("cpu")
 with torch.no_grad():
@@ -148,6 +150,7 @@ bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
     distribution="logistic",
     output_path=None,
 )
+logger.log_result(f"Finished encoding in {time.time() - encode_decode_start_time:.2f} seconds.")
 im_symbols_post_encoding, prob_distributions = decode_with_predictor(
     enc_dec_interface=enc_dec_im_interface,
     bitstream=bitstream_im,
@@ -155,6 +158,7 @@ im_symbols_post_encoding, prob_distributions = decode_with_predictor(
     distribution="logistic",
 )
 logger.log_result("Image encode-decode finished.")
+logger.log_result(f"Total encode-decode time: {time.time() - encode_decode_start_time:.2f} seconds.")
 is_im_encode_decode_equal = torch.equal(
     torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
 )
