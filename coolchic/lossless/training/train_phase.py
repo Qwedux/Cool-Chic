@@ -17,7 +17,7 @@ from torch.nn.utils import clip_grad_norm_
 # Custom scheduling function for the soft rounding temperature and the noise parameter
 def _linear_schedule(
     initial_value: float, final_value: float, cur_itr: float, max_itr: float
-) -> float:
+) -> torch.Tensor:
     """Linearly schedule a function to go from initial_value at cur_itr = 0 to
     final_value when cur_itr = max_itr.
 
@@ -28,7 +28,7 @@ def _linear_schedule(
         max_itr (float): Total number of iterations
 
     Returns:
-        float: The linearly scheduled value @ iteration number cur_itr
+        torch.Tensor: The linearly scheduled value @ iteration number cur_itr
     """
     assert cur_itr >= 0 and cur_itr <= max_itr, (
         f"Linear scheduling from 0 to {max_itr} iterations"
@@ -36,7 +36,7 @@ def _linear_schedule(
         f" Found cur_itr = {cur_itr}."
     )
 
-    return cur_itr * (final_value - initial_value) / max_itr + initial_value
+    return torch.tensor(cur_itr * (final_value - initial_value) / max_itr + initial_value)
 
 
 def _train_single_phase(
@@ -46,12 +46,15 @@ def _train_single_phase(
     training_phase: TrainerPhase,
     logger: TrainingLogger,
     encoder_logs_best: LossFunctionOutput,
+    compile_model: bool = True,
 ) -> tuple[CoolChicEncoder, LossFunctionOutput]:
     """Train a ``CoolChicEncoder`` for a single training phase with parameters
     defined in ``training_phase``."""
 
     model.train()
-    model.compile(fullgraph=True)
+    if compile_model:
+        model.compile(fullgraph=True)
+    # logger.log_result(f"Model compiled implementation is at: {model._compiled_call_impl}")
     # check if the model is compiled
 
     best_model = model.get_param()
@@ -79,7 +82,7 @@ def _train_single_phase(
                     f"Available modules are: {MODULE_TO_OPTIMIZE}"
                 )
 
-    optimizer = torch.optim.Adam(parameters_to_optimize, lr=training_phase.lr)
+    optimizer = torch.optim.Adam(parameters_to_optimize, lr=torch.tensor(training_phase.lr))
     best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
     if training_phase.schedule_lr:
@@ -100,7 +103,6 @@ def _train_single_phase(
         0,
         training_phase.max_itr,
     )
-    cur_softround_temperature = torch.tensor(cur_softround_temperature, device=model.device)
 
     cur_noise_parameter = _linear_schedule(
         training_phase.noise_parameter[0],
@@ -108,7 +110,6 @@ def _train_single_phase(
         0,
         training_phase.max_itr,
     )
-    cur_noise_parameter = torch.tensor(cur_noise_parameter, device=model.device)
 
     cnt_record = 0
     # Slightly faster to create the list once outside of the loop
@@ -225,7 +226,6 @@ def _train_single_phase(
                 cnt,
                 training_phase.max_itr,
             )
-            cur_softround_temperature = torch.tensor(cur_softround_temperature, device=model.device)
 
             cur_noise_parameter = _linear_schedule(
                 training_phase.noise_parameter[0],
@@ -233,7 +233,6 @@ def _train_single_phase(
                 cnt,
                 training_phase.max_itr,
             )
-            cur_noise_parameter = torch.tensor(cur_noise_parameter, device=model.device)
 
             if training_phase.schedule_lr:
                 assert learning_rate_scheduler is not None

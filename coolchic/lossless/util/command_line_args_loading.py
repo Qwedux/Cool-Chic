@@ -17,7 +17,12 @@ class CommandLineArgs:
     color_space: Literal["YCoCg", "RGB"] = field(default_factory=lambda: "YCoCg")
     # Handling booleans: --use-image-arm / --no-use-image-arm
     use_image_arm: bool = field(default_factory=lambda: True)
-    experiment_name: str = field(default_factory=lambda: datetime.today().strftime("%Y_%m_%d_default_name"))
+    experiment_name: str = field(
+        default_factory=lambda: datetime.today().strftime("%Y_%m_%d_default_name")
+    )
+    multiarm_setup: str = field(
+        default_factory=lambda: "1x1"
+    )  # e.g., "2x2" for 2 rows and 2 columns
 
 
 def _is_notebook() -> bool:
@@ -50,5 +55,7 @@ def load_args(notebook_overrides: dict = {}) -> CommandLineArgs:
     else:
         # Tyro automatically reads global sys.argv
         if len(notebook_overrides) > 0:
-            warnings.warn("notebook_overrides provided but running outside notebook; ignoring them.")
+            warnings.warn(
+                "notebook_overrides provided but running outside notebook; ignoring them."
+            )
         return tyro.cli(CommandLineArgs)

@@ -117,7 +117,7 @@ def train(
         model, target_image, image_encoder_manager
     )
     encoder_logs_best = initial_encoder_logs
-
+    
     for training_phase in image_encoder_manager.preset.training_phases:
         logger.log_training(f"Starting new training phase:\n{training_phase.pretty_string()}")
         model, encoder_logs_best = _train_single_phase(

@@ -9,8 +9,8 @@ from lossless.util.misc import timestamp_string
 class TrainingLogger:
     def __init__(
         self,
-        log_folder_path: str,
-        image_name: str,
+        log_folder_path: str = "",
+        image_name: str = "",
         debug_mode: bool = False,
         experiment_name: str = "kodak",
         write_to_disk: bool = True,

@@ -15,6 +15,7 @@ import numpy as np
 import torch
 from lossless.component.core.arm import (ArmLinear, _get_neighbor,
                                          _get_non_zero_pixel_ctx_index)
+from lossless.component.types import IMARM_SPLIT_DIRECTION
 from lossless.util.misc import safe_get_from_nested_lists
 # import torch.nn.functional as F
 from torch import Tensor, nn  # , index_select
@@ -40,6 +41,7 @@ class MultiImageArmDescriptor:
     """For now I assume a simple case where the image is split into equally sized
     cells in a grid like fashion."""
 
+    # value at index i says which pixels are assigned to expert i
     expert_indices: list[torch.Tensor] = field(init=False)
     num_arms: torch.Tensor = field(init=False, default=torch.tensor(1))
     image_height: torch.Tensor = field(default_factory=lambda: torch.tensor(0))
@@ -74,16 +76,6 @@ class MultiImageArmDescriptor:
             torch.where(router_flat == i)[0] for i in range(int(self.num_arms.item()))
         ]
 
-    def are_we_using_multiple_arms(self, multi_region_image_arm: bool = False) -> None:
-        if not multi_region_image_arm:
-            self.num_arms = torch.tensor(1)
-            self.routing_grid = torch.zeros(
-                (int(self.image_height.item()), int(self.image_width.item())), dtype=torch.int
-            )
-            self.expert_indices = [
-                torch.arange(int(self.image_height.item() * self.image_width.item()))
-            ]
-
 
 @dataclass
 class ImageARMParameter:
@@ -92,7 +84,6 @@ class ImageARMParameter:
     hidden_layer_dim: int = 6
     synthesis_out_params_per_channel: list[int] = field(default_factory=lambda: [2, 2, 2])
     use_color_regression: bool = False
-    multi_region_image_arm: bool = False
     multi_region_image_arm_specification: MultiImageArmDescriptor = field(
         default_factory=lambda: MultiImageArmDescriptor()
     )
@@ -100,6 +91,7 @@ class ImageARMParameter:
 
 class ImageArm(nn.Module):
     non_zero_image_arm_ctx_index: torch.Tensor
+    def split_image_arm_expert(self, expert_idx: int, split_direction: IMARM_SPLIT_DIRECTION) -> None: ...
 
     def __init__(
         self,
@@ -123,9 +115,6 @@ class ImageArm(nn.Module):
         )
         if self.params.use_color_regression:
             self.params.synthesis_out_params_per_channel = [2, 3, 4]
-        self.params.multi_region_image_arm_specification.are_we_using_multiple_arms(
-            self.params.multi_region_image_arm
-        )
         # ======================== Construct the MLPs ======================== #
         self.image_arm_models = nn.ModuleList(
             nn.ModuleList(

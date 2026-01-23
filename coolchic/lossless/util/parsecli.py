@@ -70,7 +70,8 @@ def get_coolchic_param_from_args(
     coolchic_enc_name: str,
     image_size: tuple[int, int],
     use_image_arm: bool = True,
-    encoder_gain: int = 16,
+    encoder_gain: int = 64,
+    multi_region_image_arm_setup: str = "1x1",
 ) -> CoolChicEncoderParameter:
     layers_synthesis = parse_synthesis_layers(args[f"layers_synthesis_{coolchic_enc_name}"])
     n_ft_per_res = parse_n_ft_per_res(args[f"n_ft_per_res_{coolchic_enc_name}"])
@@ -89,7 +90,6 @@ def get_coolchic_param_from_args(
     encoder_param = CoolChicEncoderParameter(**coolchic_param)
     encoder_param.image_arm_parameters = args["arm_image_params"]
     encoder_param.image_arm_parameters.use_color_regression = args["use_color_regression"]
-    encoder_param.image_arm_parameters.multi_region_image_arm = args["multi_region_image_arm"]
     encoder_param.image_arm_parameters.multi_region_image_arm_specification = (
         MultiImageArmDescriptor()
     )
@@ -97,8 +97,8 @@ def get_coolchic_param_from_args(
         image_size
     )
     encoder_param.image_arm_parameters.multi_region_image_arm_specification.simple_grid_routing(
-        args["multi_region_image_arm_nums_experts"][0],
-        args["multi_region_image_arm_nums_experts"][1],
+        int(multi_region_image_arm_setup.split("x")[0]),
+        int(multi_region_image_arm_setup.split("x")[1]),
     )
 
     encoder_param.set_image_size(image_size)

@@ -891,3 +891,20 @@ class CoolChicEncoder(nn.Module):
             )
 
             return short_description
+
+    def load_from_disk(self, path: str) -> None:
+        """Load a CoolChicEncoder from disk.
+
+        Args:
+            path (str): Path to the saved CoolChicEncoder.
+        """
+        state_dict = torch.load(path, map_location="cpu")
+        self.load_state_dict(state_dict)
+    
+    def save_to_disk(self, path: str) -> None:
+        """Save the CoolChicEncoder to disk.
+
+        Args:
+            path (str): Path where to save the CoolChicEncoder.
+        """
+        torch.save(self.state_dict(), path)
