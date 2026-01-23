@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --gres=gpu:1
 #SBATCH --exclude=hardin01,tikgpu[02-10]
-#SBATCH --array=0-24%8
+#SBATCH --array=0-24%4
 #CommentSBATCH --nodelist=tikgpu01 # Specify that it should run on this particular node
 #CommentSBATCH --account=tik-internal
 #CommentSBATCH --constraint='titan_rtx|tesla_v100|titan_xp|a100_80gb'
@@ -50,7 +50,9 @@ cd ${DIRECTORY}
 
 # Execute your code
 # python3 lossless_encode.py $SLURM_ARRAY_TASK_ID RGB true 16_12_2025_RGB_arm_chongus_no_color_regression_gain_test_Kodak 128
-python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=05_01_2026_YCoCg_arm_smol_no_color_regression_gain_test_Kodak
+python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_one_by_one_Kodak --multiarm_setup=1x1
+python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_two_by_two_Kodak --multiarm_setup=2x2
+python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_tre_by_tre_Kodak --multiarm_setup=3x3
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
 

@@ -12,7 +12,7 @@ if os.path.exists("/itet-stor/jparada/net_scratch/"):
     NETWORK_YAML_PATH = f"{BASE_PATH}Cool-Chic/cfg/network_architecture.yaml"
 else:
     BASE_PATH = f"{os.getcwd()}/../"
-    DATASET_PATH = f"{BASE_PATH}datasets/datasets_smol/"
+    DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
     TEST_WORKDIR = f"{BASE_PATH}coolchic/test-workdir/"
     LOG_PATH = f"{BASE_PATH}logs/"
     NETWORK_YAML_PATH = f"{BASE_PATH}cfg/network_architecture.yaml"
@@ -44,13 +44,11 @@ args = {
     "arm_lossless_hidden_layer_dim": 8,
     "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6),
     "use_color_regression": False,
-    "multi_region_image_arm": False,
-    "multi_region_image_arm_nums_experts": [1,1],
     "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
     "ups_k_size_lossless": 8,
     "ups_preconcat_k_size_lossless": 7,
     # training preset
-    "preset": "speed_test",
+    "preset": "fnlic",
     "pretrained_model_path": "../logs/full_runs/2026_01_05_default_name/trained_models/2026_01_05__20_55_36__trained_coolchic_kodak_kodim01_img_rate_4.001727104187012.pth",
     "use_pretrained": False,
     "quantize_model": True,

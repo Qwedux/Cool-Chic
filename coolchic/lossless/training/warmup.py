@@ -129,6 +129,7 @@ def warmup(
                 training_phase=warmup_phase.training_phase,
                 logger=logger,
                 encoder_logs_best=initial_encoder_logs,
+                compile_model=False,
             )
 
             cur_candidate_model.metrics = test(

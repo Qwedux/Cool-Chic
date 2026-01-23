@@ -50,6 +50,7 @@ encoder_param = get_coolchic_param_from_args(
     image_size=(im_tensor.shape[2], im_tensor.shape[3]),
     use_image_arm=command_line_args.use_image_arm,
     encoder_gain=command_line_args.encoder_gain,
+    multi_region_image_arm_setup=command_line_args.multiarm_setup,
 )
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
@@ -74,7 +75,7 @@ logger.log_result(
 )
 logger.log_result(f"Using image ARM: {command_line_args.use_image_arm}")
 logger.log_result(f"Using encoder gain: {command_line_args.encoder_gain}")
-logger.log_result(f"Using multi-region image ARM: {args['multi_region_image_arm']}")
+logger.log_result(f"Using multi-region image ARM: {command_line_args.multiarm_setup}")
 logger.log_result(f"Using color regression: {args['use_color_regression']}")
 logger.log_result(f"Total training iterations: {image_encoder_manager.n_itr}")
 with torch.no_grad():
@@ -99,10 +100,10 @@ logger.log_result(
 # QUANTIZE AND SAVE MODEL
 # ==========================================================================================
 rate_per_module, total_network_rate = coolchic.get_network_rate()
-if command_line_args.use_image_arm:
-    arm_params = list(coolchic.image_arm.parameters())
-    arm_params_bits = sum(p.numel() for p in arm_params) * 32
-    total_network_rate += arm_params_bits
+# if command_line_args.use_image_arm:
+#     arm_params = list(coolchic.image_arm.parameters())
+#     arm_params_bits = sum(p.numel() for p in arm_params) * 32
+#     total_network_rate += arm_params_bits
 total_network_rate = float(total_network_rate) / im_tensor.numel()
 
 with torch.no_grad():
