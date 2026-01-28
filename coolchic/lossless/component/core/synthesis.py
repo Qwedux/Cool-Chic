@@ -34,6 +34,7 @@ class SynthesisConv2d(nn.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
+        groups: int,
         residual: bool = False,
     ):
         """
@@ -41,6 +42,7 @@ class SynthesisConv2d(nn.Module):
             in_channels: Number of input channels :math:`C_{in}`.
             out_channels: Number of output channels :math:`C_{out}`.
             kernel_size: Kernel size (height and width are identical)
+            groups: Number of groups for grouped convolution.
             residual: True to add a residual connection to the layer.
                 Default to False.
         """
@@ -53,11 +55,9 @@ class SynthesisConv2d(nn.Module):
         self.pad = int((kernel_size - 1) / 2)
 
         # -------- Instantiate empty parameters, set by the initialize function
-        self.groups = 1  if kernel_size == 1 else 3 # Hardcoded for now
+        self.groups = groups
         self.weight = nn.Parameter(
-            torch.empty(
-                out_channels, in_channels // self.groups, kernel_size, kernel_size
-            ),
+            torch.empty(out_channels, in_channels // self.groups, kernel_size, kernel_size),
             requires_grad=True,
         )
         self.bias = nn.Parameter(torch.empty((out_channels)), requires_grad=True)
@@ -95,9 +95,7 @@ class SynthesisConv2d(nn.Module):
         self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
 
         if self.residual:
-            self.weight = nn.Parameter(
-                torch.zeros_like(self.weight), requires_grad=True
-            )
+            self.weight = nn.Parameter(torch.zeros_like(self.weight), requires_grad=True)
         else:
             # Default PyTorch initialization for convolution 2d: weight ~ Uniform(-sqrt(k), sqrt(k))
             # Empirically, it works better if we further divide the resulting weights by output_ft ** 2
@@ -153,6 +151,7 @@ class Synthesis(nn.Module):
     residual connection followed with a relu: ``40-3-residual-relu``
 
     """
+
     possible_non_linearity = {
         "none": nn.Identity,
         "relu": nn.ReLU,
@@ -178,9 +177,10 @@ class Synthesis(nn.Module):
 
         # Construct the hidden layer(s)
         for layers in layers_dim:
-            out_ft, k_size, mode, non_linearity = layers.split("-")
+            out_ft, k_size, groups, mode, non_linearity = layers.split("-")
             out_ft = int(out_ft)
             k_size = int(k_size)
+            groups = int(groups)
 
             # Check that mode and non linearity is correct
             assert (
@@ -194,7 +194,9 @@ class Synthesis(nn.Module):
 
             # Instantiate them
             layers_list.append(
-                SynthesisConv2d(input_ft, out_ft, k_size, residual=mode == "residual")
+                SynthesisConv2d(
+                    input_ft, out_ft, k_size, groups=groups, residual=mode == "residual"
+                )
             )
             layers_list.append(Synthesis.possible_non_linearity[non_linearity]())
 
@@ -225,8 +227,8 @@ class Synthesis(nn.Module):
 
         x --> Conv --> ReLU --> Conv --> Conv --> ReLU --> out
                              ^        ^                 ^
-        last_layer_idx       1        2                 3  
-        
+        last_layer_idx       1        2                 3
+
 
         Args:
             x: Dense latent representation :math:`[B, C_{in}, H, W]`.
@@ -246,7 +248,6 @@ class Synthesis(nn.Module):
 
             x = self.layers[i](x)
             i += 1
-
 
     def get_param(self) -> OrderedDict[str, Tensor]:
         """Return **a copy** of the weights and biases inside the module.
