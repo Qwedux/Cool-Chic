@@ -701,7 +701,7 @@ class CoolChicEncoder(nn.Module):
         for k in self.flops_per_module:
             self.flops_per_module[k] = flops.by_module()[k]
 
-        self.flops_str = flop_count_table(flops)
+        self.flops_str = flop_count_table(flops, max_depth=4)
         del flops
 
         self = self.train(mode=True)

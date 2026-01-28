@@ -8,6 +8,7 @@ import copy
 import numpy as np
 import torch
 from lossless.component.coolchic import CoolChicEncoder
+from lossless.component.core.arm_image import ImageARMParameter
 from lossless.configs.config import args, str_args
 from lossless.io.decode_with_predictor import decode_with_predictor
 from lossless.io.encode_with_predictor import encode_with_predictor
@@ -44,6 +45,12 @@ image_encoder_manager = ImageEncoderManager(
     preset_name=args["preset"], colorspace_bitdepths=colorspace_bitdepths
 )
 
+if "big_arm" in command_line_args.experiment_name:
+    args["arm_image_params"] = ImageARMParameter(context_size=16, n_hidden_layers=2, hidden_layer_dim=48)
+    args["layers_synthesis_lossless"] = "24-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none"
+elif "big_synthesis" in command_line_args.experiment_name:
+    args["arm_image_params"] = ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6)
+    args["layers_synthesis_lossless"] = "26-3-1-linear-relu,26-3-1-residual-none,26-3-1-residual-relu,X-3-1-linear-none"
 encoder_param = get_coolchic_param_from_args(
     args,
     "lossless",
@@ -191,4 +198,5 @@ logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.nume
 # logger.log_result(f"Rate Latent bistream: {bitstream_latent.nbytes * 8 / im_tensor.numel()}")
 # logger.log_result(
 #     f"Total image+latent bpd rate: {(bitstream_im.nbytes + bitstream_latent.nbytes) * 8 / im_tensor.numel()}"
+# )
 # )

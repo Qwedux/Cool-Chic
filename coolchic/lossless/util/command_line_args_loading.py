@@ -1,9 +1,19 @@
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 import tyro
+
+# Type alias for CommandLineArgs field names
+COMMAND_LINE_ARGS_NAMES = Literal[
+    "image_index",
+    "encoder_gain",
+    "color_space",
+    "use_image_arm",
+    "experiment_name",
+    "multiarm_setup",
+]
 
 
 @dataclass
@@ -38,7 +48,7 @@ def _is_notebook() -> bool:
         return False  # Probably standard Python interpreter
 
 
-def load_args(notebook_overrides: dict = {}) -> CommandLineArgs:
+def load_args(notebook_overrides: dict[COMMAND_LINE_ARGS_NAMES, Any] = {}) -> CommandLineArgs:
     """
     Returns the config.
     - If running in a Notebook, returns manual defaults (prevents crashing).
@@ -58,4 +68,5 @@ def load_args(notebook_overrides: dict = {}) -> CommandLineArgs:
             warnings.warn(
                 "notebook_overrides provided but running outside notebook; ignoring them."
             )
+        return tyro.cli(CommandLineArgs)
         return tyro.cli(CommandLineArgs)

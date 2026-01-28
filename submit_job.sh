@@ -50,9 +50,8 @@ cd ${DIRECTORY}
 
 # Execute your code
 # python3 lossless_encode.py $SLURM_ARRAY_TASK_ID RGB true 16_12_2025_RGB_arm_chongus_no_color_regression_gain_test_Kodak 128
-python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_one_by_one_Kodak --multiarm_setup=1x1
-python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_two_by_two_Kodak --multiarm_setup=2x2
-python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_tre_by_tre_Kodak --multiarm_setup=3x3
+python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_big_synthesis_Kodak --multiarm_setup=1x1
+python3 ./lossless_encode.py --image-index=$SLURM_ARRAY_TASK_ID --encoder-gain=64 --color-space=YCoCg --use-image-arm --experiment_name=2026_01_23_YCoCg_big_arm_Kodak --multiarm_setup=1x1
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
 
