@@ -1,8 +1,7 @@
 import glob
 import os
 
-from lossless.component.core.arm_image import (ImageARMParameter,
-                                               MultiImageArmDescriptor)
+from lossless.component.core.arm_image import ImageARMParameter
 
 if os.path.exists("/itet-stor/jparada/net_scratch/"):
     BASE_PATH = "/itet-stor/jparada/net_scratch/"
