@@ -6,8 +6,7 @@
 #
 # Authors: see CONTRIBUTORS.md
 
-
-import itertools
+import copy
 from dataclasses import dataclass, field
 from typing import OrderedDict, Tuple
 
@@ -41,22 +40,47 @@ class MultiImageArmDescriptor:
     """For now I assume a simple case where the image is split into equally sized
     cells in a grid like fashion."""
 
-    # value at index i says which pixels are assigned to expert i
+    # value at index k says which pixels are assigned to expert k
     expert_indices: list[torch.Tensor] = field(init=False)
-    num_arms: torch.Tensor = field(init=False, default=torch.tensor(1))
-    image_height: torch.Tensor = field(default_factory=lambda: torch.tensor(0))
-    image_width: torch.Tensor = field(default_factory=lambda: torch.tensor(0))
-    # value of cell (i,j) says which ARM to use for that pixel position
+    num_experts: torch.Tensor = field(init=False, default=torch.tensor(1))
+    image_height: torch.Tensor = field(default_factory=lambda: torch.tensor(1))
+    image_width: torch.Tensor = field(default_factory=lambda: torch.tensor(1))
+    # value of cell (i,j) says which expert to use for that pixel position
     routing_grid: torch.Tensor = field(default_factory=lambda: torch.tensor([[0]]))
+    presets: dict = field(default_factory=lambda: {"simple_1x1": (1, 1)})
+    active_preset: str = field(default="simple_1x1")
 
+    def compute_num_experts(self) -> int:
+        return torch.unique(self.routing_grid).numel()
+    
     def set_image_size(self, image_size: Tuple[int, int]) -> None:
         self.image_height = torch.tensor(image_size[0])
         self.image_width = torch.tensor(image_size[1])
+        self.routing_grid = torch.zeros(
+            (image_size[0], image_size[1]), dtype=torch.int
+        )
+        self.recompute_expert_indices()
+
+    def recompute_expert_indices(self) -> None:
+        router_flat = self.routing_grid.flatten()
+        self.num_experts = torch.tensor(self.compute_num_experts())
+        self.expert_indices = [
+            torch.where(router_flat == i)[0] for i in range(int(self.num_experts.item()))
+        ]
 
     def simple_grid_routing(self, num_parts_per_col: int, num_parts_per_row: int) -> None:
-        self.num_arms = torch.tensor(num_parts_per_row * num_parts_per_col)
+        """
+        Makes a simple grid that looks like this for 2x2 parts:
+        [[0, 0, 1, 1],
+         [0, 0, 1, 1],
+         [2, 2, 3, 3],
+         [2, 2, 3, 3]]
+        """
         tmp_routing_grid = np.zeros((self.image_height, self.image_width), dtype=int)
 
+        # Get the row and column groupings
+        # Single grouping can look like this: [0,0,0,1,1] for 2 parts over 5 pixels
+        # The final routing grid is then product of row and column groupings
         row_groups_indices, _ = groups_and_sizes_from_num_splits(
             num_parts_per_row, int(self.image_width.item())
         )
@@ -71,10 +95,43 @@ class MultiImageArmDescriptor:
                     col_group_mapping[i] * num_parts_per_row + row_group_mapping[j]
                 )
         self.routing_grid = torch.tensor(tmp_routing_grid, dtype=torch.int)
-        router_flat = self.routing_grid.flatten()
-        self.expert_indices = [
-            torch.where(router_flat == i)[0] for i in range(int(self.num_arms.item()))
-        ]
+        self.recompute_expert_indices()
+
+    def split_expert_region(
+        self, expert_idx: int, split_direction: IMARM_SPLIT_DIRECTION
+    ) -> None:
+        expert_region_mask = (
+            self.routing_grid == expert_idx
+        )
+        # I have a mask of shape [H, W] where True indicates pixels assigned to expert_idx
+        # I need to get indices of top left corner of the bounding box assigned to the expert
+        
+        # NOTE: This one break down if we are not working with a rectangular region
+        ys, xs = torch.where(expert_region_mask)
+        min_y, max_y = ys.min().item(), ys.max().item()
+        min_x, max_x = xs.min().item(), xs.max().item()
+        height = max_y - min_y + 1
+        width = max_x - min_x + 1
+
+        # Create new routing grid
+        new_routing_grid = self.routing_grid.clone()
+        new_expert_idx = self.num_experts.item()
+
+        if split_direction == "horizontal":
+            x_start = min_x + (width // 2 + width % 2)
+            y_start = min_y
+        else:
+            x_start = min_x
+            y_start = min_y + (height // 2 + height % 2)
+        # Update routing grid
+        new_routing_grid[y_start:max_y + 1, x_start:max_x + 1][
+            expert_region_mask[y_start:max_y + 1, x_start:max_x + 1]
+        ] = (
+            new_expert_idx
+        )
+        self.num_experts += 1
+        self.routing_grid = new_routing_grid
+        self.recompute_expert_indices()
 
 
 @dataclass
@@ -91,7 +148,6 @@ class ImageARMParameter:
 
 class ImageArm(nn.Module):
     non_zero_image_arm_ctx_index: torch.Tensor
-    def split_image_arm_expert(self, expert_idx: int, split_direction: IMARM_SPLIT_DIRECTION) -> None: ...
 
     def __init__(
         self,
@@ -116,14 +172,14 @@ class ImageArm(nn.Module):
         if self.params.use_color_regression:
             self.params.synthesis_out_params_per_channel = [2, 3, 4]
         # ======================== Construct the MLPs ======================== #
-        self.image_arm_models = nn.ModuleList(
+        self.image_arm_models: nn.ModuleList = nn.ModuleList(
             nn.ModuleList(
                 self._create_image_arm_network(channel_idx, channel_output_dim)
                 for channel_idx, channel_output_dim in enumerate(
                     self.params.synthesis_out_params_per_channel
                 )
             )
-            for _ in range(int(self.params.multi_region_image_arm_specification.num_arms.item()))
+            for _ in range(int(self.params.multi_region_image_arm_specification.num_experts.item()))
         )
 
         self.mask_size = 9
@@ -165,6 +221,29 @@ class ImageArm(nn.Module):
         # since we use the second half for gating
         layers.append(ArmLinear(self.params.hidden_layer_dim, output_dim * 2, residual=False))
         return nn.Sequential(*layers)
+
+    def reinitialize_image_arm_experts(self, num_experts: int, pretrained_expert_index: int) -> None:
+        """Re-initialize the image ARM experts.
+        """
+        with torch.no_grad():
+            pretrained_expert = copy.deepcopy(self.image_arm_models[pretrained_expert_index])
+            self.image_arm_models = nn.ModuleList(
+                copy.deepcopy(pretrained_expert) for _ in range(num_experts)
+            )
+
+    def split_image_arm_expert(
+        self, expert_idx: int, split_direction: IMARM_SPLIT_DIRECTION
+    ) -> None:
+        expert_region_model = self.image_arm_models[expert_idx]
+        assert isinstance(expert_region_model, nn.ModuleList)
+        # Duplicate the model for the new experts
+        self.image_arm_models.append(
+            copy.deepcopy(expert_region_model)
+        )
+        # Update the routing grid
+        self.params.multi_region_image_arm_specification.split_expert_region(
+            expert_idx, split_direction
+        )
 
     def prepare_inputs(self, image: Tensor, raw_synth_out: Tensor):
         assert len(self.params.synthesis_out_params_per_channel) == image.shape[1], (
