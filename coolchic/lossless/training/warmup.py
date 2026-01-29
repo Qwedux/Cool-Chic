@@ -28,6 +28,7 @@ from lossless.util.misc import mem_info
 def is_possible_device(val: str) -> TypeGuard[POSSIBLE_DEVICE]:
     return val in get_args(POSSIBLE_DEVICE)
 
+
 @dataclass
 class WarmupCandidate:
     metrics: LossFunctionOutput | None
@@ -76,6 +77,14 @@ def warmup(
 
     num_starting_candidates = warmup.phases[0].candidates
     _col_width = 14
+    template_imarm_descriptor = copy.deepcopy(
+        template_model.image_arm.params.multi_region_image_arm_specification
+    )
+    template_model.image_arm.reinitialize_image_arm_experts(
+        num_experts=1,
+        pretrained_expert_index=0,
+    )
+    template_model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(1, 1)
 
     # Construct the list of candidates. Each of them has its own parameters,
     # unique ID and metrics (not yet evaluated so it is set to None).
@@ -108,7 +117,9 @@ def warmup(
             cur_candidate_model = all_candidates[i]
             cur_id = cur_candidate_model.id
 
-            logger.log_training(f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n")
+            logger.log_training(
+                f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n"
+            )
             logger.log_training(mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}"))
 
             if is_possible_device(template_model.device):
@@ -166,13 +177,18 @@ def warmup(
         logger.log_result(s)
 
     # Keep only the best model
-    frame_encoder = copy.deepcopy(all_candidates[0].encoder)
-
+    best_model = copy.deepcopy(all_candidates[0].encoder)
+    best_model.image_arm.params.multi_region_image_arm_specification = template_imarm_descriptor
+    best_model.image_arm.reinitialize_image_arm_experts(
+        num_experts=int(template_imarm_descriptor.num_experts.item()),
+        pretrained_expert_index=0,
+    )
+    logger.log_result(str(best_model.image_arm.params.multi_region_image_arm_specification.routing_grid))
     # We've already worked for that many second during warm up
     warmup_duration = time.time() - start_time
 
     logger.log_result("Intra Warm-up is done!")
     logger.log_result(f"Intra Warm-up time [s]: {warmup_duration:.2f}")
     logger.log_result(f"Intra Winner ID       : {all_candidates[0].id}\n")
-
-    return frame_encoder
+    
+    return best_model
