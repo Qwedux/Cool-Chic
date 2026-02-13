@@ -279,7 +279,7 @@ class PresetFNLIC(Preset):
         self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=1e-2,
-                max_itr=140000,
+                max_itr=280000,
                 freq_valid=100,
                 patience=4000,
                 quantize_model=False,
@@ -356,13 +356,13 @@ class PresetFNLIC(Preset):
                     candidates=5,
                     training_phase=TrainerPhase(
                         lr=1e-2,
-                        max_itr=400,
+                        max_itr=1000,
                         freq_valid=100,
                         patience=100000,
                         quantize_model=False,
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
-                        noise_parameter=(1.0, 0.5),
+                        noise_parameter=(2.0, 2.0),
                         quantizer_noise_type="kumaraswamy",
                         quantizer_type="softround",
                         optimized_module=["all"],
@@ -378,7 +378,7 @@ class PresetFNLIC(Preset):
                         quantize_model=False,
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
-                        noise_parameter=(0.5, 0.25),
+                        noise_parameter=(2.0, 2.0),
                         quantizer_noise_type="kumaraswamy",
                         quantizer_type="softround",
                         optimized_module=["all"],
