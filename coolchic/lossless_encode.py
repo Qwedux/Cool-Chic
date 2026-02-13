@@ -33,7 +33,11 @@ torch.set_float32_matmul_precision("high")
 # LOAD COMMAND LINE ARGS AND IMAGE
 # ==========================================================================================
 command_line_args = load_args()
+job_index = command_line_args.image_index
+# FIXME: Remove this once we stop variance testing
+command_line_args.image_index=5
 im_path = args["input"][command_line_args.image_index]
+
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
     im_path, device="cuda:0", color_space=command_line_args.color_space
 )
@@ -67,7 +71,7 @@ coolchic.to_device("cuda:0")
 dataset_name = im_path.split("/")[-2]
 logger = TrainingLogger(
     log_folder_path=args["LOG_PATH"],
-    image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0],
+    image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0] + f"_job_{job_index}",
     debug_mode=image_encoder_manager.n_itr < 1000,
     experiment_name=command_line_args.experiment_name,
 )
@@ -76,6 +80,8 @@ with open(args["network_yaml_path"], "r") as f:
 logger.log_result(f"Preset: {image_encoder_manager.preset.pretty_string()}")
 # logger.log_result(f"Network YAML configuration:\n{network_yaml}")
 logger.log_result(f"{str_args(args)}")
+logger.log_result(f"Job index: {job_index}")
+logger.log_result(f"Image index: {command_line_args.image_index}")
 logger.log_result(f"Processing image {im_path}")
 logger.log_result(
     f"Using color space {command_line_args.color_space} with bitdepths {image_encoder_manager.colorspace_bitdepths.bitdepths}"
@@ -140,38 +146,38 @@ logger.log_result(
 # FULL ENCODE-DECODE TO BITSTREAM
 # ==========================================================================================
 
-encode_decode_start_time = time.time()
-coolchic.to_device("cpu")
-im_tensor = im_tensor.to("cpu")
-with torch.no_grad():
-    raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=-1)
+# encode_decode_start_time = time.time()
+# coolchic.to_device("cpu")
+# im_tensor = im_tensor.to("cpu")
+# with torch.no_grad():
+#     raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=-1)
 
-# first do image
-enc_dec_im_interface = ImageEncodeDecodeInterface(
-    data=(torch.clone(im_tensor), torch.clone(raw_synth_out)),
-    model=coolchic,
-    ct_range=colorspace_bitdepths,
-)
-bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
-    enc_dec_interface=enc_dec_im_interface,
-    logger=logger,
-    distribution="logistic",
-    output_path=None,
-)
-logger.log_result(f"Finished encoding in {time.time() - encode_decode_start_time:.2f} seconds.")
-im_symbols_post_encoding, prob_distributions = decode_with_predictor(
-    enc_dec_interface=enc_dec_im_interface,
-    bitstream=bitstream_im,
-    bitstream_path=None,
-    distribution="logistic",
-)
-logger.log_result("Image encode-decode finished.")
-logger.log_result(f"Total encode-decode time: {time.time() - encode_decode_start_time:.2f} seconds.")
-is_im_encode_decode_equal = torch.equal(
-    torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
-)
-logger.log_result(f"Image encode-decode equality check: {is_im_encode_decode_equal}")
-logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.numel()}")
+# # first do image
+# enc_dec_im_interface = ImageEncodeDecodeInterface(
+#     data=(torch.clone(im_tensor), torch.clone(raw_synth_out)),
+#     model=coolchic,
+#     ct_range=colorspace_bitdepths,
+# )
+# bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
+#     enc_dec_interface=enc_dec_im_interface,
+#     logger=logger,
+#     distribution="logistic",
+#     output_path=None,
+# )
+# logger.log_result(f"Finished encoding in {time.time() - encode_decode_start_time:.2f} seconds.")
+# im_symbols_post_encoding, prob_distributions = decode_with_predictor(
+#     enc_dec_interface=enc_dec_im_interface,
+#     bitstream=bitstream_im,
+#     bitstream_path=None,
+#     distribution="logistic",
+# )
+# logger.log_result("Image encode-decode finished.")
+# logger.log_result(f"Total encode-decode time: {time.time() - encode_decode_start_time:.2f} seconds.")
+# is_im_encode_decode_equal = torch.equal(
+#     torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
+# )
+# logger.log_result(f"Image encode-decode equality check: {is_im_encode_decode_equal}")
+# logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.numel()}")
 
 # # second do latents
 # enc_dec_latent_interface = LatentEncodeDecodeInterface(
@@ -198,5 +204,4 @@ logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.nume
 # logger.log_result(f"Rate Latent bistream: {bitstream_latent.nbytes * 8 / im_tensor.numel()}")
 # logger.log_result(
 #     f"Total image+latent bpd rate: {(bitstream_im.nbytes + bitstream_latent.nbytes) * 8 / im_tensor.numel()}"
-# )
 # )
