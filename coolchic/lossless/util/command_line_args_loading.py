@@ -69,4 +69,3 @@ def load_args(notebook_overrides: dict[COMMAND_LINE_ARGS_NAMES, Any] = {}) -> Co
                 "notebook_overrides provided but running outside notebook; ignoring them."
             )
         return tyro.cli(CommandLineArgs)
-        return tyro.cli(CommandLineArgs)

@@ -353,7 +353,7 @@ class PresetFNLIC(Preset):
         self.warmup = Warmup(
             [
                 WarmupPhase(
-                    candidates=5,
+                    candidates=10,
                     training_phase=TrainerPhase(
                         lr=1e-2,
                         max_itr=1000,
@@ -369,7 +369,7 @@ class PresetFNLIC(Preset):
                     ),
                 ),
                 WarmupPhase(
-                    candidates=2,
+                    candidates=4,
                     training_phase=TrainerPhase(
                         lr=1e-2,
                         max_itr=1000,

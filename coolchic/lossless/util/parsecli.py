@@ -96,10 +96,10 @@ def get_coolchic_param_from_args(
     encoder_param.image_arm_parameters.multi_region_image_arm_specification.set_image_size(
         image_size
     )
-    encoder_param.image_arm_parameters.multi_region_image_arm_specification.simple_grid_routing(
-        int(multi_region_image_arm_setup.split("x")[0]),
-        int(multi_region_image_arm_setup.split("x")[1]),
-    )
+    # encoder_param.image_arm_parameters.multi_region_image_arm_specification.simple_grid_routing(
+    #     int(multi_region_image_arm_setup.split("x")[0]),
+    #     int(multi_region_image_arm_setup.split("x")[1]),
+    # )
 
     encoder_param.set_image_size(image_size)
     encoder_param.use_image_arm = use_image_arm
