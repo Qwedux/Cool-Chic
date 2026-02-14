@@ -4,6 +4,7 @@ import time
 
 sys.path.append(os.getcwd())
 import copy
+from typing import cast
 
 import numpy as np
 import torch
@@ -35,7 +36,7 @@ torch.set_float32_matmul_precision("high")
 command_line_args = load_args()
 job_index = command_line_args.image_index
 # FIXME: Remove this once we stop variance testing
-command_line_args.image_index=5
+command_line_args.image_index = 5
 im_path = args["input"][command_line_args.image_index]
 
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
@@ -45,23 +46,36 @@ im_tensor, colorspace_bitdepths = load_image_as_tensor(
 # ==========================================================================================
 # LOAD PRESETS, COOLCHIC PARAMETERS
 # ==========================================================================================
+multi_arm_setup: tuple[int, int] = cast(
+    tuple[int, int], tuple(map(int, command_line_args.multiarm_setup.split("x")))
+)
 image_encoder_manager = ImageEncoderManager(
-    preset_name=args["preset"], colorspace_bitdepths=colorspace_bitdepths
+    preset_name=args["preset"],
+    colorspace_bitdepths=colorspace_bitdepths,
+    multi_region_image_arm_setup=multi_arm_setup,
 )
 
 if "big_arm" in command_line_args.experiment_name:
-    args["arm_image_params"] = ImageARMParameter(context_size=16, n_hidden_layers=2, hidden_layer_dim=48)
-    args["layers_synthesis_lossless"] = "24-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none"
+    args["arm_image_params"] = ImageARMParameter(
+        context_size=16, n_hidden_layers=2, hidden_layer_dim=48
+    )
+    args["layers_synthesis_lossless"] = (
+        "24-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none"
+    )
 elif "big_synthesis" in command_line_args.experiment_name:
-    args["arm_image_params"] = ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6)
-    args["layers_synthesis_lossless"] = "26-3-1-linear-relu,26-3-1-residual-none,26-3-1-residual-relu,X-3-1-linear-none"
+    args["arm_image_params"] = ImageARMParameter(
+        context_size=8, n_hidden_layers=2, hidden_layer_dim=6
+    )
+    args["layers_synthesis_lossless"] = (
+        "26-3-1-linear-relu,26-3-1-residual-none,26-3-1-residual-relu,X-3-1-linear-none"
+    )
 encoder_param = get_coolchic_param_from_args(
     args,
     "lossless",
     image_size=(im_tensor.shape[2], im_tensor.shape[3]),
     use_image_arm=command_line_args.use_image_arm,
     encoder_gain=command_line_args.encoder_gain,
-    multi_region_image_arm_setup=command_line_args.multiarm_setup,
+    multi_region_image_arm_setup="1x1",
 )
 coolchic = CoolChicEncoder(param=encoder_param)
 coolchic.to_device("cuda:0")
@@ -204,4 +218,7 @@ logger.log_result(
 # logger.log_result(f"Rate Latent bistream: {bitstream_latent.nbytes * 8 / im_tensor.numel()}")
 # logger.log_result(
 #     f"Total image+latent bpd rate: {(bitstream_im.nbytes + bitstream_latent.nbytes) * 8 / im_tensor.numel()}"
+# )
+# )
+# )
 # )

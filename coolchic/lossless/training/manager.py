@@ -22,6 +22,7 @@ class ImageEncoderManager():
     # ----- Encoding (i.e. training) options
     colorspace_bitdepths: ColorBitdepths                # Additional color space information for the image encoding
     preset_name: str                                    # Preset name, should be a key in AVAILABLE_PRESETS utils/encoding_management/presets.py
+    multi_region_image_arm_setup: tuple[int, int] = field(default=(1, 1))   # Multi-region image ARM setup, e.g., (2, 2) for 2 rows and 2 columns
     start_lr: float = field(default=1e-2, init=False)   # Initial learning rate
     n_itr: int = field(default=int(1e4), init=False)    # Number of iterations for the main training stage
     n_loops: int = field(default=1, init=False)         # Number of training loop
@@ -52,7 +53,7 @@ class ImageEncoderManager():
         self.n_itr = self.preset._get_total_training_iterations()
         self.start_lr = self.preset.training_phases[0].lr
         self.n_loops = 1
-
+        
         flag_quantize_model = False
         for training_phase in self.preset.training_phases:
             if training_phase.quantize_model:
