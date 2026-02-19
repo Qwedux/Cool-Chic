@@ -279,7 +279,7 @@ class PresetFNLIC(Preset):
         self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=1e-2,
-                max_itr=1000,
+                max_itr=25000,
                 freq_valid=100,
                 patience=4000,
                 quantize_model=False,
@@ -295,7 +295,7 @@ class PresetFNLIC(Preset):
         self.training_phases.append(
             TrainerPhase(
                 lr=1.0e-4,
-                max_itr=150,
+                max_itr=1500,
                 freq_valid=100,
                 patience=1500,
                 optimized_module=["all"],
@@ -679,7 +679,7 @@ class PresetMeasureSpeed(Preset):
     def __init__(
         self,
         start_lr: float = 1e-2,
-        itr_main_training: int = 100000,
+        itr_main_training: int = 100,
     ):
         super().__init__(preset_name="measure_speed")
 
@@ -725,7 +725,7 @@ AVAILABLE_PRESETS: Dict[str, Preset] = {
     # "c3x_intra": PresetC3xIntra,
     # "c3x_inter": PresetC3xInter,
     "debug": PresetDebug,
-    # "measure_speed": PresetMeasureSpeed,
+    "measure_speed": PresetMeasureSpeed,
     "fnlic": PresetFNLIC,  # type: ignore
     "speed_test": PresetSpeedTest,
 }

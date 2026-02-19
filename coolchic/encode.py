@@ -12,7 +12,7 @@ encoding_fmt = 'CUDA_VISIBLE_DEVICES={} ' \
           '--encoder-gain=64 ' \
           '--color-space=YCoCg ' \
           '--use-image-arm ' \
-          '--experiment-name=2026_02_19_preset_coolchic ' \
+          '--experiment-name=2026_02_19_preset_test ' \
           '--multiarm_setup=2x2 ' \
 
 def run_command(cmd):
@@ -26,6 +26,7 @@ def run_encode(gpu, max_job_id, max_concurrent_tasks):
         for job_id in range(max_job_id):
             encoding_cmd = encoding_fmt.format(gpu, job_id)
             future = executor.submit(run_command, encoding_cmd)
+
             futures.append(future)
     return futures
 

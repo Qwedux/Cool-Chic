@@ -35,6 +35,7 @@ torch.set_float32_matmul_precision("high")
 # ==========================================================================================
 command_line_args = load_args()
 job_index = command_line_args.image_index
+print(f"Encoding job {job_index} started at {time.time()}")
 # FIXME: Remove this once we stop variance testing
 command_line_args.image_index = 12
 im_path = args["input"][command_line_args.image_index]
