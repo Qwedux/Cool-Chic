@@ -11,7 +11,7 @@ if os.path.exists("/itet-stor/jparada/net_scratch/"):
     NETWORK_YAML_PATH = f"{BASE_PATH}Cool-Chic/cfg/network_architecture.yaml"
 else:
     BASE_PATH = f"{os.getcwd()}/../"
-    DATASET_PATH = f"{BASE_PATH}datasets/datasets_smol/"
+    DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
     TEST_WORKDIR = f"{BASE_PATH}coolchic/test-workdir/"
     LOG_PATH = f"{BASE_PATH}logs/"
     NETWORK_YAML_PATH = f"{BASE_PATH}cfg/network_architecture.yaml"
