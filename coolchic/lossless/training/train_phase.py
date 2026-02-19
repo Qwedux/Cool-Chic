@@ -90,7 +90,7 @@ def _train_single_phase(
         learning_rate_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             T_max=training_phase.max_itr // training_phase.freq_valid,
-            eta_min=0.00001,
+            eta_min=0.0000,
             last_epoch=-1,
         )
     else:

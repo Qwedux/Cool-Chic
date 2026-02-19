@@ -36,7 +36,7 @@ torch.set_float32_matmul_precision("high")
 command_line_args = load_args()
 job_index = command_line_args.image_index
 # FIXME: Remove this once we stop variance testing
-command_line_args.image_index = 5
+command_line_args.image_index = 12
 im_path = args["input"][command_line_args.image_index]
 
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
@@ -88,6 +88,8 @@ logger = TrainingLogger(
     image_name=f"{dataset_name}_" + im_path.split("/")[-1].split(".")[0] + f"_job_{job_index}",
     debug_mode=image_encoder_manager.n_itr < 1000,
     experiment_name=command_line_args.experiment_name,
+    # disable console print for now
+    console_print=False,
 )
 with open(args["network_yaml_path"], "r") as f:
     network_yaml = f.read()

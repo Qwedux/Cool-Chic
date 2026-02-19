@@ -279,7 +279,7 @@ class PresetFNLIC(Preset):
         self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=1e-2,
-                max_itr=280000,
+                max_itr=1000,
                 freq_valid=100,
                 patience=4000,
                 quantize_model=False,
@@ -292,47 +292,23 @@ class PresetFNLIC(Preset):
             )
         ]
 
-        # 2nd stage with STE
-        lr = 0.0001
-        while lr > 10.0e-6:
-            self.training_phases.append(
-                TrainerPhase(
-                    lr=lr,
-                    max_itr=100,
-                    freq_valid=10,
-                    patience=50,
-                    quantize_model=False,
-                    schedule_lr=True,
-                    # This is only used to parameterize the backward of the quantization
-                    softround_temperature=(1e-4, 1e-4),
-                    noise_parameter=(
-                        1.0,
-                        1.0,
-                    ),  # Kumaraswamy noise with parameter = 1 --> Uniform noise
-                    quantizer_noise_type="none",
-                    quantizer_type="ste",
-                    optimized_module=["all"],
-                )
-            )
-            lr *= 0.8
-
-        # 3rd stage: quantize the networks and then re-tune the latent
-        lr = 10.0e-6
         self.training_phases.append(
             TrainerPhase(
-                lr=lr,
-                max_itr=100,
+                lr=1.0e-4,
+                max_itr=150,
                 freq_valid=100,
-                patience=100,
-                quantize_model=True,
-                schedule_lr=False,
-                softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
+                patience=1500,
                 optimized_module=["all"],
+                schedule_lr=True,
+                quantizer_type="ste",
+                quantizer_noise_type="none",
+                # This is only used to parameterize the backward of the quantization
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
+                quantize_model=True,  # ! This is an important parameter
             )
         )
+
         self.training_phases.append(
             TrainerPhase(
                 lr=1e-4,
