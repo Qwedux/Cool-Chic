@@ -14,12 +14,14 @@ class TrainingLogger:
         debug_mode: bool = False,
         experiment_name: str = "kodak",
         write_to_disk: bool = True,
+        console_print: bool = False,
     ):
         self.start_time = time.time()
         self.image_name = image_name
         self.debug_mode = debug_mode
         self.write_to_disk = write_to_disk
         self.log_folder_path = log_folder_path
+        self.console_print = console_print
 
         if not self.write_to_disk:
             return
@@ -49,7 +51,8 @@ class TrainingLogger:
             f.write("\n")
 
     def log_result(self, message: str):
-        print(message)
+        if self.console_print:
+            print(message)
         if not self.write_to_disk:
             return
         with open(self.results_log_file_path, "a") as f:
@@ -57,7 +60,8 @@ class TrainingLogger:
         return
 
     def log_training(self, message: str):
-        print(message)
+        if self.console_print:
+            print(message)
         if not self.write_to_disk:
             return
         with open(self.train_log_file_path, "a") as f:
