@@ -12,7 +12,7 @@ encoding_fmt = 'CUDA_VISIBLE_DEVICES={} ' \
           '--encoder-gain=64 ' \
           '--color-space=YCoCg ' \
           '--use-image-arm ' \
-          '--experiment-name=2026_02_19_kodak ' \
+          '--experiment-name=2026_02_21_long_warmup_ ' \
           '--multiarm_setup=2x2 ' \
 
 def run_command(cmd):
@@ -33,7 +33,7 @@ def run_encode(gpu, job_id_range, max_concurrent_tasks):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', type=int, default=0)
-    parser.add_argument('--job_id_range', type=str, default="0-24")
-    parser.add_argument('--max_concurrent_tasks', type=int, default=4)
+    parser.add_argument('--job_id_range', type=str, default="0-3")
+    parser.add_argument('--max_concurrent_tasks', type=int, default=3)
     args = parser.parse_args()
     run_encode(args.gpu, args.job_id_range, args.max_concurrent_tasks)

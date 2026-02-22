@@ -26,7 +26,7 @@ from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import get_coolchic_param_from_args
 
-torch.autograd.set_detect_anomaly(True)
+torch.autograd.set_detect_anomaly(True) # type: ignore
 torch.set_float32_matmul_precision("high")
 # torch._logging.set_logs(graph_code=True)
 
@@ -37,7 +37,7 @@ command_line_args = load_args()
 job_index = command_line_args.image_index
 print(f"Encoding job {job_index} started at {time.time()}")
 # FIXME: Remove this once we stop variance testing
-command_line_args.image_index = 12
+command_line_args.image_index = 0
 im_path = args["input"][command_line_args.image_index]
 
 im_tensor, colorspace_bitdepths = load_image_as_tensor(

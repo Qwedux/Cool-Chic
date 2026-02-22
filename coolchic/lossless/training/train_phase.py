@@ -2,14 +2,11 @@ import copy
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
-from lossless.component.core.quantizer import (
-    POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE)
-from lossless.configs.presets import MODULE_TO_OPTIMIZE, Preset, TrainerPhase
+from lossless.configs.presets import MODULE_TO_OPTIMIZE, TrainerPhase
 from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import LossFunctionOutput, loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
-from lossless.util.color_transform import ColorBitdepths
 from lossless.util.logger import TrainingLogger
 from torch.nn.utils import clip_grad_norm_
 
@@ -82,7 +79,7 @@ def _train_single_phase(
                     f"Available modules are: {MODULE_TO_OPTIMIZE}"
                 )
 
-    optimizer = torch.optim.Adam(parameters_to_optimize, lr=torch.tensor(training_phase.lr))
+    optimizer = torch.optim.Adam(parameters_to_optimize, lr=training_phase.lr)
     best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
     if training_phase.schedule_lr:

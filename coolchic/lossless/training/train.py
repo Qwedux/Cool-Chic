@@ -9,7 +9,6 @@
 
 
 import time
-from typing import List, Tuple
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
@@ -17,7 +16,6 @@ from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
 from lossless.training.train_phase import _train_single_phase
 from lossless.training.warmup import warmup
-from lossless.util.color_transform import ColorBitdepths
 from lossless.util.logger import TrainingLogger
 
 
