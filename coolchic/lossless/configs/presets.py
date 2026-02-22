@@ -279,7 +279,7 @@ class PresetFNLIC(Preset):
         self.training_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=1e-2,
-                max_itr=140000,
+                max_itr=120000,
                 freq_valid=100,
                 patience=4000,
                 quantize_model=False,
@@ -329,7 +329,23 @@ class PresetFNLIC(Preset):
         self.warmup = Warmup(
             [
                 WarmupPhase(
-                    candidates=10,
+                    candidates=16,
+                    training_phase=TrainerPhase(
+                        lr=1e-2,
+                        max_itr=1000,
+                        freq_valid=100,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(2.0, 2.0),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+                WarmupPhase(
+                    candidates=8,
                     training_phase=TrainerPhase(
                         lr=1e-2,
                         max_itr=1000,
@@ -353,8 +369,24 @@ class PresetFNLIC(Preset):
                         patience=100000,
                         quantize_model=False,
                         schedule_lr=False,
-                        softround_temperature=(0.3, 0.3),
-                        noise_parameter=(2.0, 2.0),
+                        softround_temperature=(0.3, 0.1),
+                        noise_parameter=(0.25, 0.1),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+                WarmupPhase(
+                    candidates=2,
+                    training_phase=TrainerPhase(
+                        lr=1e-2,
+                        max_itr=1000,
+                        freq_valid=100,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.1),
+                        noise_parameter=(0.25, 0.1),
                         quantizer_noise_type="kumaraswamy",
                         quantizer_type="softround",
                         optimized_module=["all"],
