@@ -12,7 +12,7 @@ encoding_fmt = 'CUDA_VISIBLE_DEVICES={} ' \
           '--encoder-gain=64 ' \
           '--color-space=YCoCg ' \
           '--use-image-arm ' \
-          '--experiment-name=2026_02_21_long_warmup_ ' \
+          '--experiment-name=2026_02_26_long_warmup_kodak ' \
           '--multiarm_setup=2x2 ' \
 
 def run_command(cmd):
@@ -23,8 +23,8 @@ def run_command(cmd):
 def run_encode(gpu, job_id_range, max_concurrent_tasks):
     futures = []
     with ThreadPoolExecutor(max_workers=max_concurrent_tasks) as executor:
-        for job_id in range(int(job_id_range.split("-")[0]), int(job_id_range.split("-")[1])):
-            encoding_cmd = encoding_fmt.format(gpu, job_id)
+        for job_id in range(3):
+            encoding_cmd = encoding_fmt.format(gpu, job_id_range, job_id)
             future = executor.submit(run_command, encoding_cmd)
 
             futures.append(future)
@@ -33,7 +33,7 @@ def run_encode(gpu, job_id_range, max_concurrent_tasks):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', type=int, default=0)
-    parser.add_argument('--job_id_range', type=str, default="0-3")
-    parser.add_argument('--max_concurrent_tasks', type=int, default=3)
+    parser.add_argument('--job_id_range', type=str, default="0")
+    parser.add_argument('--max_concurrent_tasks', type=int, default=1)
     args = parser.parse_args()
     run_encode(args.gpu, args.job_id_range, args.max_concurrent_tasks)

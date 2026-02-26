@@ -3,24 +3,24 @@ import sys
 import time
 
 sys.path.append(os.getcwd())
-import copy
+# import copy
 from typing import cast
 
-import numpy as np
+# import numpy as np
 import torch
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.component.core.arm_image import ImageARMParameter
 from lossless.configs.config import args, str_args
-from lossless.io.decode_with_predictor import decode_with_predictor
-from lossless.io.encode_with_predictor import encode_with_predictor
-from lossless.io.encoding_interfaces.image_encoding_interface import \
-    ImageEncodeDecodeInterface
-from lossless.io.encoding_interfaces.latent_encoding_interface import \
-    LatentEncodeDecodeInterface
+# from lossless.io.decode_with_predictor import decode_with_predictor
+# from lossless.io.encode_with_predictor import encode_with_predictor
+# from lossless.io.encoding_interfaces.image_encoding_interface import \
+#     ImageEncodeDecodeInterface
+# from lossless.io.encoding_interfaces.latent_encoding_interface import \
+#     LatentEncodeDecodeInterface
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
-from lossless.util.color_transform import LatentBitdepths
+# from lossless.util.color_transform import LatentBitdepths
 from lossless.util.command_line_args_loading import load_args
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
@@ -37,7 +37,7 @@ command_line_args = load_args()
 job_index = command_line_args.image_index
 print(f"Encoding job {job_index} started at {time.time()}")
 # FIXME: Remove this once we stop variance testing
-command_line_args.image_index = 0
+# command_line_args.image_index = 0
 im_path = args["input"][command_line_args.image_index]
 
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
