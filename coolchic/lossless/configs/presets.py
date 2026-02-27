@@ -284,9 +284,9 @@ class PresetFNLIC(Preset):
                 patience=4000,
                 quantize_model=False,
                 schedule_lr=True,
-                softround_temperature=(0.3, 0.1),
-                noise_parameter=(0.25, 0.1),
-                quantizer_noise_type="gaussian",
+                softround_temperature=(0.3, 0.3),
+                noise_parameter=(2.0, 2.0),
+                quantizer_noise_type="kumaraswamy",
                 quantizer_type="softround",
                 optimized_module=["all"],
             )
