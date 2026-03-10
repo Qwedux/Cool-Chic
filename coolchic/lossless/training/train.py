@@ -17,7 +17,7 @@ from lossless.training.test import test
 from lossless.training.train_phase import _train_single_phase
 from lossless.training.warmup import warmup
 from lossless.util.logger import TrainingLogger
-
+import gc
 
 def train(
     model: CoolChicEncoder,
@@ -107,6 +107,9 @@ def train(
         target_image=target_image,
         logger=logger,
     )
+    # clear torch cache
+    torch.cuda.empty_cache()
+    gc.collect()
     model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(
         image_encoder_manager.multi_region_image_arm_setup[0],
         image_encoder_manager.multi_region_image_arm_setup[1],
