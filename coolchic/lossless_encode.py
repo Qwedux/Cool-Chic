@@ -11,24 +11,18 @@ import torch
 from lossless.component.coolchic import CoolChicEncoder
 from lossless.component.core.arm_image import ImageARMParameter
 from lossless.configs.config import args, str_args
-# from lossless.io.decode_with_predictor import decode_with_predictor
-# from lossless.io.encode_with_predictor import encode_with_predictor
-# from lossless.io.encoding_interfaces.image_encoding_interface import \
-#     ImageEncodeDecodeInterface
-# from lossless.io.encoding_interfaces.latent_encoding_interface import \
-#     LatentEncodeDecodeInterface
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
-# from lossless.util.color_transform import LatentBitdepths
 from lossless.util.command_line_args_loading import load_args
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import get_coolchic_param_from_args
 
-torch.autograd.set_detect_anomaly(True) # type: ignore
 torch.set_float32_matmul_precision("high")
-# torch._logging.set_logs(graph_code=True)
+torch.backends.cudnn.benchmark = True
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
 
 # ==========================================================================================
 # LOAD COMMAND LINE ARGS AND IMAGE
