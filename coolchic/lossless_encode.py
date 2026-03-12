@@ -20,9 +20,9 @@ from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import get_coolchic_param_from_args
 
 torch.set_float32_matmul_precision("high")
-torch.backends.cudnn.benchmark = True
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
+# torch.backends.cudnn.benchmark = True
+# torch.backends.cuda.matmul.allow_tf32 = True
+# torch.backends.cudnn.allow_tf32 = True
 
 # ==========================================================================================
 # LOAD COMMAND LINE ARGS AND IMAGE
@@ -215,7 +215,4 @@ logger.log_result(
 # logger.log_result(f"Rate Latent bistream: {bitstream_latent.nbytes * 8 / im_tensor.numel()}")
 # logger.log_result(
 #     f"Total image+latent bpd rate: {(bitstream_im.nbytes + bitstream_latent.nbytes) * 8 / im_tensor.numel()}"
-# )
-# )
-# )
 # )
