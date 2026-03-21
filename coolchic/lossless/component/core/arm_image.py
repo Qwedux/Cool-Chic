@@ -387,7 +387,14 @@ class ImageArm(nn.Module):
                 default=0,
             )
             neighbor_context.append(pixel_value)
-        # Return as a tensor of shape [1, context_size]
+        # Keep context on the same device as the source tensor (CPU/GPU).
+        if isinstance(grid_so_far, torch.Tensor):
+            return torch.tensor(
+                neighbor_context,
+                dtype=grid_so_far.dtype,
+                device=grid_so_far.device,
+            ).unsqueeze(0)
+        # Fallback for list-based callers.
         return torch.tensor(neighbor_context, dtype=torch.float32).unsqueeze(0)
 
     def get_param(self) -> OrderedDict[str, Tensor]:

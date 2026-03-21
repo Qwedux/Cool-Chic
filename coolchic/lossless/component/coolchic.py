@@ -268,8 +268,8 @@ class CoolChicEncoder(nn.Module):
 
         # Something like ['arm', 'synthesis', 'upsampling']
         self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
-        # if not self.param.use_image_arm:
-        #     self.modules_to_send.remove("image_arm")
+        if not self.param.use_image_arm:
+            self.modules_to_send.remove("image_arm")
 
         # ======================== Monitoring ======================== #
         # Pretty string representing the decoder complexity

@@ -239,7 +239,7 @@ class Preset:
 
     def _get_total_training_iterations(self) -> int:
         """Return the total number of iterations for the whole warm-up."""
-        return sum([phase.max_itr for phase in self.training_phases])
+        return sum([phase.max_itr for phase in self.training_phases]) + self.warmup._get_total_warmup_iterations()
 
     def pretty_string(self) -> str:
         """Return a pretty string describing a warm-up phase"""
@@ -724,7 +724,7 @@ class PresetMeasureSpeed(Preset):
                 optimized_module=["all"],
                 schedule_lr=True,
                 quantizer_type="softround",
-                quantizer_noise_type="gaussian",
+                quantizer_noise_type="kumaraswamy",
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(0.25, 0.1),
                 quantize_model=True,  # ! This is an important parameter

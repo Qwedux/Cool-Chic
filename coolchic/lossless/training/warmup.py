@@ -77,14 +77,15 @@ def warmup(
 
     num_starting_candidates = warmup.phases[0].candidates
     _col_width = 14
-    template_imarm_descriptor = copy.deepcopy(
-        template_model.image_arm.params.multi_region_image_arm_specification
-    )
-    template_model.image_arm.reinitialize_image_arm_experts(
-        num_experts=1,
-        pretrained_expert_index=0,
-    )
-    template_model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(1, 1)
+    if template_model.param.use_image_arm:
+        template_imarm_descriptor = copy.deepcopy(
+            template_model.image_arm.params.multi_region_image_arm_specification
+        )
+        template_model.image_arm.reinitialize_image_arm_experts(
+            num_experts=1,
+            pretrained_expert_index=0,
+        )
+        template_model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(1, 1)
 
     # Construct the list of candidates. Each of them has its own parameters,
     # unique ID and metrics (not yet evaluated so it is set to None).
@@ -178,12 +179,13 @@ def warmup(
 
     # Keep only the best model
     best_model = copy.deepcopy(all_candidates[0].encoder)
-    best_model.image_arm.params.multi_region_image_arm_specification = template_imarm_descriptor
-    best_model.image_arm.reinitialize_image_arm_experts(
-        num_experts=int(template_imarm_descriptor.num_experts.item()),
-        pretrained_expert_index=0,
-    )
-    logger.log_result(str(best_model.image_arm.params.multi_region_image_arm_specification.routing_grid))
+    if best_model.param.use_image_arm:
+        best_model.image_arm.params.multi_region_image_arm_specification = template_imarm_descriptor # type: ignore
+        best_model.image_arm.reinitialize_image_arm_experts(
+            num_experts=int(template_imarm_descriptor.num_experts.item()), # type: ignore
+            pretrained_expert_index=0,
+        )
+        logger.log_result(str(best_model.image_arm.params.multi_region_image_arm_specification.routing_grid))
     # We've already worked for that many second during warm up
     warmup_duration = time.time() - start_time
 

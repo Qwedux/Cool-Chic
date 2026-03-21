@@ -11,7 +11,7 @@ if os.path.exists("/itet-stor/jparada/net_scratch/"):
     NETWORK_YAML_PATH = f"{BASE_PATH}Cool-Chic/cfg/network_architecture.yaml"
 else:
     BASE_PATH = f"{os.getcwd()}/../"
-    DATASET_PATH = f"{BASE_PATH}datasets/clic2024/"
+    DATASET_PATH = f"{BASE_PATH}datasets/kodak/"
     TEST_WORKDIR = f"{BASE_PATH}coolchic/test-workdir/"
     LOG_PATH = f"{BASE_PATH}logs/"
     NETWORK_YAML_PATH = f"{BASE_PATH}cfg/network_architecture.yaml"
@@ -35,13 +35,14 @@ args = {
 
     "print_detailed_archi": False,
     "print_detailed_struct": False,
-    # config file paths
-    # encoder side
-    # decoder side
     "layers_synthesis_lossless": "24-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none",
     "arm_lossless": "16,2", #dim arm, n_layers
     "arm_lossless_hidden_layer_dim": 8,
     "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6),
+    # "layers_synthesis_lossless": "96-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none",
+    # "arm_lossless": "24,2", #dim arm, n_layers
+    # "arm_lossless_hidden_layer_dim": 24,
+    # "arm_image_params": ImageARMParameter(context_size=24, n_hidden_layers=2, hidden_layer_dim=24),
     "use_color_regression": False,
     "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
     "ups_k_size_lossless": 8,
