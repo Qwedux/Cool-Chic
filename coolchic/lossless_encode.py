@@ -62,8 +62,11 @@ elif "big_synthesis" in command_line_args.experiment_name:
         context_size=8, n_hidden_layers=2, hidden_layer_dim=6
     )
     args["layers_synthesis_lossless"] = (
-        "26-3-1-linear-relu,26-3-1-residual-none,26-3-1-residual-relu,X-3-1-linear-none"
+        "24-3-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none"
     )
+    args["arm_lossless"] = "24,2"
+    args["arm_lossless_hidden_layer_dim"] = 24
+
 encoder_param = get_coolchic_param_from_args(
     args,
     "lossless",
@@ -84,7 +87,7 @@ logger = TrainingLogger(
     debug_mode=image_encoder_manager.n_itr < 1000,
     experiment_name=command_line_args.experiment_name,
     # disable console print for now
-    console_print=False,
+    console_print=True,
 )
 with open(args["network_yaml_path"], "r") as f:
     network_yaml = f.read()
@@ -105,6 +108,32 @@ logger.log_result(f"Total training iterations: {image_encoder_manager.n_itr}")
 with torch.no_grad():
     logger.log_result(f"Total MAC per pixel: {coolchic.get_total_mac_per_pixel()}")
     logger.log_result(coolchic.str_complexity())
+
+# coolchic.image_arm.params.multi_region_image_arm_specification.routing_grid
+# holds matrix of shape [H, W], visualize it as an image
+# import numpy as np
+# import matplotlib.pyplot as plt
+
+# coolchic.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(
+#     image_encoder_manager.multi_region_image_arm_setup[0],
+#     image_encoder_manager.multi_region_image_arm_setup[1],
+# )
+# coolchic.image_arm.reinitialize_image_arm_experts(
+#     num_experts=int(coolchic.image_arm.params.multi_region_image_arm_specification.num_experts.item()),
+#     pretrained_expert_index=0,
+# )
+
+# routing_grid = coolchic.image_arm.params.multi_region_image_arm_specification.routing_grid
+# routing_grid = routing_grid.cpu().numpy()
+# routing_grid = routing_grid.astype(np.uint8) * 16
+# routing_grid = routing_grid.reshape(im_tensor.shape[2], im_tensor.shape[3])
+# plt.imshow(routing_grid)
+# plt.colorbar()
+# plt.show()
+# exit()
+# plt.savefig("routing_grid.png")
+# plt.close()
+
 # ==========================================================================================
 # TRAIN
 # ==========================================================================================

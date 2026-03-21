@@ -99,8 +99,9 @@ def train(
         The trained frame encoder.
     """
     start_time = time.time()
-    logger.log_result(f"Starting warmup with {model.image_arm.image_arm_models}")
-    logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.num_experts.item()}")
+    if model.param.use_image_arm:
+        logger.log_result(f"Starting warmup with {model.image_arm.image_arm_models}")
+        logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.num_experts.item()}")
     model = warmup(
         image_encoder_manager=image_encoder_manager,
         template_model=model,
@@ -110,16 +111,17 @@ def train(
     # clear torch cache
     torch.cuda.empty_cache()
     gc.collect()
-    model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(
-        image_encoder_manager.multi_region_image_arm_setup[0],
-        image_encoder_manager.multi_region_image_arm_setup[1],
-    )
-    model.image_arm.reinitialize_image_arm_experts(
-        num_experts=int(model.image_arm.params.multi_region_image_arm_specification.num_experts.item()),
-        pretrained_expert_index=0,
-    )
-    logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.num_experts.item()}")
-    logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.routing_grid}")
+    if model.param.use_image_arm:
+        model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(
+            image_encoder_manager.multi_region_image_arm_setup[0],
+            image_encoder_manager.multi_region_image_arm_setup[1],
+        )
+        model.image_arm.reinitialize_image_arm_experts(
+            num_experts=int(model.image_arm.params.multi_region_image_arm_specification.num_experts.item()),
+            pretrained_expert_index=0,
+        )
+        logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.num_experts.item()}")
+        logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.routing_grid}")
 
     initial_encoder_logs = test(
         model, target_image, image_encoder_manager
