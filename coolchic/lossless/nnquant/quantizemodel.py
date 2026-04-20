@@ -180,7 +180,6 @@ def quantize_model(
                 quantizer_noise_type="none",
                 quantizer_type="hardround",
                 AC_MAX_VAL=-1,
-                flag_additional_outputs=False,
             )
 
             param = cur_module.get_param()

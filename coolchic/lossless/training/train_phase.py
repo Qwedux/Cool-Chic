@@ -51,8 +51,6 @@ def _train_single_phase(
     model.train()
     if compile_model:
         model.compile(fullgraph=True)
-    # logger.log_result(f"Model compiled implementation is at: {model._compiled_call_impl}")
-    # check if the model is compiled
 
     best_model = model.get_param()
 
@@ -73,11 +71,8 @@ def _train_single_phase(
                 parameters_to_optimize += [*model.synthesis.parameters()]
             case "latent":
                 parameters_to_optimize += [*model.latent_grids.parameters()]
-            case other:
-                raise ValueError(
-                    f"Unknown module to optimize: {other}. "
-                    f"Available modules are: {MODULE_TO_OPTIMIZE}"
-                )
+            case _:
+                assert_never(cur_module_to_optimize)
 
     optimizer = torch.optim.Adam(parameters_to_optimize, lr=training_phase.lr)
     best_optimizer_state = copy.deepcopy(optimizer.state_dict())

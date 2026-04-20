@@ -514,7 +514,6 @@ def test(
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,
-        flag_additional_outputs=True,
     )
 
     loss_fn_output = loss_function(

@@ -26,9 +26,10 @@ from lossless.component.core.upsampling import Upsampling
 from lossless.component.types import DescriptorCoolChic, DescriptorNN
 from lossless.nnquant.expgolomb import measure_expgolomb_rate
 from lossless.util.device import POSSIBLE_DEVICE
-from lossless.util.distribution import get_latent_rate, weak_colorar_rate
 from lossless.util.termprint import pretty_string_nn, pretty_string_ups
 from torch import Tensor, nn
+from typing import TypeAlias
+from typing_extensions import assert_never
 
 """A cool-chic encoder is composed of:
     - A set of 2d hierarchical latent grids
@@ -85,7 +86,6 @@ class CoolChicEncoderParameter:
     ups_preconcat_k_size: int = 7
     latent_freq_precision: int = 12
     arm_hidden_layer_dim: int = 8
-    use_image_arm: bool = True
     use_color_regression: bool = False
 
     # ==================== Not set by the init function ===================== #
@@ -122,10 +122,6 @@ class CoolChicEncoderParameter:
         VALUE_WIDTH = 80
 
         s = ""
-        # title = f"CoolChicEncoderParameter {coolchic_name}:"
-
-        # s = f"{title}\n"
-        # s += "-" * len(title) + "\n"
         for k in fields(self):
             s += f"{k.name:<{ATTRIBUTE_WIDTH}}: {str(getattr(self, k.name)):<{VALUE_WIDTH}}\n"
         s += "\n"
@@ -148,7 +144,21 @@ class CoolChicEncoderOutput(TypedDict):
     scale: Tensor
     rate: Tensor
     latent_bpd: Tensor
-    additional_data: Dict[str, Any]
+
+@dataclass(frozen=True)
+class UseImageARMOnly:
+    pass
+
+@dataclass(frozen=True)
+class UseUntilSynthesis:
+    pass
+
+@dataclass(frozen=True)
+class UseFullModel:
+    pass
+
+CoolChicComputingMode: TypeAlias = UseImageARMOnly | UseUntilSynthesis | UseFullModel
+
 
 
 class CoolChicEncoder(nn.Module):
@@ -156,7 +166,7 @@ class CoolChicEncoder(nn.Module):
 
     non_zero_pixel_ctx_index: Tensor
 
-    def __init__(self, param: CoolChicEncoderParameter):
+    def __init__(self, param: CoolChicEncoderParameter, computing_mode: CoolChicComputingMode, device: POSSIBLE_DEVICE):
         """Instantiate a cool-chic encoder for one frame.
 
         Args:
@@ -168,8 +178,8 @@ class CoolChicEncoder(nn.Module):
 
         # Everything is stored inside param
         self.param = param
-        self.device = "cpu"
-        # print(self.param.pretty_string("CoolChicEncoderParameter"))
+        self.computing_mode = computing_mode
+        self.device: POSSIBLE_DEVICE = device
 
         assert self.param.img_size is not None, (
             "You are trying to instantiate a CoolChicEncoder from a "
@@ -191,11 +201,7 @@ class CoolChicEncoder(nn.Module):
             cur_size = (1, c_grid, h_grid, w_grid)
 
             self.size_per_latent.append(cur_size)
-
-            # Instantiate empty tensor, we fill them later on with the function
-            # self.initialize_latent_grids()
             self.latent_grids.append(nn.Parameter(torch.empty(cur_size), requires_grad=True))
-
         self.initialize_latent_grids()
 
         # Instantiate the synthesis MLP with as many inputs as the number
@@ -262,14 +268,9 @@ class CoolChicEncoder(nn.Module):
         self.arm = Arm(
             self.param.dim_arm, self.param.n_hidden_layers_arm, self.param.arm_hidden_layer_dim
         )
-        if self.param.use_image_arm:
-            self.image_arm = ImageArm(self.param.image_arm_parameters)
+        self.image_arm = ImageArm(self.param.image_arm_parameters)
         self.proba_output = ProbabilityOutput(self.param.use_color_regression)
-
-        # Something like ['arm', 'synthesis', 'upsampling']
         self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
-        if not self.param.use_image_arm:
-            self.modules_to_send.remove("image_arm")
 
         # ======================== Monitoring ======================== #
         # Pretty string representing the decoder complexity
@@ -307,181 +308,97 @@ class CoolChicEncoder(nn.Module):
         soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
         noise_parameter: Optional[Tensor] = torch.tensor(1.0),
         AC_MAX_VAL: int = -1,
-        flag_additional_outputs: bool = False,
     ) -> CoolChicEncoderOutput:
-        """Perform CoolChicEncoder forward pass, to be used during the training.
-        The main step are as follows:
-
-            1. **Scale & quantize the encoder-side latent** :math:`\\mathbf{y}` to
-               get the decoder-side latent
-
-                .. math::
-
-                    \\hat{\\mathbf{y}} = \\mathrm{Q}(\\Gamma_{enc}\\ \\mathbf{y}),
-
-                with :math:`\\Gamma_{enc} \\in \\mathbb{R}` a scalar encoder gain
-                defined in ``self.param.encoder_gains`` and :math:`\\mathrm{Q}`
-                the :doc:`quantization operation <core/quantizer>`.
-
-            2. **Measure the rate** of the decoder-side latent with the
-               :doc:`ARM <core/arm>`:
-
-                .. math::
-
-                    \\mathrm{R}(\\hat{\\mathbf{y}}) = -\\log_2 p_{\\psi}(\\hat{\\mathbf{y}}),
-
-               where :math:`p_{\\psi}`
-               is given by the :doc:`Auto-Regressive Module (ARM) <core/arm>`.
-
-            3. **Upsample and synthesize** the latent to get the output
-
-                .. math::
-
-                    \\hat{\\mathbf{x}} = f_{\\theta}(f_{\\upsilon}(\\hat{\\mathbf{y}})),
-
-               with :math:`f_{\\psi}` the :doc:`Upsampling <core/upsampling>`
-               and :math:`f_{\\theta}` the :doc:`Synthesis <core/synthesis>`.
-
-        Args:
-            quantizer_noise_type: Defaults to ``"kumaraswamy"``.
-            quantizer_type: Defaults to ``"softround"``.
-            soft_round_temperature: Soft round temperature.
-                This is used for softround modes as well as the
-                ste mode to simulate the derivative in the backward.
-                Defaults to 0.3.
-            noise_parameter: noise distribution parameter. Defaults to 1.0.
-            AC_MAX_VAL: If different from -1, clamp the value to be in
-                :math:`[-AC\\_MAX\\_VAL; AC\\_MAX\\_VAL + 1]` to write the actual bitstream.
-                Defaults to -1.
-            flag_additional_outputs: True to fill
-                ``CoolChicEncoderOutput['additional_data']`` with many different
-                quantities which can be used to analyze Cool-chic behavior.
-                Defaults to False.
-
-        Returns:
-            Output of Cool-chic training forward pass.
-        """
-
         # ! Order of the operations are important as these are asynchronous
         # ! CUDA operations. Some ordering are faster than other...
+        
+        if isinstance(self.computing_mode, UseUntilSynthesis) or isinstance(self.computing_mode, UseFullModel):
+            # ------ Encoder-side: quantize the latent
+            # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
+            # to a single flat vector. This allows to call the quantization
+            # only once, which is faster
+            encoder_side_flat_latent = torch.cat([latent_i.view(-1) for latent_i in self.latent_grids])
 
-        # ------ Encoder-side: quantize the latent
-        # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
-        # to a single flat vector. This allows to call the quantization
-        # only once, which is faster
-        encoder_side_flat_latent = torch.cat([latent_i.view(-1) for latent_i in self.latent_grids])
-
-        flat_decoder_side_latent = quantize(
-            encoder_side_flat_latent * self.encoder_gains,
-            quantizer_noise_type if self.training else "none",
-            quantizer_type if self.training else "hardround",
-            soft_round_temperature,
-            noise_parameter,
-        )
-
-        # Clamp latent if we need to write a bitstream
-        if AC_MAX_VAL != -1:
-            flat_decoder_side_latent = torch.clamp(
-                flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
+            flat_decoder_side_latent = quantize(
+                encoder_side_flat_latent * self.encoder_gains,
+                quantizer_noise_type if self.training else "none",
+                quantizer_type if self.training else "hardround",
+                soft_round_temperature,
+                noise_parameter,
             )
 
-        # Convert back the 1d tensor to a list of N [1, C, H_i, W_i] 4d latents.
-        # This require a few additional information about each individual
-        # latent dimension, stored in self.size_per_latent
-        decoder_side_latent = []
-        cnt = 0
-        for latent_size in self.size_per_latent:
-            b, c, h, w = latent_size  # b should be one
-            latent_numel = b * c * h * w
-            decoder_side_latent.append(
-                flat_decoder_side_latent[cnt : cnt + latent_numel].view(latent_size)
-            )
-            cnt += latent_numel
-
-        # ----- ARM to estimate the distribution and the rate of each latent
-        # As for the quantization, we flatten all the latent and their context
-        # so that the ARM network is only called once.
-        # flat_latent: [N, 1] tensor describing N latents
-        # flat_context: [N, context_size] tensor describing each latent context
-
-        # Get all the context as a single 2D vector of size [B, context size]
-        latent_context_flat = torch.cat(
-            [
-                _get_neighbor(
-                    spatial_latent_i,
-                    self.mask_size,
-                    self.non_zero_pixel_ctx_index,
+            # Clamp latent if we need to write a bitstream
+            if AC_MAX_VAL != -1:
+                flat_decoder_side_latent = torch.clamp(
+                    flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
                 )
-                for spatial_latent_i in decoder_side_latent
-            ],
-            dim=0,
-        )
 
-        # Get all the B latent variables as a single one dimensional vector
-        flat_latent = torch.cat(
-            [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
-            dim=0,
-        )
-
-        # Feed the spatial context to the arm MLP and get mu and scale
-        flat_mu, flat_scale, flat_log_scale = self.arm(latent_context_flat)
-
-        # Compute the rate (i.e. the entropy of flat latent knowing mu and scale)
-        proba = torch.clamp_min(
-            _laplace_cdf(flat_latent + 0.5, flat_mu, flat_scale)
-            - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
-            min=2**-16,  # No value can cost more than 16 bits.
-        )
-        flat_rate = -torch.log2(proba)
-
-        # Upsampling and synthesis to get the output
-        ups_out = self.upsampling(decoder_side_latent)
-        # has e.g. shape [1, 9, H, W]
-        raw_synth_out = self.synthesis(ups_out)
-
-        # print("until now fine")
-        if self.param.use_image_arm:
-            raw_synth_out = self.image_arm(image, raw_synth_out)
-        mu, scale = self.proba_output(raw_synth_out, image)
-
-        additional_data = {}
-        if flag_additional_outputs:
-            # Prepare list to accommodate the visualisations
-            additional_data["detailed_sent_latent"] = []
-            additional_data["detailed_mu"] = []
-            additional_data["detailed_scale"] = []
-            additional_data["detailed_log_scale"] = []
-            additional_data["detailed_rate_bit"] = []
-            additional_data["detailed_centered_latent"] = []
-            additional_data["hpfilters"] = []
-            additional_data["upsampled_latent"] = ups_out
-
-            # "Pointer" for the reading of the 1D scale, mu and rate
+            # Convert back the 1d tensor to a list of N [1, C, H_i, W_i] 4d latents.
+            # This require a few additional information about each individual
+            # latent dimension, stored in self.size_per_latent
+            decoder_side_latent = []
             cnt = 0
-            # for i, _ in enumerate(filtered_latent):
-            for index_latent_res, _ in enumerate(self.latent_grids):
-                c_i, h_i, w_i = decoder_side_latent[index_latent_res].size()[-3:]
-                additional_data["detailed_sent_latent"].append(
-                    decoder_side_latent[index_latent_res].view((1, c_i, h_i, w_i))
+            for latent_size in self.size_per_latent:
+                b, c, h, w = latent_size  # b should be one
+                latent_numel = b * c * h * w
+                decoder_side_latent.append(
+                    flat_decoder_side_latent[cnt : cnt + latent_numel].view(latent_size)
                 )
+                cnt += latent_numel
 
-                # Scale, mu and rate are 1D tensors where the N latent grids
-                # are flattened together. As such we have to read the appropriate
-                # number of values in this 1D vector to reconstruct the i-th grid in 2D
-                mu_i, scale_i, log_scale_i, rate_i = [
-                    # Read h_i * w_i values starting from cnt
-                    tmp[cnt : cnt + (c_i * h_i * w_i)].view((1, c_i, h_i, w_i))
-                    for tmp in [flat_mu, flat_scale, flat_log_scale, flat_rate]
-                ]
+            # ----- ARM to estimate the distribution and the rate of each latent
+            # As for the quantization, we flatten all the latent and their context
+            # so that the ARM network is only called once.
+            # flat_latent: [N, 1] tensor describing N latents
+            # flat_context: [N, context_size] tensor describing each latent context
 
-                cnt += c_i * h_i * w_i
-                additional_data["detailed_mu"].append(mu_i)
-                additional_data["detailed_scale"].append(scale_i)
-                additional_data["detailed_log_scale"].append(log_scale_i)
-                additional_data["detailed_rate_bit"].append(rate_i)
-                additional_data["detailed_centered_latent"].append(
-                    additional_data["detailed_sent_latent"][-1] - mu_i
-                )
+            # Get all the context as a single 2D vector of size [B, context size]
+            latent_context_flat = torch.cat(
+                [
+                    _get_neighbor(
+                        spatial_latent_i,
+                        self.mask_size,
+                        self.non_zero_pixel_ctx_index,
+                    )
+                    for spatial_latent_i in decoder_side_latent
+                ],
+                dim=0,
+            )
+
+            # Get all the B latent variables as a single one dimensional vector
+            flat_latent = torch.cat(
+                [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
+                dim=0,
+            )
+
+            # Feed the spatial context to the arm MLP and get mu and scale
+            flat_mu, flat_scale, _ = self.arm(latent_context_flat)
+
+            # Compute the rate (i.e. the entropy of flat latent knowing mu and scale)
+            proba = torch.clamp_min(
+                _laplace_cdf(flat_latent + 0.5, flat_mu, flat_scale)
+                - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
+                min=2**-16,  # No value can cost more than 16 bits.
+            )
+            flat_rate = -torch.log2(proba)
+
+            # Upsampling and synthesis to get the output
+            ups_out = self.upsampling(decoder_side_latent)
+            # has e.g. shape [1, 9, H, W]
+            raw_synth_out = self.synthesis(ups_out)
+            if isinstance(self.computing_mode, UseFullModel):
+                raw_synth_out = self.image_arm(image, raw_synth_out)
+            mu, scale = self.proba_output(raw_synth_out, image)            
+        elif isinstance(self.computing_mode, UseImageARMOnly):
+            flat_rate = torch.zeros(
+                sum(map(lambda x: x[0] * x[1] * x[2] * x[3], self.size_per_latent))
+            )
+            raw_synth_out = torch.zeros(image.shape[0], 9 if self.param.use_color_regression else 6, image.shape[2], image.shape[3])
+            raw_synth_out = self.image_arm(image, raw_synth_out)
+            mu, scale = self.proba_output(raw_synth_out, image)
+        else:
+            raise ValueError(f"Unknown computing mode: {self.computing_mode}")
+            
 
         assert self.param.img_size is not None
         res: CoolChicEncoderOutput = {
@@ -489,7 +406,6 @@ class CoolChicEncoder(nn.Module):
             "scale": scale,
             "rate": flat_rate,
             "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
-            "additional_data": additional_data,
         }
 
         return res
@@ -561,10 +477,9 @@ class CoolChicEncoder(nn.Module):
         )
         param.update({f"arm.{k}": v for k, v in self.arm.get_param().items()})
         # I broke the following as image_arms is now a list of modules
-        if self.param.use_image_arm:
-            param.update(
-                {f"image_arm.{k}": v.detach().clone() for k, v in self.image_arm.named_parameters()}
-            )
+        param.update(
+            {f"image_arm.{k}": v.detach().clone() for k, v in self.image_arm.named_parameters()}
+        )
         param.update({f"upsampling.{k}": v for k, v in self.upsampling.get_param().items()})
         param.update({f"synthesis.{k}": v for k, v in self.synthesis.get_param().items()})
         return param
@@ -598,10 +513,10 @@ class CoolChicEncoder(nn.Module):
 
         # Reset the quantization steps and exp-golomb count of the neural
         # network to None since we are resetting the parameters.
-        self.nn_q_step: Dict[str, DescriptorNN] = {
+        self.nn_q_step = {
             k: {"weight": None, "bias": None} for k in self.modules_to_send
         }
-        self.nn_expgol_cnt: Dict[str, DescriptorNN] = {
+        self.nn_expgol_cnt = {
             k: {"weight": None, "bias": None} for k in self.modules_to_send
         }
 
@@ -655,11 +570,11 @@ class CoolChicEncoder(nn.Module):
 
         # Reset the side information about the quantization step and expgol cnt
         # so that the rate is no longer computed by the test() function.
-        self.nn_q_step: Dict[str, DescriptorNN] = {
+        self.nn_q_step = {
             k: {"weight": None, "bias": None} for k in self.modules_to_send
         }
 
-        self.nn_expgol_cnt: Dict[str, DescriptorNN] = {
+        self.nn_expgol_cnt = {
             k: {"weight": None, "bias": None} for k in self.modules_to_send
         }
 
@@ -691,7 +606,6 @@ class CoolChicEncoder(nn.Module):
                 0.3,  # Soft round temperature
                 0.1,  # Noise parameter
                 -1,  # AC_MAX_VAL
-                False,  # Flag additional outputs
             ),  # type: ignore
         )
         flops.unsupported_ops_warnings(False)
@@ -778,11 +692,11 @@ class CoolChicEncoder(nn.Module):
 
         Returns:
             float: number of floating point operations per decoded pixel.
-        """
-
+        """        
         if not self.flops_str:
             self.get_flops()
 
+        assert self.param.img_size is not None, "Image size is not set"
         n_pixels = self.param.img_size[-2] * self.param.img_size[-1]
         return self.total_flops / n_pixels
 
@@ -810,24 +724,23 @@ class CoolChicEncoder(nn.Module):
                 if layer.qb is not None:
                     self.arm.mlp[idx_layer].qb = layer.qb.to(device)
 
-        if self.param.use_image_arm:
-            self.image_arm = self.image_arm.to(device)
-            self.image_arm.non_zero_image_arm_ctx_index = (
-                self.image_arm.non_zero_image_arm_ctx_index.to(device)
-            )
-            for expert in self.image_arm.image_arm_models:
-                assert isinstance(expert, nn.ModuleList)
-                for model in expert:
-                    assert isinstance(model, torch.nn.Sequential)
-                    for idx_layer, layer in enumerate(model):
-                        layer.to(device)
-                        if hasattr(layer, "qw"):
-                            if layer.qw is not None:
-                                model[idx_layer].qw = layer.qw.to(device)
+        self.image_arm = self.image_arm.to(device)
+        self.image_arm.non_zero_image_arm_ctx_index = (
+            self.image_arm.non_zero_image_arm_ctx_index.to(device)
+        )
+        for expert in self.image_arm.image_arm_models:
+            assert isinstance(expert, nn.ModuleList)
+            for model in expert:
+                assert isinstance(model, torch.nn.Sequential)
+                for idx_layer, layer in enumerate(model):
+                    layer.to(device)
+                    if hasattr(layer, "qw"):
+                        if layer.qw is not None:
+                            model[idx_layer].qw = layer.qw.to(device)
 
-                        if hasattr(layer, "qb"):
-                            if layer.qb is not None:
-                                model[idx_layer].qb = layer.qb.to(device)
+                    if hasattr(layer, "qb"):
+                        if layer.qb is not None:
+                            model[idx_layer].qb = layer.qb.to(device)
 
     def pretty_string(self, print_detailed_archi: bool = False) -> str:
         """Get a pretty string representing the layer of a ``CoolChicEncoder``
@@ -844,7 +757,8 @@ class CoolChicEncoder(nn.Module):
 
         if not self.flops_str:
             self.get_flops()
-
+        
+        assert self.param.img_size is not None, "Image size is not set"
         n_pixels = self.param.img_size[-2] * self.param.img_size[-1]
         total_mac_per_pix = self.get_total_mac_per_pixel()
 
@@ -908,3 +822,20 @@ class CoolChicEncoder(nn.Module):
             path (str): Path where to save the CoolChicEncoder.
         """
         torch.save(self.state_dict(), path)
+    
+    def switch_computing_mode(self, computing_mode: CoolChicComputingMode) -> None:
+        """Switch the computing mode of the CoolChicEncoder.
+
+        Args:
+            computing_mode (CoolChicComputingMode): The computing mode to switch to.
+        """
+        self.computing_mode = computing_mode
+        match self.computing_mode:
+            case UseImageARMOnly():
+                self.modules_to_send = ["image_arm"]
+            case UseUntilSynthesis():
+                self.modules_to_send = ["arm", "upsampling", "synthesis"]
+            case UseFullModel():
+                self.modules_to_send = ["arm", "upsampling", "synthesis", "image_arm"]
+            case _:
+                assert_never(self.computing_mode)

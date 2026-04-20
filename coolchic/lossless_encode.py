@@ -3,13 +3,10 @@ import sys
 import time
 
 sys.path.append(os.getcwd())
-# import copy
 from typing import cast
 
-# import numpy as np
 import torch
 from lossless.component.coolchic import CoolChicEncoder
-from lossless.component.core.arm_image import ImageARMParameter
 from lossless.configs.config import args, str_args
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
@@ -30,8 +27,6 @@ torch.set_float32_matmul_precision("high")
 command_line_args = load_args()
 job_index = command_line_args.image_index
 print(f"Encoding job {job_index} started at {time.time()}")
-# FIXME: Remove this once we stop variance testing
-# command_line_args.image_index = 0
 im_path = args["input"][command_line_args.image_index]
 
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
@@ -50,23 +45,6 @@ image_encoder_manager = ImageEncoderManager(
     multi_region_image_arm_setup=multi_arm_setup,
 )
 
-if "big_arm" in command_line_args.experiment_name:
-    args["arm_image_params"] = ImageARMParameter(
-        context_size=16, n_hidden_layers=2, hidden_layer_dim=48
-    )
-    args["layers_synthesis_lossless"] = (
-        "24-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none"
-    )
-elif "big_synthesis" in command_line_args.experiment_name:
-    args["arm_image_params"] = ImageARMParameter(
-        context_size=8, n_hidden_layers=2, hidden_layer_dim=6
-    )
-    args["layers_synthesis_lossless"] = (
-        "24-3-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none"
-    )
-    args["arm_lossless"] = "24,2"
-    args["arm_lossless_hidden_layer_dim"] = 24
-
 encoder_param = get_coolchic_param_from_args(
     args,
     "lossless",
@@ -75,8 +53,9 @@ encoder_param = get_coolchic_param_from_args(
     encoder_gain=command_line_args.encoder_gain,
     multi_region_image_arm_setup="1x1",
 )
-coolchic = CoolChicEncoder(param=encoder_param)
+coolchic = CoolChicEncoder(param=encoder_param, computing_mode=command_line_args.computing_mode, device="cuda:0")
 coolchic.to_device("cuda:0")
+
 # ==========================================================================================
 # SETUP LOGGER
 # ==========================================================================================
@@ -89,10 +68,7 @@ logger = TrainingLogger(
     # disable console print for now
     console_print=True,
 )
-with open(args["network_yaml_path"], "r") as f:
-    network_yaml = f.read()
 logger.log_result(f"Preset: {image_encoder_manager.preset.pretty_string()}")
-# logger.log_result(f"Network YAML configuration:\n{network_yaml}")
 logger.log_result(f"{str_args(args)}")
 logger.log_result(f"Job index: {job_index}")
 logger.log_result(f"Image index: {command_line_args.image_index}")
@@ -108,31 +84,6 @@ logger.log_result(f"Total training iterations: {image_encoder_manager.n_itr}")
 with torch.no_grad():
     logger.log_result(f"Total MAC per pixel: {coolchic.get_total_mac_per_pixel()}")
     logger.log_result(coolchic.str_complexity())
-
-# coolchic.image_arm.params.multi_region_image_arm_specification.routing_grid
-# holds matrix of shape [H, W], visualize it as an image
-# import numpy as np
-# import matplotlib.pyplot as plt
-
-# coolchic.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(
-#     image_encoder_manager.multi_region_image_arm_setup[0],
-#     image_encoder_manager.multi_region_image_arm_setup[1],
-# )
-# coolchic.image_arm.reinitialize_image_arm_experts(
-#     num_experts=int(coolchic.image_arm.params.multi_region_image_arm_specification.num_experts.item()),
-#     pretrained_expert_index=0,
-# )
-
-# routing_grid = coolchic.image_arm.params.multi_region_image_arm_specification.routing_grid
-# routing_grid = routing_grid.cpu().numpy()
-# routing_grid = routing_grid.astype(np.uint8) * 16
-# routing_grid = routing_grid.reshape(im_tensor.shape[2], im_tensor.shape[3])
-# plt.imshow(routing_grid)
-# plt.colorbar()
-# plt.show()
-# exit()
-# plt.savefig("routing_grid.png")
-# plt.close()
 
 # ==========================================================================================
 # TRAIN
@@ -153,10 +104,6 @@ logger.log_result(
 # QUANTIZE AND SAVE MODEL
 # ==========================================================================================
 rate_per_module, total_network_rate = coolchic.get_network_rate()
-# if command_line_args.use_image_arm:
-#     arm_params = list(coolchic.image_arm.parameters())
-#     arm_params_bits = sum(p.numel() for p in arm_params) * 32
-#     total_network_rate += arm_params_bits
 total_network_rate = float(total_network_rate) / im_tensor.numel()
 
 with torch.no_grad():
@@ -166,7 +113,6 @@ with torch.no_grad():
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,
-        flag_additional_outputs=False,
     )
     predicted_priors_rates = loss_function(
         predicted_prior,
@@ -181,67 +127,3 @@ logger.log_result(
     f"Rate per module: {rate_per_module},\n"
     f"Final results after quantization: {predicted_priors_rates}"
 )
-
-# ==========================================================================================
-# FULL ENCODE-DECODE TO BITSTREAM
-# ==========================================================================================
-
-# encode_decode_start_time = time.time()
-# coolchic.to_device("cpu")
-# im_tensor = im_tensor.to("cpu")
-# with torch.no_grad():
-#     raw_synth_out, decoder_side_latent = coolchic.get_latents_raw_synth_out(AC_MAX_VAL=-1)
-
-# # first do image
-# enc_dec_im_interface = ImageEncodeDecodeInterface(
-#     data=(torch.clone(im_tensor), torch.clone(raw_synth_out)),
-#     model=coolchic,
-#     ct_range=colorspace_bitdepths,
-# )
-# bitstream_im, im_symbols_pre_encoding, _, _ = encode_with_predictor(
-#     enc_dec_interface=enc_dec_im_interface,
-#     logger=logger,
-#     distribution="logistic",
-#     output_path=None,
-# )
-# logger.log_result(f"Finished encoding in {time.time() - encode_decode_start_time:.2f} seconds.")
-# im_symbols_post_encoding, prob_distributions = decode_with_predictor(
-#     enc_dec_interface=enc_dec_im_interface,
-#     bitstream=bitstream_im,
-#     bitstream_path=None,
-#     distribution="logistic",
-# )
-# logger.log_result("Image encode-decode finished.")
-# logger.log_result(f"Total encode-decode time: {time.time() - encode_decode_start_time:.2f} seconds.")
-# is_im_encode_decode_equal = torch.equal(
-#     torch.tensor(im_symbols_pre_encoding), torch.tensor(im_symbols_post_encoding)
-# )
-# logger.log_result(f"Image encode-decode equality check: {is_im_encode_decode_equal}")
-# logger.log_result(f"Rate Img bistream: {bitstream_im.nbytes * 8 / im_tensor.numel()}")
-
-# # second do latents
-# enc_dec_latent_interface = LatentEncodeDecodeInterface(
-#     data=copy.deepcopy(decoder_side_latent), model=coolchic, ct_range=LatentBitdepths()
-# )
-# bitstream_latent, latent_symbols_pre_encoding, _, _ = encode_with_predictor(
-#     enc_dec_interface=enc_dec_latent_interface,
-#     distribution="laplace",
-#     output_path=None,
-#     logger=logger,
-# )
-# latent_symbols_post_encoding, prob_distributions_dec = decode_with_predictor(
-#     enc_dec_interface=enc_dec_latent_interface,
-#     distribution="laplace",
-#     bitstream=bitstream_latent,
-#     bitstream_path=None,
-# )
-# logger.log_result("Latent encode-decode finished.")
-# is_latent_encode_decode_equal = torch.equal(
-#     torch.tensor(latent_symbols_pre_encoding),
-#     torch.tensor(latent_symbols_post_encoding),
-# )
-# logger.log_result(f"Latent encode-decode equality check: {is_latent_encode_decode_equal}")
-# logger.log_result(f"Rate Latent bistream: {bitstream_latent.nbytes * 8 / im_tensor.numel()}")
-# logger.log_result(
-#     f"Total image+latent bpd rate: {(bitstream_im.nbytes + bitstream_latent.nbytes) * 8 / im_tensor.numel()}"
-# )

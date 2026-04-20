@@ -2,6 +2,7 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
+from lossless.component.coolchic import CoolChicComputingMode, UseFullModel, UseImageARMOnly, UseUntilSynthesis
 
 import tyro
 
@@ -13,6 +14,7 @@ COMMAND_LINE_ARGS_NAMES = Literal[
     "use_image_arm",
     "experiment_name",
     "multiarm_setup",
+    "computing_mode",
 ]
 
 
@@ -33,6 +35,9 @@ class CommandLineArgs:
     multiarm_setup: str = field(
         default_factory=lambda: "1x1"
     )  # e.g., "2x2" for 2 rows and 2 columns
+    # Tyro: optional trailing subcommand, default when omitted is use-full-model.
+    # Example: python script.py --image-index 0 computing-mode:use-image-arm-only
+    computing_mode: CoolChicComputingMode = field(default_factory=UseFullModel)
 
 
 def _is_notebook() -> bool:
@@ -58,8 +63,15 @@ def load_args(notebook_overrides: dict[COMMAND_LINE_ARGS_NAMES, Any] = {}) -> Co
         default_args = CommandLineArgs()
         # Override any defaults with notebook_overrides
         for key, value in notebook_overrides.items():
-            if hasattr(default_args, key) and isinstance(value, type(getattr(default_args, key))):
-                # set only if the attribute exists
+            if not hasattr(default_args, key):
+                continue
+            current = getattr(default_args, key)
+            # Union of marker dataclasses: isinstance against default instance class is too narrow.
+            if key == "computing_mode" and isinstance(
+                value, (UseFullModel, UseImageARMOnly, UseUntilSynthesis)
+            ):
+                setattr(default_args, key, value)
+            elif isinstance(value, type(current)):
                 setattr(default_args, key, value)
         return default_args
     else:
