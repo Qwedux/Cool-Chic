@@ -82,9 +82,10 @@ logger.log_result(f"Using multi-region image ARM: {command_line_args.multiarm_se
 logger.log_result(f"Using color regression: {args['use_color_regression']}")
 logger.log_result(f"Total training iterations: {image_encoder_manager.n_itr}")
 with torch.no_grad():
+    coolchic.to_device("cpu")
     logger.log_result(f"Total MAC per pixel: {coolchic.get_total_mac_per_pixel()}")
     logger.log_result(coolchic.str_complexity())
-
+    coolchic.to_device("cuda:0")
 # ==========================================================================================
 # TRAIN
 # ==========================================================================================

@@ -179,6 +179,7 @@ class CoolChicEncoder(nn.Module):
         # Everything is stored inside param
         self.param = param
         self.computing_mode = computing_mode
+        self.switch_computing_mode(computing_mode)
         self.device: POSSIBLE_DEVICE = device
 
         assert self.param.img_size is not None, (
@@ -270,7 +271,7 @@ class CoolChicEncoder(nn.Module):
         )
         self.image_arm = ImageArm(self.param.image_arm_parameters)
         self.proba_output = ProbabilityOutput(self.param.use_color_regression)
-        self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
+        # self.modules_to_send = [tmp.name for tmp in fields(DescriptorCoolChic)]
 
         # ======================== Monitoring ======================== #
         # Pretty string representing the decoder complexity
@@ -391,9 +392,9 @@ class CoolChicEncoder(nn.Module):
             mu, scale = self.proba_output(raw_synth_out, image)            
         elif isinstance(self.computing_mode, UseImageARMOnly):
             flat_rate = torch.zeros(
-                sum(map(lambda x: x[0] * x[1] * x[2] * x[3], self.size_per_latent))
+                sum(map(lambda x: x[0] * x[1] * x[2] * x[3], self.size_per_latent)), device=self.device
             )
-            raw_synth_out = torch.zeros(image.shape[0], 9 if self.param.use_color_regression else 6, image.shape[2], image.shape[3])
+            raw_synth_out = torch.zeros(image.shape[0], 9 if self.param.use_color_regression else 6, image.shape[2], image.shape[3], device=self.device)
             raw_synth_out = self.image_arm(image, raw_synth_out)
             mu, scale = self.proba_output(raw_synth_out, image)
         else:
@@ -830,6 +831,7 @@ class CoolChicEncoder(nn.Module):
             computing_mode (CoolChicComputingMode): The computing mode to switch to.
         """
         self.computing_mode = computing_mode
+        print(f"Switching to computing mode: {self.computing_mode}")
         match self.computing_mode:
             case UseImageARMOnly():
                 self.modules_to_send = ["image_arm"]
@@ -839,3 +841,4 @@ class CoolChicEncoder(nn.Module):
                 self.modules_to_send = ["arm", "upsampling", "synthesis", "image_arm"]
             case _:
                 assert_never(self.computing_mode)
+        print(f"Updataed Modules to send: {self.modules_to_send}")
