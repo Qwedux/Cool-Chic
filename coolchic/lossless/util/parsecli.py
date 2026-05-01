@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-import torch
 from lossless.component.coolchic import CoolChicEncoderParameter
 from lossless.configs.config import Args
 from lossless.util.image import ImageSize

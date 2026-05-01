@@ -6,6 +6,7 @@
 #
 # Authors: see CONTRIBUTORS.md
 
+from __future__ import annotations
 
 from typing import Literal
 

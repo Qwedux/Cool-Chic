@@ -1,8 +1,11 @@
+from __future__ import annotations
+
+from typing import Literal
+
 import torch
 import torchac
-from lossless.util.distribution import compute_logistic_cdfs
-from typing import Literal
 from lossless.util.color_transform import ColorBitdepths
+from lossless.util.distribution import compute_logistic_cdfs
 
 POSSIBLE_DISTRIBUTIONS = Literal["logistic", "laplace"]
 

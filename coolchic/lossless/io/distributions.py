@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch
 from lossless.io.types import POSSIBLE_ENCODING_DISTRIBUTIONS
 from lossless.util.color_transform import ColorBitdepths

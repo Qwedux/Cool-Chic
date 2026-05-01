@@ -5,10 +5,11 @@
 # This software is distributed under the BSD-3-Clause license.
 #
 # Authors: see CONTRIBUTORS.md
+import shutil
 
+import torch
 from torch import nn
 
-import shutil
 
 def center_str(s: str) -> str:
     return s.center(shutil.get_terminal_size().columns)

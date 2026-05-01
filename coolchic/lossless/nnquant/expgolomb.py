@@ -6,6 +6,7 @@
 #
 # Authors: see CONTRIBUTORS.md
 
+from __future__ import annotations
 
 import torch
 from lossless.component.types import DescriptorNN

@@ -7,7 +7,7 @@
 # Authors: see CONTRIBUTORS.md
 
 
-"""All possible quantization steps for each module of a CoolchicEncoder"""
+from __future__ import annotations
 
 from typing import Optional
 

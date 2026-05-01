@@ -5,6 +5,7 @@
 # This software is distributed under the BSD-3-Clause license.
 #
 # Authors: see CONTRIBUTORS.md
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal, Optional, Union

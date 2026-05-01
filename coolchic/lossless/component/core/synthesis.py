@@ -5,7 +5,7 @@
 # This software is distributed under the BSD-3-Clause license.
 #
 # Authors: see CONTRIBUTORS.md
-
+from __future__ import annotations
 
 import math
 from collections.abc import Sequence

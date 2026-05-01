@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import constriction
 import torch
 from lossless.io.distributions import calculate_probability_distribution

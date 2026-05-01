@@ -6,6 +6,8 @@
 #
 # Authors: see CONTRIBUTORS.md
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field, fields
 
 from lossless.configs.presets import AVAILABLE_PRESETS, Preset

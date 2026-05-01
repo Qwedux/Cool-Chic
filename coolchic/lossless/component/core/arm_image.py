@@ -11,7 +11,7 @@ import copy
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import OrderedDict, assert_never
+from typing import OrderedDict, assert_never, cast
 
 import numpy as np
 import torch
@@ -202,51 +202,32 @@ class ImageArm(nn.Module):
         layers.append(
             ArmLinear(
                 self.params.context_size
-                * len(self.params.synthesis_out_params_per_channel)  # context size * num_channels
+                * len(self.params.synthesis_out_params_per_channel)
                 + sum(
                     self.params.synthesis_out_params_per_channel
-                )  # we can use all information from synthesis output
-                + channel_idx,  # extra information from already decoded channels for current pixel
+                )
+                + channel_idx,
                 self.params.hidden_layer_dim,
                 residual=False,
             )
         )
         layers.append(nn.ReLU())
 
-        # Construct the hidden layer(s)
         for _ in range(self.params.n_hidden_layers - 1):
             layers.append(
                 ArmLinear(self.params.hidden_layer_dim, self.params.hidden_layer_dim, residual=True)
             )
             layers.append(nn.ReLU())
-        # Construct the output layer. It always has output_dim 2*outputs
-        # since we use the second half for gating
         layers.append(ArmLinear(self.params.hidden_layer_dim, output_dim * 2, residual=False))
         return nn.Sequential(*layers)
 
     def reinitialize_image_arm_experts(self, num_experts: int, pretrained_expert_index: int) -> None:
-        """Re-initialize the image ARM experts.
-        """
         with torch.no_grad():
             pretrained_expert = copy.deepcopy(self.image_arm_models[pretrained_expert_index])
             self.image_arm_models = nn.ModuleList(
                 copy.deepcopy(pretrained_expert) for _ in range(num_experts)
             )
-
-    def split_image_arm_expert(
-        self, expert_idx: int, split_direction: IMARM_SPLIT_DIRECTION
-    ) -> None:
-        expert_region_model = self.image_arm_models[expert_idx]
-        assert isinstance(expert_region_model, nn.ModuleList)
-        # Duplicate the model for the new experts
-        self.image_arm_models.append(
-            copy.deepcopy(expert_region_model)
-        )
-        # Update the routing grid
-        self.params.multi_region_image_arm_specification.split_expert_region(
-            expert_idx, split_direction
-        )
-
+    
     def prepare_inputs(self, image: Tensor, raw_synth_out: Tensor):
         assert len(self.params.synthesis_out_params_per_channel) == image.shape[1], (
             "Number of channels in image and synthesis_out_params_per_channel " "must be equal."
@@ -304,16 +285,7 @@ class ImageArm(nn.Module):
         return prepared_inputs
 
     def forward(self, image: Tensor, raw_synth_out: Tensor) -> Tensor:
-        """
-        Args:
-            image: The image tensor of shape [1, C, H, W]
-            raw_synth_out: The synthesis output tensor of shape [1, S, H, W] where S is
-                sum of synthesis_out_params_per_channel
-        Returns:
-            The predicted parameters tensor of shape [1, S, H, W]
-        """
-        # prepared_inputs is a list of length num_channels
-        # where i-th element has shape [H*W, image_arm_input_size_for_channel_i]
+        
         prepared_inputs = self.prepare_inputs(image, raw_synth_out)
 
         cutoffs = [
@@ -326,9 +298,9 @@ class ImageArm(nn.Module):
         out_probas_param_flat = torch.zeros_like(
             raw_synth_out_flat, dtype=raw_synth_out.dtype, device=raw_synth_out.device
         )
-
+        
         for expert_idx, indices in enumerate(
-            self.params.multi_region_image_arm_specification.expert_indices
+            cast(MultiImageArmDescriptor, self.params.multi_region_image_arm_specification).expert_indices
         ):
             if len(indices) == 0:
                 continue
@@ -362,7 +334,7 @@ class ImageArm(nn.Module):
         relevant_raw_synth_out: torch.Tensor,
         channel_idx: int,
     ) -> torch.Tensor:
-        expert_idx = int(self.params.multi_region_image_arm_specification.routing_grid[h][w].item())
+        expert_idx = int(cast(MultiImageArmDescriptor, self.params.multi_region_image_arm_specification).routing_grid[h][w].item())
         raw_outs = self.image_arm_models[expert_idx][channel_idx](features)  # type: ignore
         raw_proba_param, gate = raw_outs.chunk(2, dim=1)
         return relevant_raw_synth_out + raw_proba_param * torch.sigmoid(gate)
@@ -370,14 +342,6 @@ class ImageArm(nn.Module):
     def get_neighbor_context(
         self, grid_so_far: list[list] | torch.Tensor, h: int, w: int
     ) -> Tensor:
-        """Get the neighbor context for a given spatial position (h, w)
-        in the image grid_so_far.
-
-        Args:
-            grid_so_far: The image grid decoded so far of shape [1, C, H, W]
-            h: The height position
-            w: The width position
-        """
         neighbor_context = []
         for idx in self.non_zero_image_arm_ctx_index:
             shift = self.non_zero_image_arm_ctx_shifts[idx.item()]
@@ -400,23 +364,12 @@ class ImageArm(nn.Module):
         return torch.tensor(neighbor_context, dtype=torch.float32).unsqueeze(0)
 
     def get_param(self) -> OrderedDict[str, Tensor]:
-        """Get the parameters of the module.
-
-        Returns:
-            The parameters of the module.
-        """
         return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
 
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
-        """Replace the current parameters of the module with param.
-
-        Args:
-            param: Parameters to be set.
-        """
         self.load_state_dict(param)
 
     def reinitialize_parameters(self) -> None:
-        """Re-initialize in place the parameters of all the ArmLinear layers."""
         for module in self.modules():
             if isinstance(module, ArmLinear):
                 module.initialize_parameters()

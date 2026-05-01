@@ -5,9 +5,8 @@
 # This software is distributed under the BSD-3-Clause license.
 #
 # Authors: see CONTRIBUTORS.md
-# from enc.nnquant.quantizemodel import quantize_model
 
-# from enc.nnquant.quantizemodel import quantize_model
+from __future__ import annotations
 
 import itertools
 import time

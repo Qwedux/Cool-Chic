@@ -23,6 +23,7 @@ class ArmParameter:
     n_hidden_layers: int
     hidden_layer_dim: int
 
+
 class ArmLinear(nn.Module):
     """Create a Linear layer of the Auto-Regressive Module (ARM). This is a
     wrapper around the usual ``nn.Linear`` layer of PyTorch, with a custom
@@ -176,7 +177,7 @@ class Arm(nn.Module):
         # print("ARM mu: ")
         # for i in range(min(10, mu.size(0))):
         #     print(f"{mu[i].item():.16f}")
-            
+
         # no scale smaller than exp(-4.6) = 1e-2 or bigger than exp(5.01) = 150
         scale = torch.exp(torch.clamp(log_scale - 4, min=-4.6, max=5.0))
 
@@ -357,5 +358,4 @@ def _get_non_zero_pixel_ctx_index(dim_arm: int) -> Tensor:
             ]
         )
     raise ValueError(f"dim_arm {dim_arm} not supported.")
-    # fmt: on
     # fmt: on

@@ -6,7 +6,7 @@
 #
 # Authors: see CONTRIBUTORS.md
 
-"""Gather the different encoding presets here."""
+from __future__ import annotations
 
 import typing
 from dataclasses import dataclass, field
@@ -29,60 +29,6 @@ MODULE_TO_OPTIMIZE = Literal[
 
 @dataclass
 class TrainerPhase:
-    """Dataclass representing one phase of an encoding preset.
-
-    Args:
-        lr (float): Initial learning rate of the phase. Can vary if
-            ``schedule_lr`` is True. Defaults to 0.01.
-        max_itr (int): Maximum number of iterations for the phase. The actual
-            number of iterations can be made smaller through the patience
-            mechanism. Defaults to 10000.
-        freq_valid: Check (and print) the performance
-            each ``frequency_validation`` iterations. This drives the patience
-            mechanism. Defaults to 100.
-        patience: After ``patience`` iterations without any
-            improvement to the results, exit the training. Patience is disabled
-            by setting ``patience = max_iterations``. If patience is used alongside
-            cosine_scheduling_lr, then it does not end the training. Instead,
-            we simply reload the best model so far once we reach the patience,
-            and the training continue. Defaults to 1000.
-        quantize_model (bool): If ``True``, quantize the neural networks
-            parameters at the end of the training phase. Defaults to ``False``.
-        schedule_lr (bool): If ``True``, the learning rate is no longer
-            constant. instead, it varies with a cosine scheduling, as suggested
-            in  `C3: High-performance and low-complexity neural compression from
-            a single image or video, Kim et al.
-            <https://arxiv.org/abs/2312.02753>`_. Defaults to False.
-        softround_temperature (Tuple[float, float]). Start, end temperature of
-            the :doc:`softround function <../component/core/quantizer>`. It is
-            used in the forward / backward if ``quantizer_type`` is set to
-            ``"softround"`` or ``"softround_alone"``. It is also used in the
-            backward pass if ``quantizer_type`` is set to ``"ste"``.
-            The softround temperature is linearly scheduled
-            during the training. At iteration n° 0 it is equal to
-            ``softround_temperature[0]`` while at iteration n° ``max_itr`` it is
-            equal to ``softround_temperature[1]``. Note that the patience might
-            interrupt the training before it reaches this last value.
-            Defaults to (0.3, 0.3).
-        noise_parameter (Tuple[float, float]): The random noise temperature is
-            linearly scheduled during the training. At iteration n° 0 it is equal
-            to ``noise_parameter[0]`` while at iteration n° ``max_itr`` it is equal
-            to ``noise_parameter[1]``. Note that the patience might interrupt
-            the training before it reaches this last value. Defaults to (2.0,
-            1.0).
-        quantizer_noise_type (POSSIBLE_QUANTIZATION_NOISE_TYPE): The random noise
-            used by the quantizer. More information available in
-            :doc:`encoder/component/core/quantizer.py <../component/core/quantizer>`.
-            Defaults to ``"kumaraswamy"``.
-        quantizer_type (POSSIBLE_QUANTIZER_TYPE): What quantizer to
-            use during training. See
-            :doc:`encoder/component/core/quantizer.py <../component/core/quantizer>`
-            for more information. Defaults to ``"softround"``.
-        optimized_module (List[MODULE_TO_OPTIMIZE]): List of modules to be
-            optimized. Most often you'd want to use ``optimized_module = ['all']``.
-            Defaults to ``['all']``.
-    """
-
     lr: float = 1e-2
     max_itr: int = 10000
     freq_valid: int = 100
@@ -152,15 +98,6 @@ class TrainerPhase:
 
 @dataclass
 class WarmupPhase:
-    """Describe one phase of the :doc:`warm-up <../training/warmup>`. At the
-    beginning of each warm-up phase, we start by keeping the best ``candidates``
-    systems. We then perform a short training, and we go to the next phase.
-
-    Args:
-        candidates (int): How many candidates are kept at the beginning of the phase.
-        training_phase (TrainerPhase): Describe how the candidates are trained.
-    """
-
     candidates: (
         int  # Keep the first <candidates> best systems at the beginning of this warmup phase
     )

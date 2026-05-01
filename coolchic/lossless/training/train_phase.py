@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 
 import torch
@@ -195,20 +197,6 @@ def _train_single_phase(
                 # Update new record
                 encoder_logs_best = encoder_logs
                 cnt_record = cnt
-
-            # # Show column name a single time
-            # additional_data = {
-            #     "lr": f"{start_lr if not cosine_scheduling_lr else learning_rate_scheduler.get_last_lr()[0]:.4f}",
-            #     "optim": ",".join(optimized_module),
-            #     "patience": (patience - cnt + cnt_record)
-            #     // frequency_validation,
-            #     "q_type": f"{quantizer_type:10s}",
-            #     "sr_temp": f"{cur_softround_temperature:.3f}",
-            #     "n_type": f"{quantizer_noise_type:12s}",
-            #     "noise": f"{cur_noise_parameter:.2f}",
-            #     "record": log_new_record,
-            # }
-
             logger.log_training(f"Iteration: {cnt+1}, " + str(encoder_logs))
 
             # Update soft rounding temperature and noise_parameter

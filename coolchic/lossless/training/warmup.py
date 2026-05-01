@@ -5,7 +5,7 @@
 # This software is distributed under the BSD-3-Clause license.
 #
 # Authors: see CONTRIBUTORS.md
-
+from __future__ import annotations
 
 import copy
 import time
@@ -34,33 +34,6 @@ def warmup(
     target_image: torch.Tensor,
     logger: TrainingLogger,
 ) -> CoolChicEncoder:
-    """Perform the warm-up for a frame encoder. It consists in multiple stages
-    with several candidates, filtering out the best N candidates at each stage.
-    For instance, we can start with 8 different FrameEncoder. We train each of
-    them for 400 iterations. Then we keep the best 4 of them for 400 additional
-    iterations, while finally keeping the final best one.
-
-    .. warning::
-
-        The parameter ``frame_encoder_manager`` tracking the encoding time of
-        the frame (``total_training_time_sec``) and the number of encoding
-        iterations (``iterations_counter``) is modified** in place** by this
-        function.
-
-    Args:
-        frame_encoder_manager: Contains (among other things) the rate
-            constraint :math:`\\lambda` and description of the
-            warm-up preset. It is also used to track the total encoding time
-            and encoding iterations. Modified in place.
-        list_candidates: The different candidates among which the warm-up will
-            find the best starting point.
-        frame: The original image to be compressed and its references.
-        device: On which device should the training run.
-
-    Returns:
-        Warmuped frame encoder, with a great initialization.
-    """
-
     start_time = time.time()
     warmup = image_encoder_manager.preset.warmup
     if len(warmup.phases) == 0:
