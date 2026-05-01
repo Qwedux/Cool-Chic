@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import copy
+from typing import assert_never
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
-from lossless.configs.presets import MODULE_TO_OPTIMIZE, TrainerPhase
+from lossless.configs.presets import (OptimizeAll, OptimizeArm,
+                                      OptimizeArmImage, OptimizeLatent,
+                                      OptimizeSynthesis, OptimizeUpsampling,
+                                      TrainerPhase)
 from lossless.nnquant.quantizemodel import quantize_model
 from lossless.training.loss import LossFunctionOutput, loss_function
 from lossless.training.manager import ImageEncoderManager
@@ -17,18 +21,6 @@ from torch.nn.utils import clip_grad_norm_
 def _linear_schedule(
     initial_value: float, final_value: float, cur_itr: float, max_itr: float
 ) -> torch.Tensor:
-    """Linearly schedule a function to go from initial_value at cur_itr = 0 to
-    final_value when cur_itr = max_itr.
-
-    Args:
-        initial_value (float): Initial value for the scheduling
-        final_value (float): Final value for the scheduling
-        cur_itr (float): Current iteration index
-        max_itr (float): Total number of iterations
-
-    Returns:
-        torch.Tensor: The linearly scheduled value @ iteration number cur_itr
-    """
     assert cur_itr >= 0 and cur_itr <= max_itr, (
         f"Linear scheduling from 0 to {max_itr} iterations"
         " except to have a current iterations between those two values."
@@ -61,17 +53,17 @@ def _train_single_phase(
     parameters_to_optimize = []
     for cur_module_to_optimize in training_phase.optimized_module:
         match cur_module_to_optimize:
-            case "all":
+            case OptimizeAll():
                 parameters_to_optimize += [*model.parameters()]
-            case "arm":
+            case OptimizeArm():
                 parameters_to_optimize += [*model.arm.parameters()]
-            case "arm_image":
+            case OptimizeArmImage():
                 parameters_to_optimize += [*model.image_arm.parameters()]
-            case "upsampling":
+            case OptimizeUpsampling():
                 parameters_to_optimize += [*model.upsampling.parameters()]
-            case "synthesis":
+            case OptimizeSynthesis():
                 parameters_to_optimize += [*model.synthesis.parameters()]
-            case "latent":
+            case OptimizeLatent():
                 parameters_to_optimize += [*model.latent_grids.parameters()]
             case _:
                 assert_never(cur_module_to_optimize)

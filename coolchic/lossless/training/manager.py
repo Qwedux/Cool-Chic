@@ -64,30 +64,14 @@ class ImageEncoderManager():
         #     f' a training phase with neural network quantization.\n{self.preset.pretty_string()}'
 
     def record_beaten(self, candidate_loss: float) -> bool:
-        """Return True if the candidate loss is better (i.e. lower) than the best loss.
-
-        Args:
-            candidate_loss (float): Current candidate loss.
-
-        Returns:
-            bool: True if the candidate loss is better than the best loss
-                (i.e. candidate < best).
-        """
         return candidate_loss < self.best_loss
 
     def set_best_loss(self, new_best_loss: float):
-        """Set the new best loss attribute. It automatically looks at the current loop_counter
-        to fill the idx_best_loop attribute.
-
-        Args:
-            new_best_loss (float): The new best loss obtained at the current loop
-        """
         self.best_loss = new_best_loss
         self.idx_best_loop = self.loop_counter
 
 
     def pretty_string(self) -> str:
-        """Return a pretty string formatting the data within the class"""
         ATTRIBUTE_WIDTH = 25
         VALUE_WIDTH = 80
 
