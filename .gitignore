@@ -46,3 +46,4 @@ text/**
 coolchic/memory_snapshot.txt
 *.log
 *.npy
+.cursor/**
