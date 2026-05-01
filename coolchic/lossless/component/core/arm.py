@@ -164,12 +164,6 @@ class Arm(nn.Module):
         return torch.tensor(neighbor_context, dtype=torch.float32).unsqueeze(0)
 
     def get_param(self) -> OrderedDict[str, Tensor]:
-        """Return **a copy** of the weights and biases inside the module.
-
-        Returns:
-            A copy of all weights & biases in the layers.
-        """
-        # Detach & clone to create a copy
         return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
 
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
@@ -182,23 +176,6 @@ class Arm(nn.Module):
 
 
 def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> Tensor:
-    """Use the unfold function to extract the neighbors of each pixel in x.
-
-    Args:
-        x (Tensor): [1, 1, H, W] feature map from which we wish to extract the
-            neighbors
-        mask_size (int): Virtual size of the kernel around the current coded latent.
-            mask_size = 2 * n_ctx_rowcol - 1
-        non_zero_pixel_ctx_idx (Tensor): [N] 1D tensor containing the indices
-            of the non zero context pixels (i.e. floor(N ** 2 / 2) - 1).
-            It looks like: [0, 1, ..., floor(N ** 2 / 2) - 1].
-            This allows to use the index_select function, which is significantly
-            faster than usual indexing.
-
-    Returns:
-        torch.tensor: [H * W, floor(N ** 2 / 2) - 1] the spatial neighbors
-            the floor(N ** 2 / 2) - 1 neighbors of each H * W pixels.
-    """
     pad = int((mask_size - 1) / 2)
     x_pad = F.pad(x, (pad, pad, pad, pad), mode="constant", value=0.0)
 
@@ -217,27 +194,11 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
     #     'b c h w mask_h mask_w -> (b c h w) (mask_h mask_w)'
     # )
 
-    # Select the pixels for which the mask is not zero
-    # For a N x N mask, select only the first (N x N - 1) / 2 pixels
-    # (those which aren't null)
     neighbor = index_select(x_unfold, dim=1, index=non_zero_pixel_ctx_idx)
     return neighbor
 
 
 def _laplace_cdf(x: Tensor, expectation: Tensor, scale: Tensor) -> Tensor:
-    """Compute the laplace cumulative evaluated in x. All parameters
-    must have the same dimension.
-    Re-implemented here coz it is faster than calling the Laplace distribution
-    from torch.distributions.
-
-    Args:
-        x (Tensor): Where the cumulative if evaluated.
-        expectation (Tensor): Expectation.
-        scale (Tensor): Scale
-
-    Returns:
-        Tensor: CDF(x, mu, scale)
-    """
     shifted_x = x - expectation
     return 0.5 - 0.5 * (shifted_x).sign() * torch.expm1(-(shifted_x).abs() / scale)
 

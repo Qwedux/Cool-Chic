@@ -98,12 +98,6 @@ class CoolChicEncoder(nn.Module):
         self.switch_computing_mode(computing_mode)
         self.device: PossibleDevice = device
 
-        assert self.param.img_size is not None, (
-            "You are trying to instantiate a CoolChicEncoder from a "
-            "CoolChicEncoderParameter with a field img_size set to None. Use "
-            "the function coolchic_encoder_param.set_img_size((H, W)) before "
-            "instantiating the CoolChicEncoder."
-        )
 
         # ================== Synthesis related stuff ================= #
         # Encoder-side latent gain applied prior to quantization, one per feature
@@ -377,11 +371,6 @@ class CoolChicEncoder(nn.Module):
 
     # ------- Getter / Setter and Initializer
     def get_param(self) -> OrderedDict[str, Tensor]:
-        """Return **a copy** of the weights and biases inside the module.
-
-        Returns:
-            OrderedDict[str, Tensor]: A copy of all weights & biases in the module.
-        """
         param = OrderedDict({})
         param.update(
             {
@@ -400,27 +389,15 @@ class CoolChicEncoder(nn.Module):
         return param
 
     def set_param(self, param: OrderedDict[str, Tensor]):
-        """Replace the current parameters of the module with param.
-
-        Args:
-            param (OrderedDict[str, Tensor]): Parameters to be set.
-        """
         self.load_state_dict(param)
 
     def initialize_latent_grids(self) -> None:
-        """Initialize the latent grids. The different tensors composing
-        the latent grids must have already been created e.g. through
-        ``torch.empty()``.
-        """
         for latent_index, latent_value in enumerate(self.latent_grids):
             self.latent_grids[latent_index] = nn.Parameter(
                 torch.zeros_like(latent_value), requires_grad=True
             )
 
     def reinitialize_parameters(self):
-        """Reinitialize in place the different parameters of a CoolChicEncoder
-        namely the latent grids, the arm, the upsampling and the weights.
-        """
         self.arm.reinitialize_parameters()
         self.upsampling.reinitialize_parameters()
         self.synthesis.reinitialize_parameters()
@@ -436,21 +413,11 @@ class CoolChicEncoder(nn.Module):
         }
 
     def _store_full_precision_param(self) -> None:
-        """Store the current parameters inside self.full_precision_param
-
-        This function checks that there is no self.nn_q_step and
-        self.nn_expgol_cnt already saved. This would mean that we no longer
-        have full precision parameters but quantized ones.
-        """
-
         if self.full_precision_param is not None:
             print(
                 "Warning: overwriting already saved full-precision parameters"
                 " in CoolChicEncoder _store_full_precision_param()."
             )
-
-        # Check that we haven't already quantized the network by looking at
-        # the nn_expgol_cnt and nn_q_step dictionaries
         no_q_step = True
         for _, q_step_dict in self.nn_q_step.items():
             for _, q_step in q_step_dict.items():
@@ -495,20 +462,6 @@ class CoolChicEncoder(nn.Module):
 
     # ------- Get flops, neural network rates and quantization step
     def get_flops(self) -> None:
-        """Compute the number of MAC & parameters for the model.
-        Update ``self.total_flops`` (integer describing the number of total MAC)
-        and ``self.flops_str``, a pretty string allowing to print the model
-        complexity somewhere.
-
-        .. attention::
-
-            ``fvcore`` measures MAC (multiplication & accumulation) but calls it
-            FLOP (floating point operation)... We do the same here and call
-            everything FLOP even though it would be more accurate to use MAC.
-        """
-        # Count the number of floating point operations here. It must be done before
-        # torch scripting the different modules.
-
         self = self.train(mode=False)
         assert self.param.img_size is not None
 
@@ -536,14 +489,6 @@ class CoolChicEncoder(nn.Module):
         self = self.train(mode=True)
 
     def get_network_rate(self) -> Tuple[DescriptorCoolChic, float]:
-        """Return the rate (in bits) associated to the parameters
-        (weights and biases) of the different modules
-
-        Returns:
-            Tuple[DescriptorCoolChic, int]: The rate (in bits) associated with
-            the weights and biases of each module. Also return the total rate
-            in bits.
-        """
         rate_per_module: DescriptorCoolChic = {
             module_name: {"weight": 0.0, "bias": 0.0} for module_name in self.modules_to_send
         }
@@ -563,35 +508,12 @@ class CoolChicEncoder(nn.Module):
         return rate_per_module, total_rate
 
     def get_network_quantization_step(self) -> DescriptorCoolChic:
-        """Return the quantization step associated to the parameters (weights
-        and biases) of the different modules. Those quantization can be
-        ``None`` if the model has not yet been quantized.
-
-        Returns:
-            DescriptorCoolChic: The quantization step associated with the
-            weights and biases of each module.
-        """
         return self.nn_q_step
 
     def get_network_expgol_count(self) -> DescriptorCoolChic:
-        """Return the Exp-Golomb count parameter associated to the parameters
-        (weights and biases) of the different modules. Those exp-golomb param
-        can be ``None`` if the model has not yet been quantized.
-
-        Returns:
-            DescriptorCoolChic: The Exp-Golomb count parameter associated
-            with the weights and biases of each module.
-        """
         return self.nn_expgol_cnt
 
     def str_complexity(self) -> str:
-        """Return a string describing the number of MAC (**not mac per pixel**) and the
-        number of parameters for the different modules of CoolChic
-
-        Returns:
-            str: A pretty string about CoolChic complexity.
-        """
-
         if not self.flops_str:
             self.get_flops()
 
@@ -601,13 +523,7 @@ class CoolChicEncoder(nn.Module):
 
         return self.flops_str + "\n\n" + msg_total_mac
 
-    def get_total_mac_per_pixel(self) -> float:
-        """Count the number of Multiplication-Accumulation (MAC) per decoded pixel
-        for this model.
-
-        Returns:
-            float: number of floating point operations per decoded pixel.
-        """        
+    def get_total_mac_per_pixel(self) -> float:       
         if not self.flops_str:
             self.get_flops()
 
@@ -617,11 +533,6 @@ class CoolChicEncoder(nn.Module):
 
     # ------- Useful functions
     def to_device(self, device: PossibleDevice) -> None:
-        """Push a model to a given device.
-
-        Args:
-            device (POSSIBLE_DEVICE): The device on which the model should run.
-        """
         self.device = device
         self = self.to(device.materialize())
 
@@ -656,28 +567,13 @@ class CoolChicEncoder(nn.Module):
 
 
     def load_from_disk(self, path: str) -> None:
-        """Load a CoolChicEncoder from disk.
-
-        Args:
-            path (str): Path to the saved CoolChicEncoder.
-        """
         state_dict = torch.load(path, map_location="cpu")
         self.load_state_dict(state_dict)
     
     def save_to_disk(self, path: str) -> None:
-        """Save the CoolChicEncoder to disk.
-
-        Args:
-            path (str): Path where to save the CoolChicEncoder.
-        """
         torch.save(self.state_dict(), path)
     
     def switch_computing_mode(self, computing_mode: CoolChicComputingMode) -> None:
-        """Switch the computing mode of the CoolChicEncoder.
-
-        Args:
-            computing_mode (CoolChicComputingMode): The computing mode to switch to.
-        """
         self.computing_mode = computing_mode
         print(f"Switching to computing mode: {self.computing_mode}")
         match self.computing_mode:
