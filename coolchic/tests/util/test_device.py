@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 import torch
 from lossless.util.device import (CpuDevice, CudaZeroDevice, PossibleDevice,
-                                  get_device, materialize_device)
+                                  get_device)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -45,7 +45,7 @@ def _get_adt_case_id(case: GetADTcases) -> str:
 
 @pytest.mark.parametrize("case", _MATERIALIZE_CASES, ids=_materialize_adt_case_id)
 def test_materialize_device(case: MaterializeADTcases) -> None:
-    assert materialize_device(case.test_input) == case.expected_test_output
+    assert case.test_input.materialize() == case.expected_test_output
 
 
 @pytest.mark.parametrize("case", _GET_DEVICE_OK_CASES, ids=_get_adt_case_id)
