@@ -9,7 +9,8 @@
 import math
 import typing
 from dataclasses import dataclass, field, fields
-from typing import Any, Dict, List, Optional, OrderedDict, Tuple, TypedDict
+from typing import (Any, Dict, List, Optional, OrderedDict, Tuple, TypeAlias,
+                    TypedDict)
 
 import torch
 import torch.nn.functional as F
@@ -25,10 +26,9 @@ from lossless.component.core.synthesis import Synthesis
 from lossless.component.core.upsampling import Upsampling
 from lossless.component.types import DescriptorCoolChic, DescriptorNN
 from lossless.nnquant.expgolomb import measure_expgolomb_rate
-from lossless.util.device import POSSIBLE_DEVICE
+from lossless.util.device import PossibleDevice
 from lossless.util.termprint import pretty_string_nn, pretty_string_ups
 from torch import Tensor, nn
-from typing import TypeAlias
 from typing_extensions import assert_never
 
 """A cool-chic encoder is composed of:
@@ -166,7 +166,7 @@ class CoolChicEncoder(nn.Module):
 
     non_zero_pixel_ctx_index: Tensor
 
-    def __init__(self, param: CoolChicEncoderParameter, computing_mode: CoolChicComputingMode, device: POSSIBLE_DEVICE):
+    def __init__(self, param: CoolChicEncoderParameter, computing_mode: CoolChicComputingMode, device: PossibleDevice):
         """Instantiate a cool-chic encoder for one frame.
 
         Args:
@@ -180,7 +180,7 @@ class CoolChicEncoder(nn.Module):
         self.param = param
         self.computing_mode = computing_mode
         self.switch_computing_mode(computing_mode)
-        self.device: POSSIBLE_DEVICE = device
+        self.device: PossibleDevice = device
 
         assert self.param.img_size is not None, (
             "You are trying to instantiate a CoolChicEncoder from a "
@@ -702,7 +702,7 @@ class CoolChicEncoder(nn.Module):
         return self.total_flops / n_pixels
 
     # ------- Useful functions
-    def to_device(self, device: POSSIBLE_DEVICE) -> None:
+    def to_device(self, device: PossibleDevice) -> None:
         """Push a model to a given device.
 
         Args:
@@ -710,8 +710,8 @@ class CoolChicEncoder(nn.Module):
         """
         self.device = device
         assert device in typing.get_args(
-            POSSIBLE_DEVICE
-        ), f"Unknown device {device}, should be in {typing.get_args(POSSIBLE_DEVICE)}"
+            PossibleDevice
+        ), f"Unknown device {device}, should be in {typing.get_args(PossibleDevice)}"
         self = self.to(device)
 
         # Push integerized weights and biases of the mlp (resp qw and qb) to

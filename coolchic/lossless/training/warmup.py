@@ -20,13 +20,13 @@ from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
 from lossless.training.train_phase import _train_single_phase
 from lossless.util.color_transform import ColorBitdepths
-from lossless.util.device import POSSIBLE_DEVICE
+from lossless.util.device import PossibleDevice
 from lossless.util.logger import TrainingLogger
 from lossless.util.misc import mem_info
 
 
-def is_possible_device(val: str) -> TypeGuard[POSSIBLE_DEVICE]:
-    return val in get_args(POSSIBLE_DEVICE)
+def is_possible_device(val: str) -> TypeGuard[PossibleDevice]:
+    return val in get_args(PossibleDevice)
 
 
 @dataclass

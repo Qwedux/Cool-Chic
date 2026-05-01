@@ -45,3 +45,4 @@ coolchic/testing/data/**
 text/**
 coolchic/memory_snapshot.txt
 *.log
+*.npy
