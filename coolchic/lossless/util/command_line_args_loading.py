@@ -2,9 +2,11 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
-from lossless.component.coolchic import CoolChicComputingMode, UseFullModel, UseImageARMOnly, UseUntilSynthesis
 
 import tyro
+from lossless.component.coolchic import (CoolChicComputingMode, UseFullModel,
+                                         UseImageARMOnly, UseUntilSynthesis)
+from lossless.util.colorspace import PossibleColorspace, YCoCg
 
 # Type alias for CommandLineArgs field names
 COMMAND_LINE_ARGS_NAMES = Literal[
@@ -26,7 +28,7 @@ class CommandLineArgs:
     image_index: int = field(default_factory=lambda: 0)
     encoder_gain: int = field(default_factory=lambda: 64)
     # Literal enforces "YCoCg" or "RGB".
-    color_space: Literal["YCoCg", "RGB"] = field(default_factory=lambda: "YCoCg")
+    color_space: PossibleColorspace = field(default_factory=lambda: YCoCg())
     # Handling booleans: --use-image-arm / --no-use-image-arm
     use_image_arm: bool = field(default_factory=lambda: True)
     experiment_name: str = field(

@@ -1,7 +1,5 @@
 import numpy as np
 
-VALID_COLORSPACE = ["RGB", "YCoCg"]
-
 
 class ColorBitdepths:
     def __init__(self) -> None:
