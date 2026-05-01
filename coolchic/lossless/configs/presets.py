@@ -14,7 +14,6 @@ from typing import Dict, List, Literal, Tuple
 
 from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE)
-from lossless.component.types import NAME_COOLCHIC_ENC
 
 MODULE_TO_OPTIMIZE = Literal[
     # Which module to optimize during training
@@ -119,40 +118,14 @@ class WarmupPhase:
 
 @dataclass
 class Warmup:
-    """A :doc:`warm-up <../training/warmup>` is composed of different phases
-    where the worse candidates are successively eliminated.
-
-    Args:
-        phase (List[WarmupPhase]): The successive phases of the Warmup.
-            Defaults to ``[]``.
-    """
-
     phases: List[WarmupPhase] = field(default_factory=lambda: [])
 
     def _get_total_warmup_iterations(self) -> int:
-        """Return the total number of iterations for the whole warm-up."""
         return sum([phase.candidates * phase.training_phase.max_itr for phase in self.phases])
 
 
 @dataclass
 class Preset:
-    """Dummy parent (abstract) class of all encoder presets. An actual preset
-    should inherit from this class.
-
-    Encoding preset defines how we encode each frame. They are similar to
-    conventional codecs presets *e.g* x264 ``--slow`` preset offers better
-    compression performance at the expense of a longer encoding.
-
-    Here a preset defines two things: how the :doc:`warm-up <../training/warmup>`
-    is done, and how the subsequent :doc:`training <../training/train>` is done.
-
-    Args:
-        preset_name (str): Name of the preset.
-        training_phases (List[TrainerPhase]): The successive (post warm-up) training
-            phase. Defaults to ``[]``.
-        warmup (Warmup): The warm-up parameters. Defaults to ``Warmup()``.
-    """
-
     preset_name: str
     # Dummy empty training phases and warm-up
     warmup: Warmup = field(default_factory=lambda: Warmup())  # All the warm-up phases

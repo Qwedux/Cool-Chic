@@ -17,24 +17,7 @@ from torch import Tensor, nn
 
 
 class _Parameterization_Symmetric_1d(nn.Module):
-    """This module is not meant to be instantiated. It should rather be used
-    through the ``torch.nn.utils.parametrize.register_parametrization()``
-    function to reparameterize a N-element vector into a 2N-element (or 2N+1)
-    symmetric vector. For instance:
-
-        * x = a b c and target_k_size = 5 --> a b c b a
-        * x = a b c and target_k_size = 6 --> a b c c b a
-
-    Both these 5-element or 6-element vectors can be parameterize through
-    a 3-element representation (a, b, c).
-    """
-
     def __init__(self, target_k_size: int):
-        """
-        Args:
-            target_k_size: Target size of the kernel after reparameterization.
-        """
-
         super().__init__()
         self.target_k_size = target_k_size
         self.param_size = _Parameterization_Symmetric_1d.size_param_from_target(
@@ -42,19 +25,7 @@ class _Parameterization_Symmetric_1d(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        """Return a longer, symmetric vector by concatenating x with a flipped
-        version of itself.
-
-        Args:
-            x (Tensor): [N] tensor.
-
-        Returns:
-            Tensor: [2N] or [2N + 1] tensor, depending on self.target_k_size
-        """
-
-        # torch.fliplr requires to have a 2D kernel
         x_reversed = torch.fliplr(x.view(1, -1)).view(-1)
-
         kernel = torch.cat(
             [
                 x,
@@ -67,23 +38,6 @@ class _Parameterization_Symmetric_1d(nn.Module):
 
     @classmethod
     def size_param_from_target(cls, target_k_size: int) -> int:
-        """Return the size of the appropriate parameterization of a
-        symmetric tensor with target_k_size elements. For instance:
-
-            target_k_size = 6 ; parameterization size = 3 e.g. (a b c c b a)
-
-            target_k_size = 7 ; parameterization size = 4 e.g. (a b c d c b a)
-
-        Args:
-            target_k_size (int): Size of the actual symmetric 1D kernel.
-
-        Returns:
-            int: Size of the underlying parameterization.
-        """
-        # For a kernel of size target_k_size = 2N, we need N values
-        # e.g. 3 params a b c to parameterize a b c c b a.
-        # For a kernel of size target_k_size = 2N + 1, we need N + 1 values
-        # e.g. 4 params a b c d to parameterize a b c d c b a.
         return (target_k_size + 1) // 2
 
 
@@ -306,8 +260,6 @@ class Upsampling(nn.Module):
         )
 
     def forward(self, decoder_side_latent: List[Tensor]) -> Tensor:
-        # The main idea is to merge the channel dimension with the batch dimension
-        # so that the same convolution is applied independently on the batch dimension.
         latent_reversed = list(reversed(decoder_side_latent))
         upsampled_latent = latent_reversed[0]  # start from smallest
 

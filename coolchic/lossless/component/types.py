@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Optional, Union
 
 from torch import Tensor
 
@@ -18,23 +17,17 @@ class DescriptorNN:
     """Contains information (scale, weight, quantization step, ...) about the
     weights and biases of a neural network."""
 
-    weight: Optional[Union[int, float, str, Tensor]] = None
-    bias: Optional[Union[int, float, str, Tensor]] = None
+    weight: int | float | str | Tensor | None = None
+    bias: int | float | str | Tensor | None = None
 
-    # def __init__(
-    #     self, weight: Optional[Tensor] = None, bias: Optional[Tensor] = None
-    # ):
-    #     self.weight = weight
-    #     self.bias = bias
-
-    def __getitem__(self, item: str) -> Optional[Union[int, float, str, Tensor]]:
+    def __getitem__(self, item: str) -> int | float | str | Tensor | None:
         if item == "weight":
             return self.weight
         elif item == "bias":
             return self.bias
         return None
 
-    def __setitem__(self, key: str, value: Union[int, float, str, Tensor]) -> None:
+    def __setitem__(self, key: str, value: int | float | str | Tensor) -> None:
         if key == "weight":
             self.weight = value
         elif key == "bias":
@@ -45,10 +38,10 @@ class DescriptorNN:
 class DescriptorCoolChic:
     """Contains information about the different sub-networks of Cool-chic."""
 
-    arm: Optional[DescriptorNN] = None
-    image_arm: Optional[DescriptorNN] = None
-    upsampling: Optional[DescriptorNN] = None
-    synthesis: Optional[DescriptorNN] = None
+    arm: DescriptorNN | None = None
+    image_arm: DescriptorNN | None = None
+    upsampling: DescriptorNN | None = None
+    synthesis: DescriptorNN | None = None
 
 @dataclass(frozen=True)
 class HorizontalSplit:
@@ -58,7 +51,4 @@ class HorizontalSplit:
 class VerticalSplit:
     pass
 
-# For now, it is only possible to have a Cool-chic encoder
-# with this name i.e. this key in frame_encoder.coolchic_enc
-NAME_COOLCHIC_ENC = Literal["lossless"]
 IMARM_SPLIT_DIRECTION = HorizontalSplit | VerticalSplit

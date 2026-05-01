@@ -27,29 +27,10 @@ def get_mu_and_log_scale_linear_color(
 
 
 class ProbabilityOutput(nn.Module):
-    """Instantiate a output layer that gets distribution params (mu, scale)
-    from model outputs. Input tensor :math:`\\mathbf{x}` with shape :math:`[B, C_{in}, H, W]`, producing
-    an output tensors :math:`\\mathbf{mu, scale}` with shape :math:`[B, 6, H, W]`.
-
-    .. math::
-
-        \\mathbf{(mu, scale)} =
-        \\begin{cases}
-            \\mathrm{colorreg}(\\mathbf{x}) & \\text{if color regression,} \\\\
-            \\bigl(\\mathbf{x}_{:,0::2,\\ldots}, \\mathbf{x}_{:,1::2,\\ldots}
-            \\bigr) & \\text{otherwise.} \\\\
-        \\end{cases}
-    """
-
     def __init__(
         self,
         do_color_regression: bool = False,
     ):
-        """
-        Args:
-            do_color_regression: Whether to use color regression to get mu and scale.
-                Default to False.
-        """
         super().__init__()
 
         self.do_color_regression = do_color_regression
@@ -57,15 +38,6 @@ class ProbabilityOutput(nn.Module):
     def forward(
         self, network_out: torch.Tensor, image: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Perform the forward pass of this layer.
-
-        Args:
-            network_out: Input tensor of shape :math:`[B, C_{in}, H, W]`.
-            image: Input image tensor of shape :math:`[B, C_{in}, H, W]`.
-
-        Returns:
-            (mu, scale) of shape :math:`[B, 3, H, W]`.
-        """
         if self.do_color_regression:
             # this is the ugly case of doing color regression
             mu, log_scale = get_mu_and_log_scale_linear_color(network_out, image)

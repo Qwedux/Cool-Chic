@@ -139,44 +139,9 @@ class Arm(nn.Module):
         }
 
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        """Perform the auto-regressive module (ARM) forward pass. The ARM takes
-        as input a tensor of shape :math:`[B, C]` i.e. :math:`B` contexts with
-        :math:`C` context pixels. ARM outputs :math:`[B, 2]` values correspond
-        to :math:`\\mu, b` for each of the :math:`B` input pixels.
-
-        .. warning::
-
-            Note that the ARM expects input to be flattened i.e. spatial
-            dimensions :math:`H, W` are collapsed into a single batch-like
-            dimension :math:`B = HW`, leading to an input of shape
-            :math:`[B, C]`, gathering the :math:`C` contexts for each of the
-            :math:`B` pixels to model.
-
-        .. note::
-
-            The ARM MLP does not output directly the scale :math:`b`. Denoting
-            :math:`s` the raw output of the MLP, the scale is obtained as
-            follows:
-
-            .. math::
-
-                b = e^{x - 4}
-
-        Args:
-            x: Concatenation of all input contexts
-                :math:`\\mathbf{c}_i`. Tensor of shape :math:`[B, C]`.
-
-        Returns:
-            Concatenation of all Laplace distributions param :math:`\\mu, b`.
-            Tensor of shape :math:([B]). Also return the *log scale*
-            :math:`s` as described above. Tensor of shape :math:`(B)`
-        """
         raw_proba_param = self.mlp(x)
         mu = raw_proba_param[:, 0]
         log_scale = raw_proba_param[:, 1]
-        # print("ARM mu: ")
-        # for i in range(min(10, mu.size(0))):
-        #     print(f"{mu[i].item():.16f}")
 
         # no scale smaller than exp(-4.6) = 1e-2 or bigger than exp(5.01) = 150
         scale = torch.exp(torch.clamp(log_scale - 4, min=-4.6, max=5.0))
@@ -184,14 +149,6 @@ class Arm(nn.Module):
         return mu, scale, log_scale
 
     def get_neighbor_context(self, grid_so_far: list[list], h: int, w: int) -> Tensor:
-        """Get the neighbor context pixels for the pixel at position (h, w)
-        in the latent grid.
-
-        Args:
-            grid_so_far: 2D list of already decoded pixels.
-            h: Height index of the pixel to decode.
-            w: Width index of the pixel to decode.
-        """
         neighbor_context = []
         for idx in self.non_zero_pixel_ctx_index:
             shift = self.non_zero_pixel_ctx_shifts[idx.item()]
@@ -216,15 +173,9 @@ class Arm(nn.Module):
         return OrderedDict({k: v.detach().clone() for k, v in self.named_parameters()})
 
     def set_param(self, param: OrderedDict[str, Tensor]) -> None:
-        """Replace the current parameters of the module with param.
-
-        Args:
-            param: Parameters to be set.
-        """
         self.load_state_dict(param)
 
     def reinitialize_parameters(self) -> None:
-        """Re-initialize in place the parameters of all the ArmLinear layer."""
         for layer in self.mlp.children():
             if isinstance(layer, ArmLinear):
                 layer.initialize_parameters()
