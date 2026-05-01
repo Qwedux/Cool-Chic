@@ -7,8 +7,8 @@ import torch
 
 @dataclass(frozen=True, slots=True)
 class AbstractDevice(ABC):
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def materialize() -> torch.device:
         raise NotImplementedError
 
