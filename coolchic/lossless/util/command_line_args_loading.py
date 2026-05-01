@@ -1,7 +1,7 @@
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 import tyro
 from lossless.component.coolchic import (CoolChicComputingMode, UseFullModel,
@@ -13,32 +13,27 @@ COMMAND_LINE_ARGS_NAMES = Literal[
     "image_index",
     "encoder_gain",
     "color_space",
-    "use_image_arm",
     "experiment_name",
     "multiarm_setup",
     "computing_mode",
 ]
 
+ExperimentName: TypeAlias = str
+EncoderGain: TypeAlias = int
+ImageIndex: TypeAlias = int
+MultiArmSetup: TypeAlias = str
 
 @dataclass
 class CommandLineArgs:
-    # No default value -> Required argument in CLI
-    # Has a default value -> Optional argument in CLI
-
-    image_index: int = field(default_factory=lambda: 0)
-    encoder_gain: int = field(default_factory=lambda: 64)
-    # Literal enforces "YCoCg" or "RGB".
+    image_index: ImageIndex = field(default_factory=lambda: ImageIndex(0))
+    encoder_gain: EncoderGain = field(default_factory=lambda: EncoderGain(64))
     color_space: PossibleColorspace = field(default_factory=lambda: YCoCg())
-    # Handling booleans: --use-image-arm / --no-use-image-arm
-    use_image_arm: bool = field(default_factory=lambda: True)
-    experiment_name: str = field(
-        default_factory=lambda: datetime.today().strftime("%Y_%m_%d_default_name")
+    experiment_name: ExperimentName = field(
+        default_factory=lambda: ExperimentName(datetime.today().strftime("%Y_%m_%d_default_name"))
     )
-    multiarm_setup: str = field(
-        default_factory=lambda: "1x1"
+    multiarm_setup: MultiArmSetup = field(
+        default_factory=lambda: MultiArmSetup("1x1")
     )  # e.g., "2x2" for 2 rows and 2 columns
-    # Tyro: optional trailing subcommand, default when omitted is use-full-model.
-    # Example: python script.py --image-index 0 computing-mode:use-image-arm-only
     computing_mode: CoolChicComputingMode = field(default_factory=UseFullModel)
 
 

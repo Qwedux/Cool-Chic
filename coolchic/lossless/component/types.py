@@ -49,8 +49,15 @@ class DescriptorCoolChic:
     upsampling: Optional[DescriptorNN] = None
     synthesis: Optional[DescriptorNN] = None
 
+@dataclass(frozen=True)
+class HorizontalSplit:
+    pass
+
+@dataclass(frozen=True)
+class VerticalSplit:
+    pass
 
 # For now, it is only possible to have a Cool-chic encoder
 # with this name i.e. this key in frame_encoder.coolchic_enc
 NAME_COOLCHIC_ENC = Literal["lossless"]
-IMARM_SPLIT_DIRECTION = Literal["horizontal", "vertical"]
+IMARM_SPLIT_DIRECTION = HorizontalSplit | VerticalSplit

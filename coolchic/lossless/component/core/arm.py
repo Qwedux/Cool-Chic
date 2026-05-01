@@ -6,7 +6,9 @@
 #
 # Authors: see CONTRIBUTORS.md
 
+from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import OrderedDict, Tuple
 
 import torch
@@ -14,6 +16,12 @@ import torch.nn.functional as F
 from lossless.util.misc import safe_get_from_nested_lists
 from torch import Tensor, index_select, nn
 
+
+@dataclass(frozen=True, kw_only=True)
+class ArmParameter:
+    context_size: int
+    n_hidden_layers: int
+    hidden_layer_dim: int
 
 class ArmLinear(nn.Module):
     """Create a Linear layer of the Auto-Regressive Module (ARM). This is a
@@ -96,64 +104,19 @@ class ArmLinear(nn.Module):
 
 
 class Arm(nn.Module):
-    """Instantiate an autoregressive probability module, modelling the
-    conditional distribution :math:`p_{\\psi}(\\hat{y}_i \\mid
-    \\mathbf{c}_i)` of a (quantized) latent pixel :math:`\\hat{y}_i`,
-    conditioned on neighboring already decoded context pixels
-    :math:`\\mathbf{c}_i \\in \\mathbb{Z}^C`, where :math:`C` denotes the
-    number of context pixels.
-
-    The distribution :math:`p_{\\psi}` is assumed to follow a Laplace
-    distribution, parameterized by an expectation :math:`\\mu` and a scale
-    :math:`b`, where the scale and the variance :math:`\\sigma^2` are
-    related as follows :math:`\\sigma^2 = 2 b ^2`.
-
-    The parameters of the Laplace distribution for a given latent pixel
-    :math:`\\hat{y}_i` are obtained by passing its context pixels
-    :math:`\\mathbf{c}_i` through an MLP :math:`f_{\\psi}`:
-
-    .. math::
-
-        p_{\\psi}(\\hat{y}_i \\mid \\mathbf{c}_i) \\sim \\mathcal{L}(\\mu_i,
-        b_i), \\text{ where } \\mu_i, b_i = f_{\\psi}(\\mathbf{c}_i).
-
-    .. attention::
-
-        The MLP :math:`f_{\\psi}` has a few constraint on its architecture:
-
-        * The width of all hidden layers (i.e. the output of all layers except
-          the final one) are identical to the number of pixel contexts
-          :math:`C`;
-
-        * All layers except the last one are residual layers, followed by a
-          ``ReLU`` non-linearity;
-
-        * :math:`C` must be at a multiple of 8.
-
-    The MLP :math:`f_{\\psi}` is made of custom Linear layers instantiated
-    from the ``ArmLinear`` class.
-    """
-
-    def __init__(self, dim_arm: int, n_hidden_layers_arm: int, hidden_layer_dim: int = 8):
-        """
-        Args:
-            dim_arm: Number of context pixels AND dimension of all hidden
-                layers :math:`C`.
-            n_hidden_layers_arm: Number of hidden layers. Set it to 0 for
-                a linear ARM.
-        """
+    def __init__(self, context_size: int, n_hidden_layers_arm: int, hidden_layer_dim: int = 8):
         super().__init__()
 
-        assert dim_arm % 8 == 0, (
+        assert context_size % 8 == 0, (
             f"ARM context size and hidden layer dimension must be "
-            f"a multiple of 8. Found {dim_arm}."
+            f"a multiple of 8. Found {context_size}."
         )
-        self.dim_arm = dim_arm
+        self.dim_arm = context_size
         self.hidden_layer_dim = hidden_layer_dim
 
         # ======================== Construct the MLP ======================== #
         layers_list = nn.ModuleList()
-        layers_list.append(ArmLinear(dim_arm, self.hidden_layer_dim, residual=False))
+        layers_list.append(ArmLinear(context_size, self.hidden_layer_dim, residual=False))
 
         # Construct the hidden layer(s)
         for i in range(n_hidden_layers_arm):

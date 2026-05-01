@@ -5,17 +5,18 @@
 # This software is distributed under the BSD-3-Clause license.
 #
 # Authors: see CONTRIBUTORS.md
+from __future__ import annotations
 
 import math
-import typing
-from dataclasses import dataclass, field, fields
-from typing import (Any, Dict, List, Optional, OrderedDict, Tuple, TypeAlias,
-                    TypedDict)
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, fields
+from functools import cached_property
+from typing import Optional, OrderedDict, Tuple, TypeAlias
 
 import torch
 import torch.nn.functional as F
 from fvcore.nn import FlopCountAnalysis, flop_count_table
-from lossless.component.core.arm import (Arm, _get_neighbor,
+from lossless.component.core.arm import (Arm, ArmParameter, _get_neighbor,
                                          _get_non_zero_pixel_ctx_index,
                                          _laplace_cdf)
 from lossless.component.core.arm_image import ImageArm, ImageARMParameter
@@ -27,97 +28,30 @@ from lossless.component.core.upsampling import Upsampling
 from lossless.component.types import DescriptorCoolChic, DescriptorNN
 from lossless.nnquant.expgolomb import measure_expgolomb_rate
 from lossless.util.device import PossibleDevice
+from lossless.util.image import ImageSize
 from lossless.util.termprint import pretty_string_nn, pretty_string_ups
 from torch import Tensor, nn
 from typing_extensions import assert_never
 
-"""A cool-chic encoder is composed of:
-    - A set of 2d hierarchical latent grids
-    - An auto-regressive probability module
-    - An upsampling module
-    - A synthesis.
 
-At its core, it is a tool to compress any spatially organized signal, with
-one or more features by representing it as a set of 2d entropy coding-friendly
-latent grids. After upsampling, these latent grids allows to synthesize the
-desired signal.
-"""
-
-
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class CoolChicEncoderParameter:
-    """Dataclass storing the parameters of a ``CoolChicEncoder``.
+    layers_synthesis: Sequence[str]
+    n_ft_per_res: Sequence[int]
+    image_arm_parameters: ImageARMParameter
+    arm_latent_parameters: ArmParameter
+    encoder_gain: int
+    ups_k_size: int
+    ups_preconcat_k_size: int
+    latent_freq_precision: int
+    use_color_regression: bool
+    img_size: ImageSize
 
-    Args:
-        img_size (Tuple[int, int]): Height and width :math:`(H, W)` of the frame
-            to be coded
-        layers_synthesis (List[str]): Describes the architecture of the
-            synthesis transform. See the :doc:`synthesis documentation
-            <core/synthesis>` for more information.
-        n_ft_per_res (List[int]): Number of latent features for each latent
-            resolution *i.e.* ``n_ft_per_res[i]`` gives the number of channel
-            :math:`C_i` of the latent with resolution :math:`\\frac{H}{2^i},
-            \\frac{W}{2^i}`.
-        dim_arm (int, Optional): Number of context pixels for the ARM. Also
-            corresponds to the ARM hidden layer width. See the :doc:`ARM
-            documentation <core/arm>` for more information. Defaults to 24
-        n_hidden_layers_arm (int, Optional): Number of hidden layers in the
-            ARM. Set ``n_hidden_layers_arm = 0`` for a linear ARM. Defaults
-            to 2.
-        ups_k_size (int, Optional): Upsampling kernel size for the transposed
-            convolutions. See the :doc:`upsampling documentation <core/upsampling>`
-            for more information. Defaults to 8.
-        ups_preconcat_k_size (int, Optional): Upsampling kernel size for the
-            pre-concatenation convolutions. See the
-            :doc:`upsampling documentation <core/upsampling>` for more
-            information. Defaults to 7.
-        encoder_gain (int, Optional): Multiply the latent by this value before
-            quantization. See the documentation of Cool-chic forward pass.
-            Defaults to 16.
-    """
+    @cached_property
+    def latent_n_grids(self) -> int:
+        return len(self.n_ft_per_res)
 
-    layers_synthesis: List[str]
-    n_ft_per_res: List[int]
-    image_arm_parameters: ImageARMParameter = field(init=False)
-    dim_arm: int = 24
-    n_hidden_layers_arm: int = 2
-    encoder_gain: int = 16
-    ups_k_size: int = 8
-    ups_preconcat_k_size: int = 7
-    latent_freq_precision: int = 12
-    arm_hidden_layer_dim: int = 8
-    use_color_regression: bool = False
-
-    # ==================== Not set by the init function ===================== #
-    #: Automatically computed, number of different latent resolutions
-    latent_n_grids: int = field(init=False)
-    #: Height and width :math:`(H, W)` of the frame to be coded. Must be
-    #: set using the ``set_image_size()`` function.
-    img_size: Optional[Tuple[int, int]] = field(init=False, default=None)
-    # ==================== Not set by the init function ===================== #
-
-    def __post_init__(self):
-        self.latent_n_grids = len(self.n_ft_per_res)
-        self.image_arm_parameters = ImageARMParameter()
-
-    def set_image_size(self, img_size: Tuple[int, int]) -> None:
-        """Register the field self.img_size.
-
-        Args:
-            img_size: Height and width :math:`(H, W)` of the frame to be coded
-        """
-        self.img_size = img_size
-
-    def pretty_string(self, coolchic_name: str = "") -> str:
-        """Return a pretty string presenting the CoolChicEncoderParameter.
-
-        Args:
-            coolchic_name (str): Optional name added to the title. Only for
-                display purpose. Defaults to "".
-
-        Returns:
-            str: Pretty string ready to be printed.
-        """
+    def pretty_string(self) -> str:
         ATTRIBUTE_WIDTH = 25
         VALUE_WIDTH = 80
 
@@ -128,18 +62,8 @@ class CoolChicEncoderParameter:
         return s
 
 
-@dataclass
-class CoolChicEncoderOutput(TypedDict):
-    """``TypedDict`` representing the output of CoolChicEncoder forward.
-
-    Args:
-        raw_out (Tensor): Output of the synthesis :math:`([B, C, H, W])`.
-        rate (Tensor): rate associated to each latent (in bits). Shape is
-            :math:`(N)`, with :math:`N` the total number of latent variables.
-        additional_data (Dict[str, Any]): Any other data required to compute
-            some logs, stored inside a dictionary
-    """
-
+@dataclass(frozen=True, kw_only=True)
+class CoolChicEncoderOutput:
     mu: Tensor
     scale: Tensor
     rate: Tensor
@@ -197,7 +121,7 @@ class CoolChicEncoder(nn.Module):
         self.size_per_latent = []
         self.latent_grids = nn.ParameterList()
         for i in range(self.param.latent_n_grids):
-            h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.param.img_size]
+            h_grid, w_grid = int(math.ceil(self.param.img_size.height / (2**i))), int(math.ceil(self.param.img_size.width / (2**i)))
             c_grid = self.param.n_ft_per_res[i]
             cur_size = (1, c_grid, h_grid, w_grid)
 
@@ -246,9 +170,9 @@ class CoolChicEncoder(nn.Module):
         # No more than 40 context pixels i.e. a 9x9 mask size (see example above)
         max_mask_size = 9
         max_context_pixel = int((max_mask_size**2 - 1) / 2)
-        assert self.param.dim_arm <= max_context_pixel, (
+        assert self.param.image_arm_parameters.context_size <= max_context_pixel, (
             f"You can not have more context pixels "
-            f" than {max_context_pixel}. Found {self.param.dim_arm}"
+            f" than {max_context_pixel}. Found {self.param.image_arm_parameters.context_size}"
         )
 
         # Mask of size 2N + 1 when we have N rows & columns of context.
@@ -261,13 +185,13 @@ class CoolChicEncoder(nn.Module):
         # by self.parameters())
         self.register_buffer(
             "non_zero_pixel_ctx_index",
-            _get_non_zero_pixel_ctx_index(self.param.dim_arm),
+            _get_non_zero_pixel_ctx_index(self.param.image_arm_parameters.context_size),
             persistent=False,
         )
 
         # ===================== ARM related stuff ==================== #
         self.arm = Arm(
-            self.param.dim_arm, self.param.n_hidden_layers_arm, self.param.arm_hidden_layer_dim
+            self.param.image_arm_parameters.context_size, self.param.image_arm_parameters.n_hidden_layers, self.param.image_arm_parameters.hidden_layer_dim
         )
         self.image_arm = ImageArm(self.param.image_arm_parameters)
         self.proba_output = ProbabilityOutput(self.param.use_color_regression)
@@ -285,13 +209,13 @@ class CoolChicEncoder(nn.Module):
 
         # Track the quantization step of each neural network, None if the
         # module is not yet quantized
-        self.nn_q_step: Dict[str, DescriptorNN] = {
+        self.nn_q_step: Mapping[str, DescriptorNN] = {
             k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
 
         # Track the exponent of the exp-golomb code used for the NN parameters.
         # None if module is not yet quantized
-        self.nn_expgol_cnt: Dict[str, DescriptorNN] = {
+        self.nn_expgol_cnt: Mapping[str, DescriptorNN] = {
             k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
 
@@ -399,15 +323,13 @@ class CoolChicEncoder(nn.Module):
             mu, scale = self.proba_output(raw_synth_out, image)
         else:
             raise ValueError(f"Unknown computing mode: {self.computing_mode}")
-            
-
-        assert self.param.img_size is not None
-        res: CoolChicEncoderOutput = {
-            "mu": mu,
-            "scale": scale,
-            "rate": flat_rate,
-            "latent_bpd": flat_rate.sum() / self.param.img_size[0] / self.param.img_size[1] / 3,
-        }
+        
+        res: CoolChicEncoderOutput = CoolChicEncoderOutput(
+            mu=mu,
+            scale=scale,
+            rate=flat_rate,
+            latent_bpd=flat_rate.sum() / self.param.img_size.height / self.param.img_size.width / 3,
+        )
 
         return res
 
@@ -698,7 +620,7 @@ class CoolChicEncoder(nn.Module):
             self.get_flops()
 
         assert self.param.img_size is not None, "Image size is not set"
-        n_pixels = self.param.img_size[-2] * self.param.img_size[-1]
+        n_pixels = self.param.img_size.height * self.param.img_size.width
         return self.total_flops / n_pixels
 
     # ------- Useful functions
@@ -756,8 +678,7 @@ class CoolChicEncoder(nn.Module):
         if not self.flops_str:
             self.get_flops()
         
-        assert self.param.img_size is not None, "Image size is not set"
-        n_pixels = self.param.img_size[-2] * self.param.img_size[-1]
+        n_pixels = self.param.img_size.height * self.param.img_size.width
         total_mac_per_pix = self.get_total_mac_per_pixel()
 
         title = f"Cool-chic architecture {total_mac_per_pix:.0f} MAC / pixel"

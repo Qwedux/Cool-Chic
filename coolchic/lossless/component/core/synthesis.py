@@ -8,7 +8,8 @@
 
 
 import math
-from typing import List, OrderedDict
+from collections.abc import Sequence
+from typing import OrderedDict
 
 import torch
 import torch.nn.functional as F
@@ -113,45 +114,6 @@ class SynthesisConv2d(nn.Module):
 
 
 class Synthesis(nn.Module):
-    """Instantiate Cool-chic convolution-based synthesis transform. It
-    performs the following operation.
-
-    .. math::
-
-        \\hat{\\mathbf{x}} = f_{\\theta}(\\hat{\\mathbf{z}}).
-
-    Where :math:`\\hat{\\mathbf{x}}` is the :math:`[B, C_{out}, H, W]`
-    synthesis output, :math:`\\hat{\\mathbf{z}}` is the :math:`[B, C_{in}, H,
-    W]` synthesis input (i.e. the upsampled latent variable) and
-    :math:`\\theta` the synthesis parameters.
-
-    The synthesis is composed of one or more convolution layers,
-    instantiated using the class ``SynthesisConv2d``. The parameter
-    ``layers_dim`` set the synthesis architecture. Each layer is described
-    as follows: ``<output_dim>-<kernel_size>-<type>-<non_linearity>``
-
-    * ``output_dim``: number of output features :math:`C_{out}`.
-
-    * ``kernel_size``: spatial dimension of the kernel. Use 1 to mimic an MLP.
-
-    * ``type``: either ``linear`` or ``residual`` *i.e.*
-
-        .. math::
-
-            \\mathbf{y} =
-            \\begin{cases}
-                \\mathrm{conv}(\\mathbf{x}) + \\mathbf{x} & \\text{if residual,} \\\\
-                \\mathrm{conv}(\\mathbf{x}) & \\text{otherwise.} \\\\
-            \\end{cases}
-
-    * ``non_linearity``: either ``none`` (no non-linearity) or ``relu``.
-        The non-linearity is applied after the residual connection if any.
-
-    Example of a convolution layer with 40 input features, 3 output features, a
-    residual connection followed with a relu: ``40-3-residual-relu``
-
-    """
-
     possible_non_linearity = {
         "none": nn.Identity,
         "relu": nn.ReLU,
@@ -161,7 +123,7 @@ class Synthesis(nn.Module):
 
     possible_mode = ["linear", "residual"]
 
-    def __init__(self, input_ft: int, layers_dim: List[str]):
+    def __init__(self, input_ft: int, layers_dim: Sequence[str]):
         """
         Args:
             input_ft: Number of input features :math:`C_{in}`. This corresponds

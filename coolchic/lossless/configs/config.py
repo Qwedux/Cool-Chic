@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import glob
 import os
+from collections.abc import Sequence
+from dataclasses import dataclass
 
+from lossless.component.core.arm import ArmParameter
 from lossless.component.core.arm_image import ImageARMParameter
 
 if os.path.exists("/itet-stor/jparada/net_scratch/"):
@@ -16,50 +21,75 @@ else:
     LOG_PATH = f"{BASE_PATH}logs/"
     NETWORK_YAML_PATH = f"{BASE_PATH}cfg/network_architecture.yaml"
 
-IMAGE_PATHS = sorted(
+IMAGE_PATHS: Sequence[str] = sorted(
     glob.glob(f"{DATASET_PATH}*.png"),
-    # key=lambda x: int(os.path.basename(x).split(".")[0][len("kodim") :]),
 )
 
-args = {
+def default_image_arm_parameters(use_color_regression: bool) -> ImageARMParameter:
+    if use_color_regression:
+        synthesis_out_params_per_channel = [2, 3, 4]
+    else:
+        synthesis_out_params_per_channel = [2, 2, 2]
+    return ImageARMParameter(
+        context_size=8,
+        n_hidden_layers=2,
+        hidden_layer_dim=6,
+        synthesis_out_params_per_channel=synthesis_out_params_per_channel,
+        use_color_regression=use_color_regression,
+        multi_region_image_arm_specification=None
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Args:
     # paths
-    "BASE_PATH": BASE_PATH,
-    "DATASET_PATH": DATASET_PATH,
-    "TEST_WORKDIR": TEST_WORKDIR,
-    "LOG_PATH": LOG_PATH,
-    "input": IMAGE_PATHS,
-    "output": TEST_WORKDIR + "output",
-    "workdir": TEST_WORKDIR,
-    "network_yaml_path": NETWORK_YAML_PATH,
-    "experiment_name": "2026_01_17_speed_test_lossless",
+    BASE_PATH: str
+    DATASET_PATH: str
+    TEST_WORKDIR: str
+    LOG_PATH: str
+    input: Sequence[str]
+    output: str
+    workdir: str
+    print_detailed_archi: bool
+    print_detailed_struct: bool
+    layers_synthesis: str
+    arm_latent_parameters: ArmParameter
+    arm_image_params: ImageARMParameter
+    use_color_regression: bool
+    n_ft_per_res: Sequence[int]
+    ups_k_size: int
+    ups_preconcat_k_size: int
+    preset: str
+    pretrained_model_path: str
+    use_pretrained: bool
+    quantize_model: bool
+    latent_freq_precision: int
 
-    "print_detailed_archi": False,
-    "print_detailed_struct": False,
-    "layers_synthesis_lossless": "24-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none",
-    "arm_lossless": "16,2", #dim arm, n_layers
-    "arm_lossless_hidden_layer_dim": 8,
-    "arm_image_params": ImageARMParameter(context_size=8, n_hidden_layers=2, hidden_layer_dim=6),
-    # "layers_synthesis_lossless": "96-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none",
-    # "arm_lossless": "24,2", #dim arm, n_layers
-    # "arm_lossless_hidden_layer_dim": 24,
-    # "arm_image_params": ImageARMParameter(context_size=24, n_hidden_layers=2, hidden_layer_dim=24),
-    "use_color_regression": False,
-    "n_ft_per_res_lossless": "1,1,1,1,1,1,1",
-    "ups_k_size_lossless": 8,
-    "ups_preconcat_k_size_lossless": 7,
-    # training preset
-    "preset": "fnlic",
-    "pretrained_model_path": "../logs/full_runs/2026_01_05_default_name/trained_models/2026_01_05__20_55_36__trained_coolchic_kodak_kodim01_img_rate_4.001727104187012.pth",
-    "use_pretrained": False,
-    "quantize_model": True,
-}
+_use_color_regression = False
 
-def str_args(args: dict) -> str:
-    included_keys = args.keys()
-    s = "Arguments:\n"
-    for k in included_keys:
-        s += f"  {k}: {args[k]}\n"
-    return s
+args = Args(
+    BASE_PATH=BASE_PATH,
+    DATASET_PATH=DATASET_PATH,
+    TEST_WORKDIR=TEST_WORKDIR,
+    LOG_PATH=LOG_PATH,
+    input=IMAGE_PATHS,
+    output=TEST_WORKDIR + "output",
+    workdir=TEST_WORKDIR,
+    print_detailed_archi=False,
+    print_detailed_struct=False,
+    layers_synthesis="24-1-1-linear-relu,X-1-1-linear-none,X-3-3-residual-relu,X-3-3-residual-none",
+    arm_latent_parameters=ArmParameter(context_size=16, n_hidden_layers=2, hidden_layer_dim=8),
+    arm_image_params=default_image_arm_parameters(use_color_regression=_use_color_regression),
+    use_color_regression=_use_color_regression,
+    n_ft_per_res=[1,1,1,1,1,1,1],
+    ups_k_size=8,
+    ups_preconcat_k_size=7,
+    preset="fnlic",
+    pretrained_model_path="../logs/full_runs/2026_01_05_default_name/trained_models/2026_01_05__20_55_36__trained_coolchic_kodak_kodim01_img_rate_4.001727104187012.pth",
+    use_pretrained=False,
+    quantize_model=True,
+    latent_freq_precision=12,
+)
 
 start_print = (
     "\n\n"
