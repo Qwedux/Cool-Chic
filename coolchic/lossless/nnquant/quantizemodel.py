@@ -20,7 +20,6 @@ from lossless.nnquant.quantstep import (POSSIBLE_Q_STEP,
                                         get_q_step_from_parameter_name)
 from lossless.training.loss import LossFunctionOutput, loss_function
 from lossless.training.manager import ImageEncoderManager
-from lossless.util.color_transform import ColorBitdepths
 from lossless.util.logger import TrainingLogger
 from torch import Tensor
 
