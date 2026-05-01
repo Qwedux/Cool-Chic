@@ -44,3 +44,4 @@ coolchic/testing/data/**
 *.svg
 text/**
 coolchic/memory_snapshot.txt
+*.log
