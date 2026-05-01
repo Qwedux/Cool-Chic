@@ -392,9 +392,9 @@ class CoolChicEncoder(nn.Module):
             mu, scale = self.proba_output(raw_synth_out, image)            
         elif isinstance(self.computing_mode, UseImageARMOnly):
             flat_rate = torch.zeros(
-                sum(map(lambda x: x[0] * x[1] * x[2] * x[3], self.size_per_latent)), device=self.device
+                sum(map(lambda x: x[0] * x[1] * x[2] * x[3], self.size_per_latent)), device=self.device.materialize()
             )
-            raw_synth_out = torch.zeros(image.shape[0], 9 if self.param.use_color_regression else 6, image.shape[2], image.shape[3], device=self.device)
+            raw_synth_out = torch.zeros(image.shape[0], 9 if self.param.use_color_regression else 6, image.shape[2], image.shape[3], device=self.device.materialize())
             raw_synth_out = self.image_arm(image, raw_synth_out)
             mu, scale = self.proba_output(raw_synth_out, image)
         else:
@@ -601,7 +601,7 @@ class CoolChicEncoder(nn.Module):
         flops = FlopCountAnalysis(
             self,
             (
-                torch.empty(1, 3, *self.param.img_size, device=self.device),  # image
+                torch.empty(1, 3, *self.param.img_size, device=self.device.materialize()),  # image
                 "none",  # Quantization noise
                 "hardround",  # Quantizer type
                 0.3,  # Soft round temperature
@@ -709,39 +709,36 @@ class CoolChicEncoder(nn.Module):
             device (POSSIBLE_DEVICE): The device on which the model should run.
         """
         self.device = device
-        assert device in typing.get_args(
-            PossibleDevice
-        ), f"Unknown device {device}, should be in {typing.get_args(PossibleDevice)}"
-        self = self.to(device)
+        self = self.to(device.materialize())
 
         # Push integerized weights and biases of the mlp (resp qw and qb) to
         # the required device
         for idx_layer, layer in enumerate(self.arm.mlp):
             if hasattr(layer, "qw"):
                 if layer.qw is not None:
-                    self.arm.mlp[idx_layer].qw = layer.qw.to(device)
+                    self.arm.mlp[idx_layer].qw = layer.qw.to(self.device.materialize())
 
             if hasattr(layer, "qb"):
                 if layer.qb is not None:
-                    self.arm.mlp[idx_layer].qb = layer.qb.to(device)
+                    self.arm.mlp[idx_layer].qb = layer.qb.to(self.device.materialize())
 
-        self.image_arm = self.image_arm.to(device)
+        self.image_arm = self.image_arm.to(self.device.materialize())
         self.image_arm.non_zero_image_arm_ctx_index = (
-            self.image_arm.non_zero_image_arm_ctx_index.to(device)
+            self.image_arm.non_zero_image_arm_ctx_index.to(self.device.materialize())
         )
         for expert in self.image_arm.image_arm_models:
             assert isinstance(expert, nn.ModuleList)
             for model in expert:
                 assert isinstance(model, torch.nn.Sequential)
                 for idx_layer, layer in enumerate(model):
-                    layer.to(device)
+                    layer.to(self.device.materialize())
                     if hasattr(layer, "qw"):
                         if layer.qw is not None:
-                            model[idx_layer].qw = layer.qw.to(device)
+                            model[idx_layer].qw = layer.qw.to(self.device.materialize())
 
                     if hasattr(layer, "qb"):
                         if layer.qb is not None:
-                            model[idx_layer].qb = layer.qb.to(device)
+                            model[idx_layer].qb = layer.qb.to(self.device.materialize())
 
     def pretty_string(self, print_detailed_archi: bool = False) -> str:
         """Get a pretty string representing the layer of a ``CoolChicEncoder``

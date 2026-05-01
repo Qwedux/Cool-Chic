@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TypeAlias, assert_never
 
@@ -5,23 +6,25 @@ import torch
 
 
 @dataclass(frozen=True, slots=True)
-class CudaZeroDevice:
-    pass
+class AbstractDevice(ABC):
+    @abstractmethod
+    @staticmethod
+    def materialize() -> torch.device:
+        raise NotImplementedError
 
 @dataclass(frozen=True, slots=True)
-class CpuDevice:
-    pass
+class CudaZeroDevice(AbstractDevice):
+    @staticmethod
+    def materialize() -> torch.device:
+        return torch.device("cuda:0")
+
+@dataclass(frozen=True, slots=True)
+class CpuDevice(AbstractDevice):
+    @staticmethod
+    def materialize() -> torch.device:
+        return torch.device("cpu")
 
 PossibleDevice: TypeAlias = CpuDevice | CudaZeroDevice
-
-def materialize_device(device: PossibleDevice) -> torch.device:
-    match device:
-        case CudaZeroDevice():
-            return torch.device("cuda:0")
-        case CpuDevice():
-            return torch.device("cpu")
-        case _:
-            assert_never(device)
 
 def get_device(device: torch.device | str) -> PossibleDevice:
     match device:

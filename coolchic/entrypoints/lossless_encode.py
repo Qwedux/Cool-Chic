@@ -12,6 +12,7 @@ from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.train import train
 from lossless.util.command_line_args_loading import load_args
+from lossless.util.device import CpuDevice, CudaZeroDevice
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import get_coolchic_param_from_args
@@ -30,7 +31,7 @@ print(f"Encoding job {job_index} started at {time.time()}")
 im_path = args["input"][command_line_args.image_index]
 
 im_tensor, colorspace_bitdepths = load_image_as_tensor(
-    im_path, device="cuda:0", color_space=command_line_args.color_space
+    im_path, device=CudaZeroDevice(), color_space=command_line_args.color_space
 )
 
 # ==========================================================================================
@@ -53,8 +54,8 @@ encoder_param = get_coolchic_param_from_args(
     encoder_gain=command_line_args.encoder_gain,
     multi_region_image_arm_setup="1x1",
 )
-coolchic = CoolChicEncoder(param=encoder_param, computing_mode=command_line_args.computing_mode, device="cuda:0")
-coolchic.to_device("cuda:0")
+coolchic = CoolChicEncoder(param=encoder_param, computing_mode=command_line_args.computing_mode, device=CudaZeroDevice())
+coolchic.to_device(CudaZeroDevice())
 
 # ==========================================================================================
 # SETUP LOGGER
@@ -82,10 +83,10 @@ logger.log_result(f"Using multi-region image ARM: {command_line_args.multiarm_se
 logger.log_result(f"Using color regression: {args['use_color_regression']}")
 logger.log_result(f"Total training iterations: {image_encoder_manager.n_itr}")
 with torch.no_grad():
-    coolchic.to_device("cpu")
+    coolchic.to_device(CpuDevice())
     logger.log_result(f"Total MAC per pixel: {coolchic.get_total_mac_per_pixel()}")
     logger.log_result(coolchic.str_complexity())
-    coolchic.to_device("cuda:0")
+    coolchic.to_device(CudaZeroDevice())
 # ==========================================================================================
 # TRAIN
 # ==========================================================================================

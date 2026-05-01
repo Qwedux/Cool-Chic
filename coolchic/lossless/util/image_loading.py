@@ -1,10 +1,13 @@
+from typing import assert_never
+
 import cv2
 import lossless.util.color_transform as color_transform
 import numpy as np
 import torch
+from lossless.util.device import CpuDevice, CudaZeroDevice, PossibleDevice
 
 
-def load_image_as_tensor(image_path, device="cuda:0", color_space="YCoCg"):
+def load_image_as_tensor(image_path, device: PossibleDevice, color_space="YCoCg"):
     assert color_space in color_transform.VALID_COLORSPACE, f"Invalid color space {color_space}"
     im = cv2.imread(filename=image_path)
     assert im is not None, f"Failed to read image {image_path}"
@@ -30,4 +33,5 @@ def load_image_as_tensor(image_path, device="cuda:0", color_space="YCoCg"):
         c_bitdepths = color_transform.RGBBitdepths()
     else:
         raise ValueError(f"Invalid color space {color_space}")
-    return im_tensor.to(device), c_bitdepths
+    
+    return im_tensor.to(device.materialize()), c_bitdepths

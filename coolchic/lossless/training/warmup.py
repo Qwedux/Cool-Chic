@@ -9,9 +9,7 @@
 
 import copy
 import time
-import typing
 from dataclasses import dataclass
-from typing import TypeGuard, get_args
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
@@ -19,14 +17,8 @@ from lossless.training.loss import LossFunctionOutput
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
 from lossless.training.train_phase import _train_single_phase
-from lossless.util.color_transform import ColorBitdepths
-from lossless.util.device import PossibleDevice
 from lossless.util.logger import TrainingLogger
 from lossless.util.misc import mem_info
-
-
-def is_possible_device(val: str) -> TypeGuard[PossibleDevice]:
-    return val in get_args(PossibleDevice)
 
 
 @dataclass
@@ -122,11 +114,7 @@ def warmup(
             )
             logger.log_training(mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}"))
 
-            if is_possible_device(template_model.device):
-                template_device = template_model.device
-            else:
-                raise ValueError(f"Invalid device: {template_model.device}")
-            cur_candidate_model.encoder.to_device(template_device)
+            cur_candidate_model.encoder.to_device(template_model.device)
             initial_encoder_logs = test(
                 cur_candidate_model.encoder,
                 target_image,
