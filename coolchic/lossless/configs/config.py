@@ -5,8 +5,11 @@ import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+import torch
 from lossless.component.core.arm import ArmParameter
-from lossless.component.core.arm_image import ImageARMParameter
+from lossless.component.core.arm_image import (ImageARMParameter,
+                                               MultiImageArmDescriptor)
+from lossless.util.image import ImageHeight, ImageWidth
 
 if os.path.exists("/itet-stor/jparada/net_scratch/"):
     BASE_PATH = "/itet-stor/jparada/net_scratch/"
@@ -36,7 +39,13 @@ def default_image_arm_parameters(use_color_regression: bool) -> ImageARMParamete
         hidden_layer_dim=6,
         synthesis_out_params_per_channel=synthesis_out_params_per_channel,
         use_color_regression=use_color_regression,
-        multi_region_image_arm_specification=None
+        multi_region_image_arm_specification=MultiImageArmDescriptor(
+            expert_indices=[],
+            image_height=ImageHeight(1),
+            image_width=ImageWidth(1),
+            routing_grid=torch.zeros(1, 1),
+        )
+
     )
 
 
@@ -84,7 +93,7 @@ args = Args(
     n_ft_per_res=[1,1,1,1,1,1,1],
     ups_k_size=8,
     ups_preconcat_k_size=7,
-    preset="fnlic",
+    preset="measure_speed",
     pretrained_model_path="../logs/full_runs/2026_01_05_default_name/trained_models/2026_01_05__20_55_36__trained_coolchic_kodak_kodim01_img_rate_4.001727104187012.pth",
     use_pretrained=False,
     quantize_model=True,

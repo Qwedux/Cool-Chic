@@ -15,34 +15,6 @@ def center_str(s: str) -> str:
     return s.center(shutil.get_terminal_size().columns)
 
 def pretty_string_ups(upsampling: nn.Module, header: str) -> str:
-    """Get a nice string ready to be printed which displays the different layers
-    of the upsampling step.
-
-    Something like:
-
-    ..code ::
-
-        header
-
-              +-------------+
-        y0 -> | 8x8 TConv2d | -----+
-              +-------------+      |
-                                   v
-              +------------+    +-----+    +-------------+
-        y1 -> | 7x7 Conv2d | -> | cat | -> | 8x8 TConv2d | -----+
-              +------------+    +-----+    +-------------+      |
-                                                                v
-                                           +------------+    +-----+    +-------------+
-        y2 ------------------------------> | 7x7 Conv2d | -> | cat | -> | 8x8 TConv2d | -> dense
-                                           +------------+    +-----+    +-------------+
-    Args:
-        upsampling (nn.Module): The upsampling module to print
-        header (str): A string to append before the layers
-
-    Returns:
-        str: A nice string presenting the upsampling.
-    """
-
     lines = []
 
     assert upsampling.n_ups_kernel == upsampling.n_ups_preconcat_kernel, (
@@ -134,31 +106,6 @@ def pretty_string_ups(upsampling: nn.Module, header: str) -> str:
 def pretty_string_nn(
     layers: nn.Sequential, header: str, input_str: str, output_str: str
 ) -> str:
-    """Get a nice string ready to be printed which displays the different layers
-    of a neural network.
-
-    Something like:
-
-    ..code ::
-
-        header
-                   +--------------------------+
-                   |                          |
-                   |                          v
-                   |   +---------------+    +-----+    +------+      +---------------+
-        input_str ---> | Linear 8 -> 8 | -> |  +  | -> | ReLU | ---> | Linear 8 -> 2 | ---> output_str
-                       +---------------+    +-----+    +------+      +---------------+
-
-    Args:
-        layers (nn.Sequential): The successive layer of the neural network.
-        header (str): A string to append before the layers
-        input_str (str): A string describing the input of the NN.
-        output_str (str): A string describing the output of the NN.
-
-    Returns:
-        str: A nice string presenting the neural network architecture.
-    """
-
     lines = [
         "",  # For residual connections
         "",  # For residual connections

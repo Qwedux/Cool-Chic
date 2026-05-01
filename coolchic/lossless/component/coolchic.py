@@ -29,9 +29,8 @@ from lossless.component.types import DescriptorCoolChic, DescriptorNN
 from lossless.nnquant.expgolomb import measure_expgolomb_rate
 from lossless.util.device import PossibleDevice
 from lossless.util.image import ImageSize
-from lossless.util.termprint import pretty_string_nn, pretty_string_ups
 from torch import Tensor, nn
-from typing_extensions import assert_never
+from typing_extensions import TypedDict, assert_never
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -62,8 +61,8 @@ class CoolChicEncoderParameter:
         return s
 
 
-@dataclass(frozen=True, kw_only=True)
-class CoolChicEncoderOutput:
+@dataclass
+class CoolChicEncoderOutput(TypedDict):
     mu: Tensor
     scale: Tensor
     rate: Tensor
@@ -91,13 +90,6 @@ class CoolChicEncoder(nn.Module):
     non_zero_pixel_ctx_index: Tensor
 
     def __init__(self, param: CoolChicEncoderParameter, computing_mode: CoolChicComputingMode, device: PossibleDevice):
-        """Instantiate a cool-chic encoder for one frame.
-
-        Args:
-            param (CoolChicEncoderParameter): Architecture of the
-                `CoolChicEncoder`. See the documentation of
-                `CoolChicEncoderParameter` for more information
-        """
         super().__init__()
 
         # Everything is stored inside param
@@ -523,7 +515,7 @@ class CoolChicEncoder(nn.Module):
         flops = FlopCountAnalysis(
             self,
             (
-                torch.empty(1, 3, *self.param.img_size, device=self.device.materialize()),  # image
+                torch.empty(1, 3, self.param.img_size.height, self.param.img_size.width, device=self.device.materialize()),  # image
                 "none",  # Quantization noise
                 "hardround",  # Quantizer type
                 0.3,  # Soft round temperature
@@ -543,7 +535,7 @@ class CoolChicEncoder(nn.Module):
 
         self = self.train(mode=True)
 
-    def get_network_rate(self) -> Tuple[DescriptorCoolChic, int]:
+    def get_network_rate(self) -> Tuple[DescriptorCoolChic, float]:
         """Return the rate (in bits) associated to the parameters
         (weights and biases) of the different modules
 

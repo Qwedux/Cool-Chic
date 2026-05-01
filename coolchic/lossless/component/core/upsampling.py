@@ -88,30 +88,7 @@ class _Parameterization_Symmetric_1d(nn.Module):
 
 
 class UpsamplingSeparableSymmetricConv2d(nn.Module):
-    """
-    A conv2D which has a separable and symmetric *odd* kernel.
-
-    Separable means that the 2D-kernel :math:`\mathbf{w}_{2D}` can be expressed
-    as the outer product of a 1D kernel :math:`\mathbf{w}_{1D}`:
-
-    .. math::
-
-        \mathbf{w}_{2D} = \mathbf{w}_{1D} \otimes \mathbf{w}_{1D}.
-
-    The 1D kernel :math:`\mathbf{w}_{1D}` is also symmetric. That is, the 1D
-    kernel is something like :math:`\mathbf{w}_{1D} = \left(a\ b\ c\ b\ a\
-    \\right).`
-
-    The symmetric constraint is obtained through the module
-    ``_Parameterization_Symmetric_1d``. The separable constraint is obtained by
-    calling twice the 1D kernel.
-    """
-
     def __init__(self, kernel_size: int):
-        """
-        kernel_size: Size of the kernel :math:`\mathbf{w}_{1D}` e.g. 7 to
-            obtain a symmetrical, separable 7x7 filter. Must be odd!
-        """
         super().__init__()
 
         assert (
@@ -133,16 +110,6 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         # -------- Instantiate empty parameters, set by the initialize function
 
     def initialize_parameters(self) -> None:
-        """
-        Initialize the weights and the biases of the transposed convolution
-        layer performing the upsampling.
-
-            * Biases are always set to zero.
-
-            * Weights are set to :math:`(0,\ 0,\ 0,\ \ldots, 1)` so that when the
-              symmetric reparameterization is applied a Dirac kernel is obtained e.g.
-              :math:`(0,\ 0,\ 0,\ \ldots, 1, \ldots, 0,\ 0,\ 0,)`.
-        """
         if parametrize.is_parametrized(self, "weight"):
             parametrize.remove_parametrizations(
                 self, "weight", leave_parametrized=False
@@ -168,27 +135,6 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        """Perform a "normal" 2D convolution, except that the underlying kernel
-        is both separable & symmetrical. The actual implementation of the forward
-        depends on ``self.training``.
-
-        If we're training, we use a non-separable implementation. That is, we
-        first compute the 2D kernel through an outer product and then use a
-        single 2D convolution. This is more stable.
-
-        If we're not training, we use two successive 1D convolutions.
-
-        .. warning::
-
-            There is a residual connection in the forward.
-
-        Args:
-            x: [B, 1, H, W] tensor to be filtered. Must have one
-                only channel.
-
-        Returns:
-            Tensor: Filtered tensor [B, 1, H, W].
-        """
         k = self.weight.size()[0]
         weight = self.weight.view(1, -1)
         padding = k // 2
@@ -221,30 +167,7 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
 
 
 class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
-    """
-    A TransposedConv2D which has a separable and symmetric *even* kernel.
-
-    Separable means that the 2D-kernel :math:`\mathbf{w}_{2D}` can be expressed
-    as the outer product of a 1D kernel :math:`\mathbf{w}_{1D}`:
-
-    .. math::
-
-        \mathbf{w}_{2D} = \mathbf{w}_{1D} \otimes \mathbf{w}_{1D}.
-
-    The 1D kernel :math:`\mathbf{w}_{1D}` is also symmetric. That is, the 1D
-    kernel is something like :math:`\mathbf{w}_{1D} = \left(a\ b\ c\ c\ b\ a\
-    \\right).`
-
-    The symmetric constraint is obtained through the module
-    ``_Parameterization_Symmetric_1d``. The separable constraint is obtained by
-    calling twice the 1D kernel.
-    """
-
     def __init__(self, kernel_size: int):
-        """
-        Args:
-            kernel_size: Upsampling kernel size. Shall be even and >= 4.
-        """
         super().__init__()
 
         assert (
@@ -266,14 +189,6 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         # -------- Instantiate empty parameters, set by the initialize function
 
     def initialize_parameters(self) -> None:
-        """Initialize the parameters of a
-        ``UpsamplingSeparableSymmetricConvTranspose2d`` layer.
-
-            * Biases are always set to zero.
-
-            * Weights are initialize as a (possibly padded) bilinear filter when
-              ``target_k_size`` is 4 or 6, otherwise a bicubic filter is used.
-        """
         if parametrize.is_parametrized(self, "weight"):
             parametrize.remove_parametrizations(
                 self, "weight", leave_parametrized=False
@@ -312,24 +227,6 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        """Perform the spatial upsampling (with scale 2) of an input with a
-        single channel. Note that the upsampling filter is both symmetrical and
-        separable. The actual implementation of the forward depends on
-        ``self.training``.
-
-        If we're training, we use a non-separable implementation. That is, we
-        first compute the 2D kernel through an outer product and then use a
-        single 2D convolution. This is more stable.
-
-        If we're not training, we use two successive 1D convolutions.
-
-        Args:
-            x: Single channel input with shape :math:`(B, 1, H, W)`
-
-        Returns:
-            Upsampled version of the input with shape :math:`(B, 1, 2H, 2W)`
-        """
-
         k = self.target_k_size  # kernel size
         P0 = k // 2  # could be 0 or k//2 as in legacy implementation
         C = (
@@ -379,79 +276,6 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
 
 
 class Upsampling(nn.Module):
-    """Create the upsampling module, its role is to upsampling the
-    hierarchical latent variables :math:`\\hat{\\mathbf{y}} =
-    \\{\\hat{\\mathbf{y}}_i \\in \\mathbb{Z}^{C_i \\times H_i \\times W_i},
-    i = 0, \\ldots, L - 1\\}`, where :math:`L` is the number of latent
-    resolutions and :math:`H_i = \\frac{H}{2^i}`, :math:`W_i =
-    \\frac{W}{2^i}` with :math:`W, H` the width and height of the image.
-
-    The Upsampling transforms this hierarchical latent variable
-    :math:`\\hat{\\mathbf{y}}` into the dense representation
-    :math:`\\hat{\\mathbf{z}}` as follows:
-
-    .. math::
-
-        \hat{\mathbf{z}} = f_{\\upsilon}(\hat{\mathbf{y}}), \\text{ with }
-        \hat{\mathbf{z}} \\in \\mathbb{R}^{C \\times H \\times W} \\text {
-        and } C = \\sum_i C_i.
-
-    For a toy example with 3 latent grids (``--n_ft_per_res=1,1,1``), the
-    overall diagram of the upsampling is as follows.
-
-    .. code::
-
-              +---------+
-        y0 -> | TConv2d | -----+
-              +---------+      |
-                               v
-              +--------+    +-----+    +---------+
-        y1 -> | Conv2d | -> | cat | -> | TConv2d | -----+
-              +--------+    +-----+    +---------+      |
-                                                        v
-                                         +--------+    +-----+    +---------+
-        y2 ----------------------------> | Conv2d | -> | cat | -> | TConv2d | -> dense
-                                         +--------+    +-----+    +---------+
-
-    Where ``y0`` has the smallest resolution, ``y1`` has a resolution double of
-    ``y0`` etc.
-
-    There are two different sets of filters:
-
-        * The TConvs filters actually perform the x2 upsampling. They are
-          referred to as upsampling filters. Implemented using
-          ``UpsamplingSeparableSymmetricConvTranspose2d``.
-
-        * The Convs filters pre-process the signal prior to concatenation. They
-          are referred to as pre-concatenation filters. Implemented using
-          ``UpsamplingSeparableSymmetricConv2d``.
-
-    Kernel sizes for the upsampling and pre-concatenation filters are modified
-    through the ``--ups_k_size`` and ``--ups_preconcat_k_size`` arguments.
-
-    Each upsampling filter and each pre-concatenation filter is different. They
-    are all separable and symmetrical.
-
-    Upsampling convolutions are initialized with a bilinear or bicubic kernel
-    depending on the required requested ``ups_k_size``:
-
-    * If ``ups_k_size >= 4 and ups_k_size < 8``, a
-      bilinear kernel (with zero padding if necessary) is used an
-      initialization.
-
-    * If ``ups_k_size >= 8``, a bicubic kernel (with zero padding if
-      necessary) is used an initialization.
-
-    Pre-concatenation convolutions are initialized with a Dirac kernel.
-
-
-    .. warning::
-
-        * The ``ups_k_size`` must be at least 4 and a multiple of 2.
-
-        * The ``ups_preconcat_k_size`` must be odd.
-    """
-
     def __init__(
         self,
         ups_k_size: int,
@@ -459,21 +283,6 @@ class Upsampling(nn.Module):
         n_ups_kernel: int,
         n_ups_preconcat_kernel: int,
     ):
-        """
-        Args:
-            ups_k_size: Upsampling (TransposedConv) kernel size. Should be
-                even and >= 4.
-            ups_preconcat_k_size: Pre-concatenation kernel size. Should be odd.
-            n_ups_kernel: Number of different upsampling kernels. Usually it is
-                set to the number of latent - 1 (because the full resolution
-                latent is not upsampled). But this can also be set to one to
-                share the same kernel across all variables.
-            n_ups_preconcat_kernel: Number of different pre-concatenation
-                filters. Usually it is set to the number of latent - 1 (because
-                the smallest resolution is not filtered prior to concat).
-                But this can also be set to one to share the same kernel across
-                all variables.
-        """
         super().__init__()
 
         # number of kernels for the lower and higher branches
@@ -497,18 +306,6 @@ class Upsampling(nn.Module):
         )
 
     def forward(self, decoder_side_latent: List[Tensor]) -> Tensor:
-        """Upsample a list of :math:`L` tensors, where the i-th
-        tensor has a shape :math:`(B, C_i, \\frac{H}{2^i}, \\frac{W}{2^i})`
-        to obtain a dense representation :math:`(B, \\sum_i C_i, H, W)`.
-        This dense representation is ready to be used as the synthesis input.
-
-        Args:
-            decoder_side_latent: list of :math:`L` tensors with
-                various shapes :math:`(B, C_i, \\frac{H}{2^i}, \\frac{W}{2^i})`
-
-        Returns:
-            Tensor: Dense representation :math:`(B, \\sum_i C_i, H, W)`.
-        """
         # The main idea is to merge the channel dimension with the batch dimension
         # so that the same convolution is applied independently on the batch dimension.
         latent_reversed = list(reversed(decoder_side_latent))
@@ -538,26 +335,15 @@ class Upsampling(nn.Module):
         return upsampled_latent
 
     def get_param(self) -> OrderedDict[str, Tensor]:
-        """Return **a copy** of the weights and biases inside the module.
-
-        Returns:
-            A copy of all weights & biases in the layers.
-        """
         # Detach & clone to create a copy
         return OrderedDict(
             {k: v.detach().clone() for k, v in self.named_parameters()}
         )
 
     def set_param(self, param: OrderedDict[str, Tensor]):
-        """Replace the current parameters of the module with param.
-
-        Args:
-            param: Parameters to be set.
-        """
         self.load_state_dict(param)
 
     def reinitialize_parameters(self) -> None:
-        """Re-initialize **in place** the parameters of the upsampling."""
         for i in range(len(self.conv_transpose2ds)):
             self.conv_transpose2ds[i].initialize_parameters()
         for i in range(len(self.conv2ds)):

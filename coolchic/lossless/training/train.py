@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import gc
 import time
+from typing import cast
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
+from lossless.component.core.arm_image import MultiImageArmDescriptor
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
 from lossless.training.train_phase import _train_single_phase
@@ -28,7 +30,7 @@ def train(
 ) -> CoolChicEncoder:
     start_time = time.time()
     logger.log_result(f"Starting warmup with {model.image_arm.image_arm_models}")
-    logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.num_experts.item()}")
+    logger.log_result(f"Image ARM setup: {cast(MultiImageArmDescriptor, model.image_arm.params.multi_region_image_arm_specification).num_experts}")
     model = warmup(
         image_encoder_manager=image_encoder_manager,
         template_model=model,
@@ -38,16 +40,16 @@ def train(
     # clear torch cache
     torch.cuda.empty_cache()
     gc.collect()
-    model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(
-        image_encoder_manager.multi_region_image_arm_setup[0],
-        image_encoder_manager.multi_region_image_arm_setup[1],
+    model.image_arm.params = model.image_arm.params.make_new_image_arm_specification(
+        num_parts_per_col=image_encoder_manager.multi_region_image_arm_setup[0],
+        num_parts_per_row=image_encoder_manager.multi_region_image_arm_setup[1],
     )
     model.image_arm.reinitialize_image_arm_experts(
-        num_experts=int(model.image_arm.params.multi_region_image_arm_specification.num_experts.item()),
+        num_experts=cast(MultiImageArmDescriptor, model.image_arm.params.multi_region_image_arm_specification).num_experts,
         pretrained_expert_index=0,
     )
-    logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.num_experts.item()}")
-    logger.log_result(f"Image ARM setup: {model.image_arm.params.multi_region_image_arm_specification.routing_grid}")
+    logger.log_result(f"Image ARM setup: {cast(MultiImageArmDescriptor, model.image_arm.params.multi_region_image_arm_specification).num_experts}")
+    logger.log_result(f"Image ARM setup: {cast(MultiImageArmDescriptor, model.image_arm.params.multi_region_image_arm_specification).routing_grid}")
 
     initial_encoder_logs = test(
         model, target_image, image_encoder_manager

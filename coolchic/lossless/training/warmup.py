@@ -10,9 +10,11 @@ from __future__ import annotations
 import copy
 import time
 from dataclasses import dataclass
+from typing import cast
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
+from lossless.component.core.arm_image import MultiImageArmDescriptor
 from lossless.training.loss import LossFunctionOutput
 from lossless.training.manager import ImageEncoderManager
 from lossless.training.test import test
@@ -49,7 +51,10 @@ def warmup(
         num_experts=1,
         pretrained_expert_index=0,
     )
-    template_model.image_arm.params.multi_region_image_arm_specification.simple_grid_routing(1, 1)
+    template_model.image_arm.params = template_model.image_arm.params.make_new_image_arm_specification(
+        num_parts_per_col=1,
+        num_parts_per_row=1,
+    )
 
     # Construct the list of candidates. Each of them has its own parameters,
     # unique ID and metrics (not yet evaluated so it is set to None).
@@ -71,11 +76,6 @@ def warmup(
             n_elements_to_remove = len(all_candidates) - warmup_phase.candidates
             for _ in range(n_elements_to_remove):
                 all_candidates.pop()
-
-        # # Check that we do have different candidates with different parameters
-        # print('------\nbefore')
-        # for x in all_candidates:
-        #     print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
 
         # Train all (remaining) candidates for a little bit
         for i in range(warmup_phase.candidates):
@@ -116,12 +116,6 @@ def warmup(
         all_candidates = sorted(
             all_candidates, key=lambda x: x.metrics.loss if x.metrics is not None else float("inf")
         )
-
-        # # Check that we do have different candidates with different parameters
-        # for x in all_candidates:
-        #     print(f"{x.id}   {sum([v.abs().sum() for k, v in x.encoder.get_param().items() if 'synthesis' in k])}")
-        # print('after\n------')
-
         # Print the results of this warm-up phase
         s = "\n\nPerformance at the end of the warm-up phase:\n\n"
         s += f'{"ID":^{6}}|{"loss":^{_col_width}}|{"img_bpd":^{_col_width}}|{"latent_bpd":^{_col_width}}|\n'
@@ -139,12 +133,12 @@ def warmup(
 
     # Keep only the best model
     best_model = copy.deepcopy(all_candidates[0].encoder)
-    best_model.image_arm.params.multi_region_image_arm_specification = template_imarm_descriptor # type: ignore
+    best_model.image_arm.params = template_model.image_arm.params
     best_model.image_arm.reinitialize_image_arm_experts(
-        num_experts=int(template_imarm_descriptor.num_experts.item()), # type: ignore
+        num_experts=cast(MultiImageArmDescriptor, template_imarm_descriptor).num_experts,
         pretrained_expert_index=0,
     )
-    logger.log_result(str(best_model.image_arm.params.multi_region_image_arm_specification.routing_grid))
+    logger.log_result(str(cast(MultiImageArmDescriptor, best_model.image_arm.params.multi_region_image_arm_specification).routing_grid))
     # We've already worked for that many second during warm up
     warmup_duration = time.time() - start_time
 

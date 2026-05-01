@@ -29,21 +29,6 @@ def _quantize_parameters(
     fp_param: OrderedDict[str, Tensor],
     q_step: DescriptorNN,
 ) -> Optional[OrderedDict[str, Tensor]]:
-    """Quantize a dictionary of parameters fp_param with a given quantization
-    step (e.g. one for bias one for the weight).
-    Return None if quantization fails i.e. if round(param / q_step) is greater
-    than MAC_AX_MAX_VAL.
-
-    Args:
-        fp_param (OrderedDict[str, Tensor]): Full precision parameter, usually
-            the output of self.get_param() or self.named_parameters()
-        q_step (DescriptorNN): A dictionary with one quantization step for the
-            weight and one for the bias.
-
-    Returns:
-        Optional[OrderedDict[str, Tensor]]: The quantized parameters or None
-            if quantization failed.
-    """
     MAX_AC_MAX_VAL = 65535  # 2**16 for 16-bit code in bitstream header.
 
     q_param = OrderedDict()
@@ -68,57 +53,6 @@ def quantize_model(
     image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
 ) -> CoolChicEncoder:
-    """Quantize a ``FrameEncoder`` compressing a ``Frame`` under a rate
-    constraint ``lmbda`` and return it.
-
-    This function iterates on all the neural networks sent from the encoder
-    to the decoder, listed in
-    `frame_encoder.coolchic_enc["residue"].modules_to_send`.
-    For each module :math:`m`, we want to find the most suited pair of
-    quantization steps for the weight and the biases :math:`(\\Delta_w^m,
-    \\Delta_b^m)`.
-
-    To do so, a greedy search is used where we quantize the weights and biases
-    using all the possible pairs of quantization steps, and we compute the
-    :doc`usual loss function <./loss>`. The loss measures the impact of the NN
-    quantization steps :math:`(\\Delta_w^m, \\Delta_b^m)` on the MSE / rate of
-    the decoded image and the rate of the NN.-
-
-    In the end, we select the pair of quantization step minimizing the loss:
-
-        .. math::
-
-            (\\Delta_w^m, \\Delta_b^m) = \\arg\\min ||\\mathbf{x}
-            - \\hat{\\mathbf{x}}||^2 + \\lambda
-            (\\mathrm{R}(\\hat{\\mathbf{x}}) + \\mathrm{R}_{NN}), \\text{ with }
-            \\begin{cases}
-                \\mathbf{x} & \\text{the original image}\\\\ \\hat{\\mathbf{x}} &
-                \\text{the coded image}\\\\ \\mathrm{R}(\\hat{\\mathbf{x}}) &
-                \\text{A measure of the rate of } \\hat{\\mathbf{x}} \\\\
-                    \\mathrm{R}_{NN} & \\text{The rate of the neural networks}
-            \\end{cases}
-
-    Then we quantize the next module to be sent.
-
-    .. warning::
-
-        The parameter ``frame_encoder_manager`` tracking the encoding time of
-        the frame (``total_training_time_sec``) and the number of encoding
-        iterations (``iterations_counter``) is modified ** in place** by this
-        function.
-
-
-    Args:
-        frame_encoder: Model to be compressed.
-        frame: Original frame to code, including its references.
-        frame_encoder_manager: Contains (among other things) the rate
-            constraint :math:`\\lambda` and description of the warm-up preset.
-            It is also used to track the total encoding time and encoding
-            iterations. Modified in place.
-
-    Returns:
-        Model with quantized parameters.
-    """
     start_time = time.time()
     model.eval()
 

@@ -15,27 +15,8 @@ from torch import Tensor
 
 
 def softround(x: Tensor, t: Tensor) -> Tensor:
-    """Perform the softround function as introduced in section 4.1 of the paper
-    `Universally Quantized Neural Compression, Agustsson & Theis
-    <https://arxiv.org/pdf/2006.09952.pdf>`_, defined as follows:
-
-    .. math::
-
-        \\mathrm{softround}(x, t) = \\lfloor x \\rfloor +
-        \\frac{\mathrm{tanh}(\\frac{\\Delta}{t})}{2\\ \\mathrm{\\mathrm{tanh}(\\frac{1}{2t})}}
-        + \\frac{1}{2}, \\text{ with } \\Delta = x - \\lfloor x \\rfloor - \\frac{1}{2}.
-
-    Args:
-        x: Input tensor to be quantized.
-        t: Soft round temperature :math:`t`. Setting :math:`t = 0` corresponds
-            to the actual quantization i.e. ``round(x)``. As :math:`t` grows
-            bigger, the function approaches identity i.e. :math:`\\lim_{t
-            \\rightarrow \\infty} \\mathrm{softround}(x, t) = x`. In practice
-            :math:`t \geq 1` is already quite close to identity.
-
-
-    Returns:
-        Soft-rounded tensor
+    """
+    <https://arxiv.org/pdf/2006.09952.pdf>
     """
     floor_x = torch.floor(x)
     delta = x - floor_x - 0.5
@@ -46,38 +27,7 @@ def generate_kumaraswamy_noise(
     uniform_noise: Tensor, kumaraswamy_param: Tensor
 ) -> Tensor:
     """
-    Reparameterize a random variable ``uniform_noise`` following a uniform
-    distribution :math:`\\mathcal{U}(0, 1)` to a random
-    variable following a `kumaraswamy distribution
-    <https://en.wikipedia.org/wiki/Kumaraswamy_distribution>`_ as proposed in
-    the paper `C3: High-performance and low-complexity neural compression from a
-    single image or video, Kim et al. <https://arxiv.org/abs/2312.02753>`_
-
-    The kumaraswamy distribution is defined on the interval :math:`(0, 1)` with
-    the following PDF:
-
-    .. math::
-
-        f(x;a,b) = 1 - (1 - x^a)^b
-
-    Here, it is only parameterized through a single parameter
-    ``kumaraswamy_param`` corresponding to :math:`a` in the above equation. The
-    second parameter :math:`b` is set to as a function of :math:`a` so that the
-    mode of the distribution is always :math:`\\frac{1}{2}`. Setting :math:`a=1`
-    gives the uniform distribution :math:`\\mathcal{U}(0, 1)`. Increasing the
-    value of :math:`a` gives more "pointy" distribution.
-
-    The resulting kumaraswamy noise is shifted so that it lies in
-    :math:`(-\\frac{1}{2}, \\frac{1}{2})`.
-
-    Args:
-        uniform_noise: A uniform noise in :math:`[0, 1]` with any size.
-        kumaraswamy_param: Parameter :math:`a` of a Kumaraswamy
-            distribution. Set it to 1 for a uniform noise.
-
-    Returns:
-        A kumaraswamy noise with identical dim to ``uniform_noise`` in
-        :math:`[-\\frac{1}{2}, \\frac{1}{2}]`.
+    <https://arxiv.org/abs/2312.02753>
     """
     # This relation between a and b allows to always have a mode of 0.5
     a = kumaraswamy_param
@@ -101,69 +51,9 @@ def quantize(
     soft_round_temperature: Optional[Tensor] = None,
     noise_parameter: Optional[Tensor] = None,
 ) -> Tensor:
-    """Quantize an input :math:`x` to an output :math:`y` simulating the
-    quantization. There is different mode possibles, described by
-    ``quantizer_type``:
-
-    - ``none``: :math:`y = x + n` with :math:`n` a random noise (more details
-      below)
-
-    - ``softround_alone``: :math:`y = \\mathrm{softround}(x, t)` with :math:`t`
-      the ``soft_round_temperature``.
-
-    - ``softround``: :math:`y = \\mathrm{softround}(\\mathrm{softround}(x, t) +
-      n, t)` with :math:`t` the ``soft_round_temperature`` and :math:`n` a
-      random noise (more details below)
-
-    - ``hardround``: :math:`y = \\mathrm{round}(x)`
-
-    - ``ste``: :math:`y = \\mathrm{round}(x)` (backward done through softround)
-
-    The noise is parameterized by ``quantizer_noise_type`` and
-    ``noise_parameter``. This last parameter has a different role for the
-    different noise type:
-
-    - ``gaussian``: ``noise_parameter`` is the standard deviation of the
-      gaussian distribution
-
-    - ``kumaraswamy``: ``noise_parameter`` corresponds to the :math:`a`
-      parameter of the kumaraswamy distribution. 1 means uniform distribution
-      and increasing it leads to more more and more probability of being into
-      the center.
-
-    Softround is parameterized by ``soft_round_temperature`` denoted as
-    :math:`t`. Setting :math:`t = 0` corresponds to the actual quantization i.e.
-    ``round(x)``. As :math:`t` grows bigger, the function approaches identity
-    i.e. :math:`\\lim_{t \\rightarrow \\infty} \\mathrm{softround}(x, t) = x`.
-    In practice :math:`t \geq 1` is already quite close to identity.,
-
-    .. note::
-
-        Why do we apply twice the softround when ``quantizer_type`` is
-        ``softround``? It follows the operations described in `C3:
-        High-performance and low-complexity neural compression from a single
-        image or video, Kim et al. <https://arxiv.org/abs/2312.02753>`_ i.e.
-
-        1. Use a soft round function instead of the non-differentiable round
-           function
-        2. Add a random noise to prevent the network from learning the inverse
-           softround function
-        3. Re-apply the soft round function as advocated in `Universally
-           Quantized Neural Compression, Agustsson & Theis
-           <https://arxiv.org/pdf/2006.09952.pdf>`_
-
-
-    Args:
-        x: Tensor to be quantized.
-        quantizer_noise_type: noise type. Defaults to ``"kumaraswamy"``.
-        quantizer_type: quantizer type. Defaults to ``"softround"``.
-        soft_round_temperature: Soft round temperature. This is used for
-            softround modes as well as the ste mode to simulate the derivative in
-            the backward. Defaults to 0.3.
-        noise_parameter: noise distribution parameter. Defaults to 1.0.
-
-    Returns:
-        Quantized tensor
+    """
+    <https://arxiv.org/abs/2312.02753>
+    <https://arxiv.org/pdf/2006.09952.pdf>
     """
 
     match quantizer_noise_type:

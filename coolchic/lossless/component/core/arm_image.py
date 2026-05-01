@@ -46,12 +46,10 @@ class MultiImageArmDescriptor:
 
     # value at index k says which pixels are assigned to expert k
     expert_indices: Sequence[Tensor]
-    image_height: torch.Tensor
-    image_width: torch.Tensor
+    image_height: ImageHeight
+    image_width: ImageWidth
     # value of cell (i,j) says which expert to use for that pixel position
     routing_grid: torch.Tensor
-    presets: dict
-    active_preset: str
 
     @cached_property
     def num_experts(self) -> int:
@@ -122,18 +120,14 @@ class MultiImageArmDescriptor:
 
         new_routing_grid[y_start:max_y + 1, x_start:max_x + 1][
             expert_region_mask[y_start:max_y + 1, x_start:max_x + 1]
-        ] = (
-            new_expert_idx
-        )
-        num_experts = torch.unique(new_routing_grid).numel()
+        ] = new_expert_idx
+
         expert_indices = MultiImageArmDescriptor.compute_expert_indices(new_routing_grid)
         return MultiImageArmDescriptor(
             expert_indices=expert_indices,
             image_height=multi_image_arm_descriptor.image_height,
             image_width=multi_image_arm_descriptor.image_width,
             routing_grid=new_routing_grid,
-            presets=multi_image_arm_descriptor.presets,
-            active_preset=multi_image_arm_descriptor.active_preset
         )
 
 
@@ -146,7 +140,21 @@ class ImageARMParameter:
     use_color_regression: bool
     multi_region_image_arm_specification: MultiImageArmDescriptor | None
 
-
+    def make_new_image_arm_specification(self, num_parts_per_col: int, num_parts_per_row: int) -> ImageARMParameter:
+        assert self.multi_region_image_arm_specification is not None, "Multi-region image ARM specification is required"
+        return ImageARMParameter(
+            context_size=self.context_size,
+            n_hidden_layers=self.n_hidden_layers,
+            hidden_layer_dim=self.hidden_layer_dim,
+            synthesis_out_params_per_channel=self.synthesis_out_params_per_channel,
+            use_color_regression=self.use_color_regression,
+            multi_region_image_arm_specification=MultiImageArmDescriptor(
+                expert_indices=self.multi_region_image_arm_specification.expert_indices,
+                image_height=self.multi_region_image_arm_specification.image_height,
+                image_width=self.multi_region_image_arm_specification.image_width,
+                routing_grid=MultiImageArmDescriptor.simple_grid_routing(self.multi_region_image_arm_specification.image_height, self.multi_region_image_arm_specification.image_width, num_parts_per_col, num_parts_per_row),
+            )
+        )
 
 
 class ImageArm(nn.Module):
