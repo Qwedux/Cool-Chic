@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import itertools
 import time
-from typing import Optional, OrderedDict
+from typing import OrderedDict
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
@@ -27,7 +27,7 @@ from torch import Tensor
 def _quantize_parameters(
     fp_param: OrderedDict[str, Tensor],
     q_step: DescriptorNN,
-) -> Optional[OrderedDict[str, Tensor]]:
+) -> OrderedDict[str, Tensor] | None:
     MAX_AC_MAX_VAL = 65535  # 2**16 for 16-bit code in bitstream header.
 
     q_param = OrderedDict()

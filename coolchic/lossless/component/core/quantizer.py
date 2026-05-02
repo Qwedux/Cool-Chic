@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 import torch
 from torch import Tensor
@@ -48,8 +48,8 @@ def quantize(
     x: Tensor,
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
     quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-    soft_round_temperature: Optional[Tensor] = None,
-    noise_parameter: Optional[Tensor] = None,
+    soft_round_temperature: Tensor | None = None,
+    noise_parameter: Tensor | None = None,
 ) -> Tensor:
     """
     <https://arxiv.org/abs/2312.02753>

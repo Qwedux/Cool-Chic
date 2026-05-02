@@ -9,8 +9,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 from lossless.component.types import DescriptorNN
 
@@ -48,21 +46,7 @@ POSSIBLE_Q_STEP = {
 
 def get_q_step_from_parameter_name(
     parameter_name: str, q_step: DescriptorNN
-) -> Optional[float]:
-    """Return the specific quantization step from q_step (a dictionary
-    with several quantization steps). The specific quantization step is
-    selected through the parameter name.
-
-    Args:
-        parameter_name (str): Name of the parameter in the state dict.
-        q_step (DescriptorNN): Dictionary gathering several quantization
-            steps. E.g. one quantization step for the weights and one for
-            the biases.
-
-    Returns:
-        Optional[float]: The quantization step associated to the parameter.
-            Return None if nothing is found.
-    """
+) -> float | None:
     if ".weight" in parameter_name:
         current_q_step = q_step["weight"]
     elif ".bias" in parameter_name:

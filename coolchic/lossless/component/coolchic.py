@@ -11,10 +11,9 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields
 from functools import cached_property
-from typing import Optional, OrderedDict, Tuple, TypeAlias
+from typing import OrderedDict, Tuple, TypeAlias
 
 import torch
-import torch.nn.functional as F
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 from lossless.component.core.arm import (Arm, ArmParameter, _get_neighbor,
                                          _get_non_zero_pixel_ctx_index,
@@ -63,6 +62,7 @@ class CoolChicEncoderParameter:
 
 @dataclass
 class CoolChicEncoderOutput(TypedDict):
+    # NOTE: This has to be a TypedDict for automatic measurement of MACs
     mu: Tensor
     scale: Tensor
     rate: Tensor
@@ -216,8 +216,8 @@ class CoolChicEncoder(nn.Module):
         image: Tensor = torch.empty(0),
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
-        noise_parameter: Optional[Tensor] = torch.tensor(1.0),
+        soft_round_temperature: Tensor | None = torch.tensor(0.3),
+        noise_parameter: Tensor | None = torch.tensor(1.0),
         AC_MAX_VAL: int = -1,
     ) -> CoolChicEncoderOutput:
         # ! Order of the operations are important as these are asynchronous
@@ -323,8 +323,8 @@ class CoolChicEncoder(nn.Module):
         self,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
-        noise_parameter: Optional[Tensor] = torch.tensor(1.0),
+        soft_round_temperature: Tensor | None = torch.tensor(0.3),
+        noise_parameter: Tensor | None = torch.tensor(1.0),
         AC_MAX_VAL: int = -1,
     ):
         # ! Order of the operations are important as these are asynchronous
@@ -406,7 +406,9 @@ class CoolChicEncoder(nn.Module):
         # Reset the quantization steps and exp-golomb count of the neural
         # network to None since we are resetting the parameters.
         self.nn_q_step = {
-            k: {"weight": None, "bias": None} for k in self.modules_to_send
+            k: {"weight": None, "bias": None} for k in self.modules_t
+            
+            o_send
         }
         self.nn_expgol_cnt = {
             k: {"weight": None, "bias": None} for k in self.modules_to_send
