@@ -8,9 +8,15 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast
+from typing import assert_never, cast
 
 import torch
+from lossless.component.core.types.quantization_noise_type import (
+    POSSIBLE_QUANTIZATION_NOISE_TYPE, GaussianType, KumaraswamyType,
+    NoQuantizationNoiseType)
+from lossless.component.core.types.quantizier_type import (
+    POSSIBLE_QUANTIZER_TYPE, HardroundType, NoQuantizerType,
+    SoftroundAloneType, SoftroundType, STEType)
 from torch import Tensor
 
 
@@ -40,14 +46,10 @@ def generate_kumaraswamy_noise(
     return kumaraswamy_noise
 
 
-POSSIBLE_QUANTIZATION_NOISE_TYPE = Literal["kumaraswamy", "gaussian", "none"]
-POSSIBLE_QUANTIZER_TYPE = Literal["softround_alone", "softround", "hardround", "ste", "none"]
-
-
 def quantize(
     x: Tensor,
-    quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
-    quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+    quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = KumaraswamyType(),
+    quantizer_type: POSSIBLE_QUANTIZER_TYPE = SoftroundType(),
     soft_round_temperature: Tensor | None = None,
     noise_parameter: Tensor | None = None,
 ) -> Tensor:
@@ -57,27 +59,29 @@ def quantize(
     """
 
     match quantizer_noise_type:
-        case "none":
+        case NoQuantizationNoiseType():
             # FIXME: Hack for now
             noise = torch.empty(0)
-        case "gaussian":
+        case GaussianType():
             noise = torch.randn_like(x, requires_grad=False) * cast(Tensor, noise_parameter)
-        case "kumaraswamy":
+        case KumaraswamyType():
             noise = generate_kumaraswamy_noise(
                 torch.rand_like(x, requires_grad=False), cast(Tensor, noise_parameter)
             )
+        case _:
+            assert_never(quantizer_noise_type)
 
     match quantizer_type:
-        case "none":
+        case NoQuantizerType():
             return x + noise
-        case "softround_alone":
+        case SoftroundAloneType():
             return softround(x, cast(Tensor, soft_round_temperature))
-        case "softround":
+        case SoftroundType():
             return softround(
                 softround(x, cast(Tensor, soft_round_temperature)) + noise,
                 cast(Tensor, soft_round_temperature),
             )
-        case "ste":
+        case STEType():
             # From the forward point of view (i.e. entering into the torch.no_grad()), we have
             # y = softround(x) - softround(x) + round(x) = round(x). From the backward point of view
             # we have y = softround(x) meaning that dy / dx = d softround(x) / dx.
@@ -85,5 +89,7 @@ def quantize(
             with torch.no_grad():
                 y = y - softround(x, cast(Tensor, soft_round_temperature)) + torch.round(x)
             return y
-        case "hardround":
+        case HardroundType():
             return torch.round(x)
+        case _:
+            assert_never(quantizer_type)

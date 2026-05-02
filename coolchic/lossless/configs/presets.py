@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import typing
 from dataclasses import dataclass, field
-from typing import Dict, List, Literal, Tuple
+from typing import Dict, List, Tuple
 
-from lossless.component.core.quantizer import (
-    POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE)
+from lossless.component.core.types.quantization_noise_type import (
+    POSSIBLE_QUANTIZATION_NOISE_TYPE, GaussianType, KumaraswamyType,
+    NoQuantizationNoiseType)
+from lossless.component.core.types.quantizier_type import (
+    POSSIBLE_QUANTIZER_TYPE, SoftroundType, STEType)
 
 
 @dataclass(frozen=True)
@@ -66,8 +69,8 @@ class TrainerPhase:
     schedule_lr: bool = False
     softround_temperature: Tuple[float, float] = (0.3, 0.3)
     noise_parameter: Tuple[float, float] = (2.0, 1.0)
-    quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy"
-    quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround"
+    quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = KumaraswamyType()
+    quantizer_type: POSSIBLE_QUANTIZER_TYPE = SoftroundType()
     optimized_module: List[MODULE_TO_OPTIMIZE] = [OptimizeAll()]
 
     def __post_init__(self):
@@ -229,8 +232,8 @@ class PresetFNLIC(Preset):
                 schedule_lr=True,
                 softround_temperature=(0.3, 0.3),
                 noise_parameter=(2.0, 2.0),
-                quantizer_noise_type="kumaraswamy",
-                quantizer_type="softround",
+                quantizer_noise_type=KumaraswamyType(),
+                quantizer_type=SoftroundType(),
                 optimized_module=[OptimizeAll()],
             )
         ]
@@ -243,8 +246,8 @@ class PresetFNLIC(Preset):
                 patience=1500,
                 optimized_module=[OptimizeAll()],
                 schedule_lr=True,
-                quantizer_type="ste",
-                quantizer_noise_type="none",
+                quantizer_type=STEType(),
+                quantizer_noise_type=NoQuantizationNoiseType(),
                 # This is only used to parameterize the backward of the quantization
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
@@ -262,8 +265,8 @@ class PresetFNLIC(Preset):
                 schedule_lr=False,
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
+                quantizer_noise_type=NoQuantizationNoiseType(),
+                quantizer_type=STEType(),
                 optimized_module=[OptimizeLatent()],  # ! Only fine tune the latent
             )
         )
@@ -282,8 +285,8 @@ class PresetFNLIC(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -298,8 +301,8 @@ class PresetFNLIC(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -314,8 +317,8 @@ class PresetFNLIC(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -330,8 +333,8 @@ class PresetFNLIC(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -354,8 +357,8 @@ class PresetC3xIntra(Preset):
                 patience=5000,
                 optimized_module=[OptimizeAll()],
                 schedule_lr=True,
-                quantizer_type="softround",
-                quantizer_noise_type="gaussian",
+                quantizer_type=SoftroundType(),
+                quantizer_noise_type=GaussianType(),
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(0.25, 0.1),
                 # quantize_model=True,  # ! This is an important parameter
@@ -367,8 +370,8 @@ class PresetC3xIntra(Preset):
                 patience=1500,
                 optimized_module=[OptimizeAll()],
                 schedule_lr=True,
-                quantizer_type="ste",
-                quantizer_noise_type="none",
+                quantizer_type=STEType(),
+                quantizer_noise_type=NoQuantizationNoiseType(),
                 # This is only used to parameterize the backward of the quantization
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(
@@ -404,8 +407,8 @@ class PresetC3xIntra(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -420,8 +423,8 @@ class PresetC3xIntra(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -444,8 +447,8 @@ class PresetC3xInter(Preset):
                 patience=5000,
                 optimized_module=[OptimizeAll()],
                 schedule_lr=True,
-                quantizer_type="softround",
-                quantizer_noise_type="gaussian",
+                quantizer_type=SoftroundType(),
+                quantizer_noise_type=GaussianType(),
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(0.25, 0.1),
                 quantize_model=True,  # ! This is an important parameter
@@ -465,8 +468,8 @@ class PresetC3xInter(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 )
@@ -491,8 +494,8 @@ class PresetDebug(Preset):
                 schedule_lr=True,
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(0.25, 0.1),
-                quantizer_noise_type="kumaraswamy",
-                quantizer_type="softround",
+                quantizer_noise_type=KumaraswamyType(),
+                quantizer_type=SoftroundType(),
                 optimized_module=[OptimizeAll()],
             ),
             TrainerPhase(
@@ -504,8 +507,8 @@ class PresetDebug(Preset):
                 schedule_lr=False,
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
+                quantizer_noise_type=NoQuantizationNoiseType(),
+                quantizer_type=STEType(),
                 optimized_module=[OptimizeAll()],
             ),
             # Re-tune the latent
@@ -515,8 +518,8 @@ class PresetDebug(Preset):
                 freq_valid=10,
                 patience=5,
                 quantize_model=False,
-                quantizer_type="ste",
-                quantizer_noise_type="none",
+                quantizer_type=STEType(),
+                quantizer_noise_type=NoQuantizationNoiseType(),
                 optimized_module=[OptimizeLatent()],  # ! Only fine tune the latent
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(
@@ -548,8 +551,8 @@ class PresetSpeedTest(Preset):
                 schedule_lr=True,
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(0.25, 0.1),
-                quantizer_noise_type="kumaraswamy",
-                quantizer_type="softround",
+                quantizer_noise_type=KumaraswamyType(),
+                quantizer_type=SoftroundType(),
                 optimized_module=[OptimizeAll()],
             )
         ]
@@ -571,8 +574,8 @@ class PresetSpeedTest(Preset):
                         1.0,
                         1.0,
                     ),  # Kumaraswamy noise with parameter = 1 --> Uniform noise
-                    quantizer_noise_type="none",
-                    quantizer_type="ste",
+                    quantizer_noise_type=NoQuantizationNoiseType(),
+                    quantizer_type=STEType(),
                     optimized_module=[OptimizeAll()],
                 )
             )
@@ -590,8 +593,8 @@ class PresetSpeedTest(Preset):
                 schedule_lr=False,
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
+                quantizer_noise_type=NoQuantizationNoiseType(),
+                quantizer_type=STEType(),
                 optimized_module=[OptimizeAll()],
             )
         )
@@ -605,8 +608,8 @@ class PresetSpeedTest(Preset):
                 schedule_lr=False,
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),
-                quantizer_noise_type="none",
-                quantizer_type="ste",
+                quantizer_noise_type=NoQuantizationNoiseType(),
+                quantizer_type=STEType(),
                 optimized_module=[OptimizeLatent()],  # ! Only fine tune the latent
             )
         )
@@ -625,8 +628,8 @@ class PresetSpeedTest(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(1.0, 0.5),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -641,8 +644,8 @@ class PresetSpeedTest(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(0.5, 0.25),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 ),
@@ -666,8 +669,8 @@ class PresetMeasureSpeed(Preset):
                 patience=5000,
                 optimized_module=[OptimizeAll()],
                 schedule_lr=True,
-                quantizer_type="softround",
-                quantizer_noise_type="kumaraswamy",
+                quantizer_type=SoftroundType(),
+                quantizer_noise_type=KumaraswamyType(),
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(0.25, 0.1),
                 quantize_model=True,  # ! This is an important parameter
@@ -687,8 +690,8 @@ class PresetMeasureSpeed(Preset):
                         schedule_lr=False,
                         softround_temperature=(0.3, 0.3),
                         noise_parameter=(2.0, 2.0),
-                        quantizer_noise_type="kumaraswamy",
-                        quantizer_type="softround",
+                        quantizer_noise_type=KumaraswamyType(),
+                        quantizer_type=SoftroundType(),
                         optimized_module=[OptimizeAll()],
                     ),
                 )

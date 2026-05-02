@@ -23,6 +23,10 @@ from lossless.component.core.proba_output import ProbabilityOutput
 from lossless.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE, POSSIBLE_QUANTIZER_TYPE, quantize)
 from lossless.component.core.synthesis import Synthesis
+from lossless.component.core.types.quantization_noise_type import (
+    KumaraswamyType, NoQuantizationNoiseType)
+from lossless.component.core.types.quantizier_type import (HardroundType,
+                                                           SoftroundType)
 from lossless.component.core.upsampling import Upsampling
 from lossless.component.types import DescriptorCoolChic, DescriptorNN
 from lossless.nnquant.expgolomb import measure_expgolomb_rate
@@ -214,8 +218,8 @@ class CoolChicEncoder(nn.Module):
     def forward(
         self,
         image: Tensor = torch.empty(0),
-        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
-        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = KumaraswamyType(),
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = SoftroundType(),
         soft_round_temperature: Tensor | None = torch.tensor(0.3),
         noise_parameter: Tensor | None = torch.tensor(1.0),
         AC_MAX_VAL: int = -1,
@@ -232,8 +236,8 @@ class CoolChicEncoder(nn.Module):
 
             flat_decoder_side_latent = quantize(
                 encoder_side_flat_latent * self.encoder_gains,
-                quantizer_noise_type if self.training else "none",
-                quantizer_type if self.training else "hardround",
+                quantizer_noise_type if self.training else NoQuantizationNoiseType(),
+                quantizer_type if self.training else HardroundType(),
                 soft_round_temperature,
                 noise_parameter,
             )
@@ -321,8 +325,8 @@ class CoolChicEncoder(nn.Module):
 
     def get_latents_raw_synth_out(
         self,
-        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
-        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = KumaraswamyType(),
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = SoftroundType(),
         soft_round_temperature: Tensor | None = torch.tensor(0.3),
         noise_parameter: Tensor | None = torch.tensor(1.0),
         AC_MAX_VAL: int = -1,
@@ -338,8 +342,8 @@ class CoolChicEncoder(nn.Module):
 
         flat_decoder_side_latent = quantize(
             encoder_side_flat_latent * self.encoder_gains,
-            quantizer_noise_type if self.training else "none",
-            quantizer_type if self.training else "hardround",
+            quantizer_noise_type if self.training else NoQuantizationNoiseType(),
+            quantizer_type if self.training else HardroundType(),
             soft_round_temperature,
             noise_parameter,
         )

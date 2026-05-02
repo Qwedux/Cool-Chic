@@ -14,6 +14,9 @@ from typing import OrderedDict
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
+from lossless.component.core.types.quantization_noise_type import \
+    NoQuantizationNoiseType
+from lossless.component.core.types.quantizier_type import HardroundType
 from lossless.component.types import DescriptorNN
 from lossless.nnquant.expgolomb import POSSIBLE_EXP_GOL_COUNT, exp_golomb_nbins
 from lossless.nnquant.quantstep import (POSSIBLE_Q_STEP,
@@ -109,8 +112,8 @@ def quantize_model(
             # Test Cool-chic performance with this quantization steps pair
             frame_encoder_out = model.forward(
                 image=image,
-                quantizer_noise_type="none",
-                quantizer_type="hardround",
+                quantizer_noise_type=NoQuantizationNoiseType(),
+                quantizer_type=HardroundType(),
                 AC_MAX_VAL=-1,
             )
 
