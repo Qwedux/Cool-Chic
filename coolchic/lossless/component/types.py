@@ -14,9 +14,6 @@ from torch import Tensor
 
 @dataclass
 class DescriptorNN:
-    """Contains information (scale, weight, quantization step, ...) about the
-    weights and biases of a neural network."""
-
     weight: int | float | str | Tensor | None = None
     bias: int | float | str | Tensor | None = None
 

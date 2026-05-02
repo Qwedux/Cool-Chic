@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 import torch
 from torch import Tensor
@@ -58,31 +58,32 @@ def quantize(
 
     match quantizer_noise_type:
         case "none":
-            pass
+            # FIXME: Hack for now
+            noise = torch.empty(0)
         case "gaussian":
-            noise = torch.randn_like(x, requires_grad=False) * noise_parameter
+            noise = torch.randn_like(x, requires_grad=False) * cast(Tensor, noise_parameter)
         case "kumaraswamy":
             noise = generate_kumaraswamy_noise(
-                torch.rand_like(x, requires_grad=False), noise_parameter
+                torch.rand_like(x, requires_grad=False), cast(Tensor, noise_parameter)
             )
 
     match quantizer_type:
         case "none":
             return x + noise
         case "softround_alone":
-            return softround(x, soft_round_temperature)
+            return softround(x, cast(Tensor, soft_round_temperature))
         case "softround":
             return softround(
-                softround(x, soft_round_temperature) + noise,
-                soft_round_temperature,
+                softround(x, cast(Tensor, soft_round_temperature)) + noise,
+                cast(Tensor, soft_round_temperature),
             )
         case "ste":
             # From the forward point of view (i.e. entering into the torch.no_grad()), we have
             # y = softround(x) - softround(x) + round(x) = round(x). From the backward point of view
             # we have y = softround(x) meaning that dy / dx = d softround(x) / dx.
-            y = softround(x, soft_round_temperature)
+            y = softround(x, cast(Tensor, soft_round_temperature))
             with torch.no_grad():
-                y = y - softround(x, soft_round_temperature) + torch.round(x)
+                y = y - softround(x, cast(Tensor, soft_round_temperature)) + torch.round(x)
             return y
         case "hardround":
             return torch.round(x)

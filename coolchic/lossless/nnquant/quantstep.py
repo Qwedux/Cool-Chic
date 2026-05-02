@@ -58,4 +58,4 @@ def get_q_step_from_parameter_name(
         )
         current_q_step = None
 
-    return current_q_step
+    return current_q_step # type: ignore

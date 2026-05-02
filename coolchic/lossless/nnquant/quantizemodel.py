@@ -104,7 +104,7 @@ def quantize_model(
             # setattr(frame_encoder.coolchic_enc[cc_name], module_name, cur_module)
             setattr(model, module_name, cur_module)
 
-            model.nn_q_step[module_name] = current_q_step
+            model.nn_q_step[module_name] = current_q_step # type: ignore
 
             # Test Cool-chic performance with this quantization steps pair
             frame_encoder_out = model.forward(
@@ -148,7 +148,7 @@ def quantize_model(
                 assert cur_best_expgol_cnt is not None
                 best_expgol_cnt[weight_or_bias] = cur_best_expgol_cnt
 
-            model.nn_expgol_cnt[module_name] = best_expgol_cnt
+            model.nn_expgol_cnt[module_name] = best_expgol_cnt # type: ignore
 
             _, total_rate_nn_bit = model.get_network_rate()
 
@@ -168,8 +168,8 @@ def quantize_model(
 
         # Once we've tested all the possible quantization step and expgol_cnt,
         # quantize one last time with the best one we've found to actually use it.
-        model.nn_q_step[module_name] = best_q_step
-        model.nn_expgol_cnt[module_name] = final_best_expgol_cnt
+        model.nn_q_step[module_name] = best_q_step # type: ignore
+        model.nn_expgol_cnt[module_name] = final_best_expgol_cnt # type: ignore
 
         q_param = _quantize_parameters(full_precision_param, model.nn_q_step[module_name])
         assert q_param is not None, (

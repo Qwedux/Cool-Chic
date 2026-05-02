@@ -406,10 +406,10 @@ class CoolChicEncoder(nn.Module):
         # Reset the quantization steps and exp-golomb count of the neural
         # network to None since we are resetting the parameters.
         self.nn_q_step = {
-            k: {"weight": None, "bias": None} for k in self.modules_to_send
+            k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
         self.nn_expgol_cnt = {
-            k: {"weight": None, "bias": None} for k in self.modules_to_send
+            k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
 
     def _store_full_precision_param(self) -> None:
@@ -420,7 +420,7 @@ class CoolChicEncoder(nn.Module):
             )
         no_q_step = True
         for _, q_step_dict in self.nn_q_step.items():
-            for _, q_step in q_step_dict.items():
+            for _, q_step in q_step_dict.items(): # type: ignore
                 if q_step is not None:
                     no_q_step = False
         assert no_q_step, (
@@ -431,7 +431,7 @@ class CoolChicEncoder(nn.Module):
 
         no_expgol_cnt = True
         for _, expgol_cnt_dict in self.nn_expgol_cnt.items():
-            for _, expgol_cnt in expgol_cnt_dict.items():
+            for _, expgol_cnt in expgol_cnt_dict.items(): # type: ignore
                 if expgol_cnt is not None:
                     no_expgol_cnt = False
         assert no_expgol_cnt, (
@@ -453,11 +453,11 @@ class CoolChicEncoder(nn.Module):
         # Reset the side information about the quantization step and expgol cnt
         # so that the rate is no longer computed by the test() function.
         self.nn_q_step = {
-            k: {"weight": None, "bias": None} for k in self.modules_to_send
+            k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
 
         self.nn_expgol_cnt = {
-            k: {"weight": None, "bias": None} for k in self.modules_to_send
+            k: DescriptorNN(weight=None, bias=None) for k in self.modules_to_send
         }
 
     # ------- Get flops, neural network rates and quantization step
@@ -490,28 +490,28 @@ class CoolChicEncoder(nn.Module):
 
     def get_network_rate(self) -> Tuple[DescriptorCoolChic, float]:
         rate_per_module: DescriptorCoolChic = {
-            module_name: {"weight": 0.0, "bias": 0.0} for module_name in self.modules_to_send
-        }
+            module_name: DescriptorNN(weight=0.0, bias=0.0) for module_name in self.modules_to_send
+        } # type: ignore
 
         total_rate = 0.0
 
         for module_name in self.modules_to_send:
             cur_module = getattr(self, module_name)
-            rate_per_module[module_name] = measure_expgolomb_rate(
+            rate_per_module[module_name] = measure_expgolomb_rate( # type: ignore
                 cur_module,
-                self.nn_q_step.get(module_name),
-                self.nn_expgol_cnt.get(module_name),
-            )
+                self.nn_q_step.get(module_name), # type: ignore
+                self.nn_expgol_cnt.get(module_name), # type: ignore
+            ) # type: ignore
 
-            total_rate += sum(rate_per_module[module_name].values())
+            total_rate += sum(rate_per_module[module_name].values()) # type: ignore
 
         return rate_per_module, total_rate
 
     def get_network_quantization_step(self) -> DescriptorCoolChic:
-        return self.nn_q_step
+        return self.nn_q_step # type: ignore
 
     def get_network_expgol_count(self) -> DescriptorCoolChic:
-        return self.nn_expgol_cnt
+        return self.nn_expgol_cnt # type: ignore
 
     def str_complexity(self) -> str:
         if not self.flops_str:
