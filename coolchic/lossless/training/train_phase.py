@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import assert_never
+from typing import Any, assert_never
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
@@ -38,6 +38,30 @@ def _train_single_phase(
     logger: TrainingLogger,
     encoder_logs_best: LossFunctionOutput,
     compile_model: bool = True,
+    profiler: Any | None = None,
+) -> tuple[CoolChicEncoder, LossFunctionOutput]:
+    with torch.profiler.record_function("train_phase.total"):
+        return _train_single_phase_impl(
+            model=model,
+            target_image=target_image,
+            image_encoder_manager=image_encoder_manager,
+            training_phase=training_phase,
+            logger=logger,
+            encoder_logs_best=encoder_logs_best,
+            compile_model=compile_model and profiler is None,
+            profiler=profiler,
+        )
+
+
+def _train_single_phase_impl(
+    model: CoolChicEncoder,
+    target_image: torch.Tensor,
+    image_encoder_manager: ImageEncoderManager,
+    training_phase: TrainerPhase,
+    logger: TrainingLogger,
+    encoder_logs_best: LossFunctionOutput,
+    compile_model: bool = True,
+    profiler: Any | None = None,
 ) -> tuple[CoolChicEncoder, LossFunctionOutput]:
     """Train a ``CoolChicEncoder`` for a single training phase with parameters
     defined in ``training_phase``."""
@@ -102,115 +126,135 @@ def _train_single_phase(
     all_parameters = [x for x in model.parameters()]
 
     for cnt in range(training_phase.max_itr):
+        with torch.profiler.record_function("train_phase.iteration.total"):
 
-        # ------- Patience mechanism
-        if cnt - cnt_record > training_phase.patience:
-            if training_phase.schedule_lr:
-                # reload the best model so far
-                logger.log_training(
-                    "Reseting the model with the best model and smaller learning rate"
+            # ------- Patience mechanism
+            if cnt - cnt_record > training_phase.patience:
+                if training_phase.schedule_lr:
+                    # reload the best model so far
+                    logger.log_training(
+                        "Reseting the model with the best model and smaller learning rate"
+                    )
+                    model.set_param(best_model)
+                    optimizer.load_state_dict(best_optimizer_state)
+                    assert learning_rate_scheduler is not None
+                    current_lr = learning_rate_scheduler.state_dict()["_last_lr"][0]
+                    # actualise the best optimizer lr with current lr
+                    for g in optimizer.param_groups:
+                        g["lr"] = current_lr
+
+                    cnt_record = cnt
+                else:
+                    # exceeding the patience level ends the phase
+                    break
+
+            # ------- Actual optimization
+            # This is slightly faster than optimizer.zero_grad()
+            with torch.profiler.record_function("train_phase.zero_grad"):
+                for param in all_parameters:
+                    param.grad = None
+
+            # forward / backward
+            with torch.profiler.record_function("train_phase.forward"):
+                if profiler is None:
+                    out_forward = model(
+                        image=target_image,
+                        quantizer_noise_type=training_phase.quantizer_noise_type,
+                        quantizer_type=training_phase.quantizer_type,
+                        soft_round_temperature=cur_softround_temperature,
+                        noise_parameter=cur_noise_parameter,
+                    )
+                else:
+                    out_forward = model.profile_forward(
+                        image=target_image,
+                        quantizer_noise_type=training_phase.quantizer_noise_type,
+                        quantizer_type=training_phase.quantizer_type,
+                        soft_round_temperature=cur_softround_temperature,
+                        noise_parameter=cur_noise_parameter,
+                    )
+
+            with torch.profiler.record_function("train_phase.loss"):
+                loss_function_output = loss_function(
+                    out_forward,
+                    target_image,
+                    colorspace_bitdepths=image_encoder_manager.colorspace_bitdepths,
                 )
-                model.set_param(best_model)
-                optimizer.load_state_dict(best_optimizer_state)
-                assert learning_rate_scheduler is not None
-                current_lr = learning_rate_scheduler.state_dict()["_last_lr"][0]
-                # actualise the best optimizer lr with current lr
-                for g in optimizer.param_groups:
-                    g["lr"] = current_lr
+            with torch.profiler.record_function("train_phase.backward"):
+                loss_function_output.loss.backward()
 
-                cnt_record = cnt
-            else:
-                # exceeding the patience level ends the phase
-                break
+            with torch.profiler.record_function("train_phase.clip_grad"):
+                clip_grad_norm_(all_parameters, 1e-1, norm_type=2.0, error_if_nonfinite=False)
+            with torch.profiler.record_function("train_phase.optimizer_step"):
+                optimizer.step()
 
-        # ------- Actual optimization
-        # This is slightly faster than optimizer.zero_grad()
-        for param in all_parameters:
-            param.grad = None
+            image_encoder_manager.iterations_counter += 1
 
-        # forward / backward
-        out_forward = model(
-            image=target_image,
-            quantizer_noise_type=training_phase.quantizer_noise_type,
-            quantizer_type=training_phase.quantizer_type,
-            soft_round_temperature=cur_softround_temperature,
-            noise_parameter=cur_noise_parameter,
-        )
+            # ------- Validation
+            # Each freq_valid iteration or at the end of the phase, compute validation loss and log stuff
+            if ((cnt + 1) % training_phase.freq_valid == 0) or (cnt + 1 == training_phase.max_itr):
+                with torch.profiler.record_function("train_phase.validation"):
+                    #  a. Update iterations counter and training time and test model
 
-        loss_function_output = loss_function(
-            out_forward,
-            target_image,
-            colorspace_bitdepths=image_encoder_manager.colorspace_bitdepths,
-        )
-        loss_function_output.loss.backward()
+                    # b. Test the model and check whether we've beaten our record
+                    encoder_logs = test(
+                        model,
+                        target_image,
+                        image_encoder_manager,
+                    )
 
-        clip_grad_norm_(all_parameters, 1e-1, norm_type=2.0, error_if_nonfinite=False)
-        optimizer.step()
+                    flag_new_record = False
+                    new_rate = encoder_logs.rate_img_bpd + encoder_logs.rate_latent_bpd
+                    best_old_rate = encoder_logs_best.rate_img_bpd + encoder_logs_best.rate_latent_bpd
+                    logger.log_training(f"new rate is: {new_rate}, old rate is: {best_old_rate}")
+                    if new_rate < best_old_rate:
+                        # A record must have at least -0.001 bpp or + 0.001 dB. A smaller improvement
+                        # does not matter.
+                        delta_psnr = encoder_logs_best.rate_img_bpd - encoder_logs.rate_img_bpd
+                        delta_loss = encoder_logs_best.loss - encoder_logs.loss
+                        flag_new_record = delta_psnr > 0.001 or delta_loss > 0.001
+                        logger.log_training(f"delta loss: {delta_loss}, flag new record: {flag_new_record}")
 
-        image_encoder_manager.iterations_counter += 1
+                    if flag_new_record:
+                        logger.log_training("Found new best model!")
+                        # Save best model
+                        best_model = model.get_param()
+                        best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
-        # ------- Validation
-        # Each freq_valid iteration or at the end of the phase, compute validation loss and log stuff
-        if ((cnt + 1) % training_phase.freq_valid == 0) or (cnt + 1 == training_phase.max_itr):
-            #  a. Update iterations counter and training time and test model
+                        # ========================= reporting ========================= #
+                        this_phase_psnr_gain = encoder_logs.rate_img_bpd - encoder_logs_best.rate_img_bpd
 
-            # b. Test the model and check whether we've beaten our record
-            encoder_logs = test(
-                model,
-                target_image,
-                image_encoder_manager,
-            )
+                        log_new_record = ""
+                        log_new_record += f"{this_phase_psnr_gain:+6.3f} db"
+                        # ========================= reporting ========================= #
 
-            flag_new_record = False
-            new_rate = encoder_logs.rate_img_bpd + encoder_logs.rate_latent_bpd
-            best_old_rate = encoder_logs_best.rate_img_bpd + encoder_logs_best.rate_latent_bpd
-            logger.log_training(f"new rate is: {new_rate}, old rate is: {best_old_rate}")
-            if new_rate < best_old_rate:
-                # A record must have at least -0.001 bpp or + 0.001 dB. A smaller improvement
-                # does not matter.
-                delta_psnr = encoder_logs_best.rate_img_bpd - encoder_logs.rate_img_bpd
-                delta_loss = encoder_logs_best.loss - encoder_logs.loss
-                flag_new_record = delta_psnr > 0.001 or delta_loss > 0.001
-                logger.log_training(f"delta loss: {delta_loss}, flag new record: {flag_new_record}")
+                        # Update new record
+                        encoder_logs_best = encoder_logs
+                        cnt_record = cnt
+                    logger.log_training(f"Iteration: {cnt+1}, " + str(encoder_logs))
 
-            if flag_new_record:
-                logger.log_training("Found new best model!")
-                # Save best model
-                best_model = model.get_param()
-                best_optimizer_state = copy.deepcopy(optimizer.state_dict())
+                    # Update soft rounding temperature and noise_parameter
+                    cur_softround_temperature = _linear_schedule(
+                        training_phase.softround_temperature[0],
+                        training_phase.softround_temperature[1],
+                        cnt,
+                        training_phase.max_itr,
+                    )
 
-                # ========================= reporting ========================= #
-                this_phase_psnr_gain = encoder_logs.rate_img_bpd - encoder_logs_best.rate_img_bpd
+                    cur_noise_parameter = _linear_schedule(
+                        training_phase.noise_parameter[0],
+                        training_phase.noise_parameter[1],
+                        cnt,
+                        training_phase.max_itr,
+                    )
 
-                log_new_record = ""
-                log_new_record += f"{this_phase_psnr_gain:+6.3f} db"
-                # ========================= reporting ========================= #
+                    if training_phase.schedule_lr:
+                        assert learning_rate_scheduler is not None
+                        learning_rate_scheduler.step()
 
-                # Update new record
-                encoder_logs_best = encoder_logs
-                cnt_record = cnt
-            logger.log_training(f"Iteration: {cnt+1}, " + str(encoder_logs))
+                    model.train()
 
-            # Update soft rounding temperature and noise_parameter
-            cur_softround_temperature = _linear_schedule(
-                training_phase.softround_temperature[0],
-                training_phase.softround_temperature[1],
-                cnt,
-                training_phase.max_itr,
-            )
-
-            cur_noise_parameter = _linear_schedule(
-                training_phase.noise_parameter[0],
-                training_phase.noise_parameter[1],
-                cnt,
-                training_phase.max_itr,
-            )
-
-            if training_phase.schedule_lr:
-                assert learning_rate_scheduler is not None
-                learning_rate_scheduler.step()
-
-            model.train()
+        if profiler is not None:
+            profiler.step()
 
     # At the end of the training, we load the best model
     model.set_param(best_model)

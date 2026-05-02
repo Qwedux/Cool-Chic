@@ -224,6 +224,46 @@ class CoolChicEncoder(nn.Module):
         noise_parameter: Tensor | None = torch.tensor(1.0),
         AC_MAX_VAL: int = -1,
     ) -> CoolChicEncoderOutput:
+        return self._forward_impl(
+            image=image,
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=soft_round_temperature,
+            noise_parameter=noise_parameter,
+            AC_MAX_VAL=AC_MAX_VAL,
+            profile=False,
+        )
+
+    def profile_forward(
+        self,
+        image: Tensor = torch.empty(0),
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = KumaraswamyType(),
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = SoftroundType(),
+        soft_round_temperature: Tensor | None = torch.tensor(0.3),
+        noise_parameter: Tensor | None = torch.tensor(1.0),
+        AC_MAX_VAL: int = -1,
+    ) -> CoolChicEncoderOutput:
+        with torch.profiler.record_function("coolchic.forward.total"):
+            return self._forward_impl(
+                image=image,
+                quantizer_noise_type=quantizer_noise_type,
+                quantizer_type=quantizer_type,
+                soft_round_temperature=soft_round_temperature,
+                noise_parameter=noise_parameter,
+                AC_MAX_VAL=AC_MAX_VAL,
+                profile=True,
+            )
+
+    def _forward_impl(
+        self,
+        image: Tensor = torch.empty(0),
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = KumaraswamyType(),
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = SoftroundType(),
+        soft_round_temperature: Tensor | None = torch.tensor(0.3),
+        noise_parameter: Tensor | None = torch.tensor(1.0),
+        AC_MAX_VAL: int = -1,
+        profile: bool = False,
+    ) -> CoolChicEncoderOutput:
         # ! Order of the operations are important as these are asynchronous
         # ! CUDA operations. Some ordering are faster than other...
         
@@ -232,21 +272,39 @@ class CoolChicEncoder(nn.Module):
             # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
             # to a single flat vector. This allows to call the quantization
             # only once, which is faster
-            encoder_side_flat_latent = torch.cat([latent_i.view(-1) for latent_i in self.latent_grids])
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.latent_quantization"):
+                    encoder_side_flat_latent = torch.cat([latent_i.view(-1) for latent_i in self.latent_grids])
 
-            flat_decoder_side_latent = quantize(
-                encoder_side_flat_latent * self.encoder_gains,
-                quantizer_noise_type if self.training else NoQuantizationNoiseType(),
-                quantizer_type if self.training else HardroundType(),
-                soft_round_temperature,
-                noise_parameter,
-            )
+                    flat_decoder_side_latent = quantize(
+                        encoder_side_flat_latent * self.encoder_gains,
+                        quantizer_noise_type if self.training else NoQuantizationNoiseType(),
+                        quantizer_type if self.training else HardroundType(),
+                        soft_round_temperature,
+                        noise_parameter,
+                    )
 
-            # Clamp latent if we need to write a bitstream
-            if AC_MAX_VAL != -1:
-                flat_decoder_side_latent = torch.clamp(
-                    flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
+                    # Clamp latent if we need to write a bitstream
+                    if AC_MAX_VAL != -1:
+                        flat_decoder_side_latent = torch.clamp(
+                            flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
+                        )
+            else:
+                encoder_side_flat_latent = torch.cat([latent_i.view(-1) for latent_i in self.latent_grids])
+
+                flat_decoder_side_latent = quantize(
+                    encoder_side_flat_latent * self.encoder_gains,
+                    quantizer_noise_type if self.training else NoQuantizationNoiseType(),
+                    quantizer_type if self.training else HardroundType(),
+                    soft_round_temperature,
+                    noise_parameter,
                 )
+
+                # Clamp latent if we need to write a bitstream
+                if AC_MAX_VAL != -1:
+                    flat_decoder_side_latent = torch.clamp(
+                        flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
+                    )
 
             # Convert back the 1d tensor to a list of N [1, C, H_i, W_i] 4d latents.
             # This require a few additional information about each individual
@@ -267,50 +325,106 @@ class CoolChicEncoder(nn.Module):
             # flat_latent: [N, 1] tensor describing N latents
             # flat_context: [N, context_size] tensor describing each latent context
 
-            # Get all the context as a single 2D vector of size [B, context size]
-            latent_context_flat = torch.cat(
-                [
-                    _get_neighbor(
-                        spatial_latent_i,
-                        self.mask_size,
-                        self.non_zero_pixel_ctx_index,
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.latent_context_gather"):
+                    latent_context_flat = torch.cat(
+                        [
+                            _get_neighbor(
+                                spatial_latent_i,
+                                self.mask_size,
+                                self.non_zero_pixel_ctx_index,
+                            )
+                            for spatial_latent_i in decoder_side_latent
+                        ],
+                        dim=0,
                     )
-                    for spatial_latent_i in decoder_side_latent
-                ],
-                dim=0,
-            )
 
-            # Get all the B latent variables as a single one dimensional vector
-            flat_latent = torch.cat(
-                [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
-                dim=0,
-            )
+                    # Get all the B latent variables as a single one dimensional vector
+                    flat_latent = torch.cat(
+                        [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
+                        dim=0,
+                    )
+            else:
+                latent_context_flat = torch.cat(
+                    [
+                        _get_neighbor(
+                            spatial_latent_i,
+                            self.mask_size,
+                            self.non_zero_pixel_ctx_index,
+                        )
+                        for spatial_latent_i in decoder_side_latent
+                    ],
+                    dim=0,
+                )
 
-            # Feed the spatial context to the arm MLP and get mu and scale
-            flat_mu, flat_scale, _ = self.arm(latent_context_flat)
+                # Get all the B latent variables as a single one dimensional vector
+                flat_latent = torch.cat(
+                    [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
+                    dim=0,
+                )
 
-            # Compute the rate (i.e. the entropy of flat latent knowing mu and scale)
-            proba = torch.clamp_min(
-                _laplace_cdf(flat_latent + 0.5, flat_mu, flat_scale)
-                - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
-                min=2**-16,  # No value can cost more than 16 bits.
-            )
-            flat_rate = -torch.log2(proba)
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.arm_and_rate"):
+                    # Feed the spatial context to the arm MLP and get mu and scale
+                    flat_mu, flat_scale, _ = self.arm(latent_context_flat)
+
+                    # Compute the rate (i.e. the entropy of flat latent knowing mu and scale)
+                    proba = torch.clamp_min(
+                        _laplace_cdf(flat_latent + 0.5, flat_mu, flat_scale)
+                        - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
+                        min=2**-16,  # No value can cost more than 16 bits.
+                    )
+                    flat_rate = -torch.log2(proba)
+            else:
+                # Feed the spatial context to the arm MLP and get mu and scale
+                flat_mu, flat_scale, _ = self.arm(latent_context_flat)
+
+                # Compute the rate (i.e. the entropy of flat latent knowing mu and scale)
+                proba = torch.clamp_min(
+                    _laplace_cdf(flat_latent + 0.5, flat_mu, flat_scale)
+                    - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
+                    min=2**-16,  # No value can cost more than 16 bits.
+                )
+                flat_rate = -torch.log2(proba)
 
             # Upsampling and synthesis to get the output
-            ups_out = self.upsampling(decoder_side_latent)
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.upsampling"):
+                    ups_out = self.upsampling(decoder_side_latent)
+            else:
+                ups_out = self.upsampling(decoder_side_latent)
             # has e.g. shape [1, 9, H, W]
-            raw_synth_out = self.synthesis(ups_out)
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.synthesis"):
+                    raw_synth_out = self.synthesis(ups_out)
+            else:
+                raw_synth_out = self.synthesis(ups_out)
             if isinstance(self.computing_mode, UseFullModel):
-                raw_synth_out = self.image_arm(image, raw_synth_out)
-            mu, scale = self.proba_output(raw_synth_out, image)            
+                if profile:
+                    with torch.profiler.record_function("coolchic.forward.image_arm"):
+                        raw_synth_out = self.image_arm(image, raw_synth_out)
+                else:
+                    raw_synth_out = self.image_arm(image, raw_synth_out)
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.proba_output"):
+                    mu, scale = self.proba_output(raw_synth_out, image)
+            else:
+                mu, scale = self.proba_output(raw_synth_out, image)            
         elif isinstance(self.computing_mode, UseImageARMOnly):
             flat_rate = torch.zeros(
                 sum(map(lambda x: x[0] * x[1] * x[2] * x[3], self.size_per_latent)), device=self.device.materialize()
             )
             raw_synth_out = torch.zeros(image.shape[0], 9 if self.param.use_color_regression else 6, image.shape[2], image.shape[3], device=self.device.materialize())
-            raw_synth_out = self.image_arm(image, raw_synth_out)
-            mu, scale = self.proba_output(raw_synth_out, image)
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.image_arm"):
+                    raw_synth_out = self.image_arm(image, raw_synth_out)
+            else:
+                raw_synth_out = self.image_arm(image, raw_synth_out)
+            if profile:
+                with torch.profiler.record_function("coolchic.forward.proba_output"):
+                    mu, scale = self.proba_output(raw_synth_out, image)
+            else:
+                mu, scale = self.proba_output(raw_synth_out, image)
         else:
             raise ValueError(f"Unknown computing mode: {self.computing_mode}")
         

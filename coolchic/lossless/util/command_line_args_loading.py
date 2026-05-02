@@ -18,6 +18,8 @@ COMMAND_LINE_ARGS_NAMES = Literal[
     "experiment_name",
     "multiarm_setup",
     "computing_mode",
+    "profile_training",
+    "profile_output_dir",
 ]
 
 ExperimentName: TypeAlias = str
@@ -37,6 +39,8 @@ class CommandLineArgs:
         default_factory=lambda: MultiArmSetup("1x1")
     )  # e.g., "2x2" for 2 rows and 2 columns
     computing_mode: CoolChicComputingMode = field(default_factory=UseFullModel)
+    profile_training: bool = False
+    profile_output_dir: str | None = None
 
 
 def _is_notebook() -> bool:

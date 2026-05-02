@@ -7,6 +7,9 @@ from typing import cast
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
+from lossless.component.core.types.quantization_noise_type import \
+    NoQuantizationNoiseType
+from lossless.component.core.types.quantizier_type import HardroundType
 from lossless.configs.config import args
 from lossless.training.loss import loss_function
 from lossless.training.manager import ImageEncoderManager
@@ -17,6 +20,8 @@ from lossless.util.image import ImageSize
 from lossless.util.image_loading import load_image_as_tensor
 from lossless.util.logger import TrainingLogger
 from lossless.util.parsecli import get_coolchic_param_from_args
+from lossless.util.profiling import (create_training_profiler,
+                                     export_training_profiler)
 
 torch.set_float32_matmul_precision("high")
 # torch.backends.cudnn.benchmark = True
@@ -90,12 +95,38 @@ with torch.no_grad():
 if args.use_pretrained:
     coolchic.load_state_dict(torch.load(args.pretrained_model_path))
 else:
-    coolchic = train(
-        model=coolchic,
-        target_image=im_tensor,
-        image_encoder_manager=image_encoder_manager,
-        logger=logger,
-    )
+    if command_line_args.profile_training:
+        profiler_output_dir = command_line_args.profile_output_dir
+        if profiler_output_dir is None:
+            profiler_output_dir = os.path.join(logger.log_folder_path, "profiles")
+        logger.log_result(
+            "Training profiler enabled. PyTorch profiler exports include the Chrome trace, "
+            "memory timeline HTML, and key averages table."
+        )
+        with create_training_profiler() as profiler:
+            with torch.profiler.record_function("lossless_encode.train.total"):
+                coolchic = train(
+                    model=coolchic,
+                    target_image=im_tensor,
+                    image_encoder_manager=image_encoder_manager,
+                    logger=logger,
+                    profiler=profiler,
+                )
+        profiler_artifacts = export_training_profiler(
+            profiler=profiler,
+            output_dir=profiler_output_dir,
+            file_prefix=logger.image_name,
+        )
+        logger.log_result(f"Profiler Chrome trace: {profiler_artifacts.trace_path}")
+        logger.log_result(f"Profiler memory timeline: {profiler_artifacts.memory_timeline_path}")
+        logger.log_result(f"Profiler key averages: {profiler_artifacts.key_averages_path}")
+    else:
+        coolchic = train(
+            model=coolchic,
+            target_image=im_tensor,
+            image_encoder_manager=image_encoder_manager,
+            logger=logger,
+        )
 logger.log_result(
     f"Training completed in {image_encoder_manager.total_training_time_sec:.2f} seconds"
 )
@@ -109,8 +140,8 @@ with torch.no_grad():
     # Forward pass with no quantization noise
     predicted_prior = coolchic.forward(
         image=im_tensor,
-        quantizer_noise_type="none",
-        quantizer_type="hardround",
+        quantizer_noise_type=NoQuantizationNoiseType(),
+        quantizer_type=HardroundType(),
         AC_MAX_VAL=-1,
     )
     predicted_priors_rates = loss_function(

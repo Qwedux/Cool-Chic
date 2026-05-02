@@ -25,38 +25,12 @@ class ArmParameter:
 
 
 class ArmLinear(nn.Module):
-    """Create a Linear layer of the Auto-Regressive Module (ARM). This is a
-    wrapper around the usual ``nn.Linear`` layer of PyTorch, with a custom
-    initialization. It performs the following operations:
-
-    * :math:`\\mathbf{x}_{out} = \\mathbf{W}\\mathbf{x}_{in} + \\mathbf{b}` if
-      ``residual`` is ``False``
-
-    * :math:`\\mathbf{x}_{out} = \\mathbf{W}\\mathbf{x}_{in} + \\mathbf{b} +
-      \\mathbf{x}_{in}` if ``residual`` is ``True``.
-
-    The input  :math:`\\mathbf{x}_{in}` is a :math:`[B, C_{in}]` tensor, the
-    output :math:`\\mathbf{x}_{out}` is a :math:`[B, C_{out}]` tensor.
-
-    The layer weight and bias shapes are :math:`\\mathbf{W} \\in
-    \\mathbb{R}^{C_{out} \\times C_{in}}` and :math:`\\mathbf{b} \\in
-    \\mathbb{R}^{C_{out}}`.
-    """
-
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
         residual: bool = False,
     ):
-        """
-        Args:
-            in_channels: Number of input features :math:`C_{in}`.
-            out_channels: Number of output features :math:`C_{out}`.
-            residual: True to add a residual connection to the layer. Defaults to
-                False.
-        """
-
         super().__init__()
 
         self.residual = residual
@@ -70,14 +44,6 @@ class ArmLinear(nn.Module):
         # -------- Instantiate empty parameters, set by the initialize function
 
     def initialize_parameters(self) -> None:
-        """Initialize **in place** the weight and the bias of the linear layer.
-
-        * Biases are always set to zero.
-
-        * Weights are set to zero if ``residual == True``. Otherwise, sample
-          from the Normal distribution: :math:`\\mathbf{W} \\sim \\mathcal{N}(0,
-          \\tfrac{1}{(C_{out})^4})`.
-        """
         self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
         if self.residual:
             self.weight = nn.Parameter(torch.zeros_like(self.weight), requires_grad=True)
@@ -88,18 +54,8 @@ class ArmLinear(nn.Module):
             )
 
     def forward(self, x: Tensor) -> Tensor:
-        """Perform the forward pass of this layer.
-
-        Args:
-            x: Input tensor of shape :math:`[B, C_{in}]`.
-
-        Returns:
-            Tensor with shape :math:`[B, C_{out}]`.
-        """
         if self.residual:
             return F.linear(x, self.weight, bias=self.bias) + x
-
-        # Not residual
         else:
             return F.linear(x, self.weight, bias=self.bias)
 

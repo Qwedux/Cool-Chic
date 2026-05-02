@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import gc
 import time
-from typing import cast
+from typing import Any, cast
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
@@ -27,16 +27,19 @@ def train(
     target_image: torch.Tensor,
     image_encoder_manager: ImageEncoderManager,
     logger: TrainingLogger,
+    profiler: Any | None = None,
 ) -> CoolChicEncoder:
     start_time = time.time()
     logger.log_result(f"Starting warmup with {model.image_arm.image_arm_models}")
     logger.log_result(f"Image ARM setup: {cast(MultiImageArmDescriptor, model.image_arm.params.multi_region_image_arm_specification).num_experts}")
-    model = warmup(
-        image_encoder_manager=image_encoder_manager,
-        template_model=model,
-        target_image=target_image,
-        logger=logger,
-    )
+    with torch.profiler.record_function("train.warmup"):
+        model = warmup(
+            image_encoder_manager=image_encoder_manager,
+            template_model=model,
+            target_image=target_image,
+            logger=logger,
+            profiler=profiler,
+        )
     # clear torch cache
     torch.cuda.empty_cache()
     gc.collect()
@@ -51,9 +54,10 @@ def train(
     logger.log_result(f"Image ARM setup: {cast(MultiImageArmDescriptor, model.image_arm.params.multi_region_image_arm_specification).num_experts}")
     logger.log_result(f"Image ARM setup: {cast(MultiImageArmDescriptor, model.image_arm.params.multi_region_image_arm_specification).routing_grid}")
 
-    initial_encoder_logs = test(
-        model, target_image, image_encoder_manager
-    )
+    with torch.profiler.record_function("train.initial_test"):
+        initial_encoder_logs = test(
+            model, target_image, image_encoder_manager
+        )
     encoder_logs_best = initial_encoder_logs
     
     for training_phase in image_encoder_manager.preset.training_phases:
@@ -65,13 +69,15 @@ def train(
             training_phase=training_phase,
             logger=logger,
             encoder_logs_best=encoder_logs_best,
+            profiler=profiler,
         )
     image_encoder_manager.total_training_time_sec += time.time() - start_time
 
-    encoder_logs = test(
-        model,
-        target_image,
-        image_encoder_manager,
-    )
+    with torch.profiler.record_function("train.final_test"):
+        encoder_logs = test(
+            model,
+            target_image,
+            image_encoder_manager,
+        )
     logger.log_result(f"At the end of the training: " + str(encoder_logs))
     return model

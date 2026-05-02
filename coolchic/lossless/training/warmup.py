@@ -10,7 +10,7 @@ from __future__ import annotations
 import copy
 import time
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 
 import torch
 from lossless.component.coolchic import CoolChicEncoder
@@ -35,6 +35,7 @@ def warmup(
     template_model: CoolChicEncoder,
     target_image: torch.Tensor,
     logger: TrainingLogger,
+    profiler: Any | None = None,
 ) -> CoolChicEncoder:
     start_time = time.time()
     warmup = image_encoder_manager.preset.warmup
@@ -79,39 +80,43 @@ def warmup(
 
         # Train all (remaining) candidates for a little bit
         for i in range(warmup_phase.candidates):
-            cur_candidate_model = all_candidates[i]
-            cur_id = cur_candidate_model.id
+            with torch.profiler.record_function("warmup.candidate"):
+                cur_candidate_model = all_candidates[i]
+                cur_id = cur_candidate_model.id
 
-            logger.log_training(
-                f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n"
-            )
-            logger.log_training(mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}"))
+                logger.log_training(
+                    f"\nCandidate n° {i:<2}, ID = {cur_id:<2}:" + "\n-------------------------\n"
+                )
+                logger.log_training(mem_info(f"Warmup-cand-in {idx_warmup_phase:02d}-{i:02d}"))
 
-            cur_candidate_model.encoder.to_device(template_model.device)
-            initial_encoder_logs = test(
-                cur_candidate_model.encoder,
-                target_image,
-                image_encoder_manager,
-            )
+                cur_candidate_model.encoder.to_device(template_model.device)
+                with torch.profiler.record_function("warmup.candidate.initial_test"):
+                    initial_encoder_logs = test(
+                        cur_candidate_model.encoder,
+                        target_image,
+                        image_encoder_manager,
+                    )
 
-            cur_candidate_model.encoder, _ = _train_single_phase(
-                model=cur_candidate_model.encoder,
-                target_image=target_image,
-                image_encoder_manager=image_encoder_manager,
-                training_phase=warmup_phase.training_phase,
-                logger=logger,
-                encoder_logs_best=initial_encoder_logs,
-                compile_model=False,
-            )
+                cur_candidate_model.encoder, _ = _train_single_phase(
+                    model=cur_candidate_model.encoder,
+                    target_image=target_image,
+                    image_encoder_manager=image_encoder_manager,
+                    training_phase=warmup_phase.training_phase,
+                    logger=logger,
+                    encoder_logs_best=initial_encoder_logs,
+                    compile_model=False,
+                    profiler=profiler,
+                )
 
-            cur_candidate_model.metrics = test(
-                cur_candidate_model.encoder,
-                target_image,
-                image_encoder_manager,
-            )
+                with torch.profiler.record_function("warmup.candidate.final_test"):
+                    cur_candidate_model.metrics = test(
+                        cur_candidate_model.encoder,
+                        target_image,
+                        image_encoder_manager,
+                    )
 
-            # Put the updated candidate back into the list.
-            all_candidates[i] = cur_candidate_model
+                # Put the updated candidate back into the list.
+                all_candidates[i] = cur_candidate_model
 
         all_candidates = sorted(
             all_candidates, key=lambda x: x.metrics.loss if x.metrics is not None else float("inf")

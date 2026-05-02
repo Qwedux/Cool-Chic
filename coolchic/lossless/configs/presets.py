@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import typing
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 from lossless.component.core.types.quantization_noise_type import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE, GaussianType, KumaraswamyType,
@@ -71,14 +71,7 @@ class TrainerPhase:
     noise_parameter: Tuple[float, float] = (2.0, 1.0)
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = KumaraswamyType()
     quantizer_type: POSSIBLE_QUANTIZER_TYPE = SoftroundType()
-    optimized_module: List[MODULE_TO_OPTIMIZE] = [OptimizeAll()]
-
-    def __post_init__(self):
-        for cur_module in self.optimized_module:
-            assert cur_module in list(typing.get_args(MODULE_TO_OPTIMIZE)), (
-                f"Module to optimize unknown: found {cur_module}. Available: "
-                f"{list(typing.get_args(MODULE_TO_OPTIMIZE))}."
-            )
+    optimized_module: Sequence[MODULE_TO_OPTIMIZE] = (OptimizeAll(),)
 
     def pretty_string(self) -> str:
         """Return a pretty string describing a warm-up phase"""
