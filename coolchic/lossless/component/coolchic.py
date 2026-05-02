@@ -406,9 +406,7 @@ class CoolChicEncoder(nn.Module):
         # Reset the quantization steps and exp-golomb count of the neural
         # network to None since we are resetting the parameters.
         self.nn_q_step = {
-            k: {"weight": None, "bias": None} for k in self.modules_t
-            
-            o_send
+            k: {"weight": None, "bias": None} for k in self.modules_to_send
         }
         self.nn_expgol_cnt = {
             k: {"weight": None, "bias": None} for k in self.modules_to_send
